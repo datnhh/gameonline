@@ -86,6 +86,10 @@ body {
   position: relative;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button,
 input,
 select {
@@ -392,6 +396,7 @@ input:focus-visible {
 
 .hero-content {
   flex: 1 1 580px;
+  min-width: 0;
   max-width: 820px;
   display: flex;
   flex-direction: column;

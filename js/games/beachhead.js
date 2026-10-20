@@ -465,6 +465,9 @@
     }
 
     function updateGame(dt) {
+      // Camera effects decay even while paused / game over so the overlay settles.
+      if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 30);
+      if (damageVignette > 0) damageVignette = Math.max(0, damageVignette - dt * 2.2);
       if (isGameOver || isPaused) return;
       const cfg = getDiffCfg();
 
@@ -473,8 +476,6 @@
       if (muzzleFlashTimer > 0) muzzleFlashTimer -= dt;
       if (recoilLeft > 0) recoilLeft = Math.max(0, recoilLeft - dt * 55);
       if (recoilRight > 0) recoilRight = Math.max(0, recoilRight - dt * 55);
-      if (screenShake > 0) screenShake = Math.max(0, screenShake - dt * 30);
-      if (damageVignette > 0) damageVignette = Math.max(0, damageVignette - dt * 2.2);
 
       if ((isFiringMG || autoFire) && mgCooldown <= 0) {
         fireMachineGun();
@@ -1318,9 +1319,10 @@
       updateAimFromPointer(evt);
     });
 
-    window.addEventListener('pointerup', () => {
+    const onPointerUp = () => {
       isFiringMG = false;
-    });
+    };
+    window.addEventListener('pointerup', onPointerUp);
 
     canvas.addEventListener('contextmenu', (evt) => {
       evt.preventDefault();
@@ -1353,9 +1355,9 @@
       evt.preventDefault();
       isFiringMG = true;
     });
-    touchMGBtn.addEventListener('pointerup', () => {
-      isFiringMG = false;
-    });
+    touchMGBtn.addEventListener('pointerup', onPointerUp);
+    touchMGBtn.addEventListener('pointercancel', onPointerUp);
+    touchMGBtn.addEventListener('pointerleave', onPointerUp);
 
     touchCannonBtn.addEventListener('click', () => {
       fireCannon();
@@ -1396,6 +1398,7 @@
         if (animId) cancelAnimationFrame(animId);
         window.removeEventListener('resize', onResize);
         window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('pointerup', onPointerUp);
       }
     };
   }

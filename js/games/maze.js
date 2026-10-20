@@ -901,10 +901,11 @@
       }
     });
 
-    window.addEventListener('pointerup', () => {
+    const onPointerUp = () => {
       pointerDragging = false;
       pointerCell = null;
-    });
+    };
+    window.addEventListener('pointerup', onPointerUp);
 
     function onKeyDown(evt) {
       if (evt.target && (evt.target.tagName === 'INPUT' || evt.target.tagName === 'TEXTAREA')) {
@@ -990,6 +991,7 @@
         if (animId) cancelAnimationFrame(animId);
         window.removeEventListener('resize', onResize);
         window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('pointerup', onPointerUp);
       }
     };
   }

@@ -1127,6 +1127,31 @@
     { passive: false }
   );
 
+  function isAnyModalOpen() {
+    return [nameModalOverlay, leaderboardModalOverlay, helpModalOverlay].some((el) => el && !el.hidden);
+  }
+
+  function isEditableTarget(target) {
+    if (!target || !target.tagName) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+  }
+
+  // Games listen for keydown on window (bubble phase). This capture-phase guard stops
+  // keystrokes meant for a text field or an open dialog from reaching them, so games
+  // can neither react to nor preventDefault those keys. keyup is left alone so games
+  // tracking held keys never miss a release.
+  global.addEventListener(
+    'keydown',
+    (evt) => {
+      if (!activeGameId) return;
+      if (isEditableTarget(evt.target) || isAnyModalOpen()) {
+        evt.stopPropagation();
+      }
+    },
+    true
+  );
+
   // Initial Boot
   function initApp() {
     updateSoundButtonUI();

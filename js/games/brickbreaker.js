@@ -53,6 +53,7 @@
     let isGameOver = false;
     let isPaused = false;
     let shakeTimer = 0;
+    let levelClearPending = false;
     let animId = null;
     let lastTime = performance.now();
 
@@ -191,6 +192,7 @@
       isGameOver = false;
       isPaused = false;
       shakeTimer = 0;
+      levelClearPending = false;
       if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
       ctx.updateScore(0);
       paddle.x = W / 2;
@@ -286,17 +288,25 @@
       updateStatusUI();
 
       if (bricks.length === 0) {
-        const levelBonus = Math.round(250 * cfg.scoreMult);
-        score += levelBonus;
-        ctx.updateScore(score);
-        ArcadeHub.sound.win();
-        level++;
-        powerUps = [];
-        lasers = [];
-        buildBricksForLevel(level);
-        resetBallOnPaddle();
-        updateStatusUI();
+        // Defer the level transition: hitBrick runs inside the laser/ball loops,
+        // and replacing those arrays mid-iteration crashes the game loop.
+        levelClearPending = true;
       }
+    }
+
+    function completeLevel() {
+      levelClearPending = false;
+      const cfg = DIFFICULTY_CFG[difficulty];
+      const levelBonus = Math.round(250 * cfg.scoreMult);
+      score += levelBonus;
+      ctx.updateScore(score);
+      ArcadeHub.sound.win();
+      level++;
+      powerUps = [];
+      lasers = [];
+      buildBricksForLevel(level);
+      resetBallOnPaddle();
+      updateStatusUI();
     }
 
     function update(dt) {
@@ -347,6 +357,7 @@
         }
         if (hit) lasers.splice(i, 1);
       }
+      if (levelClearPending) completeLevel();
 
       // Update balls
       for (let i = balls.length - 1; i >= 0; i--) {
@@ -421,6 +432,7 @@
           balls.splice(i, 1);
         }
       }
+      if (levelClearPending) completeLevel();
 
       if (balls.length === 0) {
         lives--;

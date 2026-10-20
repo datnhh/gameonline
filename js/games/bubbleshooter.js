@@ -830,14 +830,6 @@
         g.restore();
       });
 
-      // Shockwaves
-      for (let i = shockwaves.length - 1; i >= 0; i--) {
-        const sw = shockwaves[i];
-        sw.r += (sw.maxR - sw.r) * 9 * dt;
-        sw.alpha -= 2.2 * dt;
-        if (sw.alpha <= 0) shockwaves.splice(i, 1);
-      }
-
       // Floating texts
       floatingTexts.forEach((ft) => {
         g.save();
