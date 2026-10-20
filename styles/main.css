@@ -2164,6 +2164,16 @@ kbd {
   }
 }
 
+/* Paused: hide the numbers so the stopped clock cannot be used to study the grid */
+.sudoku-board-wrap.is-paused .sudoku-cell {
+  color: transparent !important;
+  text-shadow: none;
+}
+
+.sudoku-board-wrap.is-paused .sudoku-notes-grid {
+  visibility: hidden;
+}
+
 .sudoku-board.is-failed {
   filter: grayscale(0.6) brightness(0.75);
   transition: filter 0.6s ease;

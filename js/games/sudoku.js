@@ -95,7 +95,9 @@
     let elapsedSeconds = 0;
     let currentScore = 0;
     let isFinished = false;
+    let isPaused = false;
     let timerId = null;
+    let bannerTimeoutId = null;
 
     const shell = document.createElement('div');
     shell.className = 'game-shell';
@@ -111,11 +113,14 @@
           <span id="sudokuTimer" class="hud-chip">⏱ 00:00</span>
           <span id="sudokuMistakes" class="hud-chip">❌ Lỗi: 0/5</span>
           <span id="sudokuHints" class="hud-chip">💡 Gợi ý: 3</span>
+          <button type="button" class="pill-btn" id="sudokuPauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
         </div>
       </div>
 
       <div class="sudoku-layout">
-        <div id="sudokuBoard" class="sudoku-board" role="grid" aria-label="Bảng Sudoku 9x9"></div>
+        <div class="sudoku-board-wrap" id="sudokuBoardWrap">
+          <div id="sudokuBoard" class="sudoku-board" role="grid" aria-label="Bảng Sudoku 9x9"></div>
+        </div>
 
         <div class="sudoku-sidepanel">
           <div id="sudokuStatusMsg" style="font-size:0.86rem;font-weight:700;color:#38bdf8;text-align:center;">
@@ -163,6 +168,8 @@
     container.appendChild(shell);
 
     const boardEl = shell.querySelector('#sudokuBoard');
+    const boardWrapEl = shell.querySelector('#sudokuBoardWrap');
+    const pauseBtn = shell.querySelector('#sudokuPauseBtn');
     const timerEl = shell.querySelector('#sudokuTimer');
     const mistakesEl = shell.querySelector('#sudokuMistakes');
     const hintsEl = shell.querySelector('#sudokuHints');
@@ -188,6 +195,14 @@
       elapsedSeconds = 0;
       currentScore = 0;
       isFinished = false;
+      isPaused = false;
+      syncPauseBtn();
+      if (bannerTimeoutId) clearTimeout(bannerTimeoutId);
+      bannerTimeoutId = null;
+      hideResultBanner();
+      boardEl.classList.remove('is-solved', 'is-failed');
+      boardWrapEl.classList.remove('is-paused');
+      cellEls = [];
       ctx.updateScore(0);
 
       // Select first empty cell
@@ -206,7 +221,7 @@
       renderBoard();
 
       timerId = setInterval(() => {
-        if (!isFinished) {
+        if (!isFinished && !isPaused) {
           elapsedSeconds += 1;
           timerEl.textContent = '⏱ ' + formatTime(elapsedSeconds);
         }
@@ -222,67 +237,126 @@
       noteBtn.classList.toggle('active', isNoteMode);
     }
 
-    function renderBoard() {
-      boardEl.innerHTML = '';
-      const selVal = board[selected.r][selected.c];
+    // Cells are created once per puzzle and then updated in place: no per-render DOM rebuild
+    // and a single delegated listener instead of 81 new listeners on every keystroke.
+    let cellEls = [];
 
+    function buildCells() {
+      boardEl.innerHTML = '';
+      cellEls = [];
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
           const cell = document.createElement('div');
           cell.className = 'sudoku-cell';
           if (c === 2 || c === 5) cell.classList.add('box-right');
           if (r === 2 || r === 5) cell.classList.add('box-bottom');
+          cell.dataset.idx = String(r * 9 + c);
+          cell.setAttribute('role', 'gridcell');
+          cell.style.setProperty('--d', String(r + c));
+          boardEl.appendChild(cell);
+          cellEls.push(cell);
+        }
+      }
+    }
 
+    function retrigger(el, cls) {
+      if (!el) return;
+      el.classList.remove(cls);
+      // Force a reflow so the same animation can play again
+      void el.offsetWidth;
+      el.classList.add(cls);
+    }
+
+    function flashCompletedUnits(row, col) {
+      const done = (cells) => cells.every(([r, c]) => board[r][c] === solution[r][c]);
+      const rowCells = Array.from({ length: 9 }, (_, i) => [row, i]);
+      const colCells = Array.from({ length: 9 }, (_, i) => [i, col]);
+      const sr = Math.floor(row / 3) * 3;
+      const sc = Math.floor(col / 3) * 3;
+      const boxCells = [];
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) boxCells.push([sr + r, sc + c]);
+      let flashed = false;
+      [rowCells, colCells, boxCells].forEach((unit) => {
+        if (!done(unit)) return;
+        flashed = true;
+        unit.forEach(([r, c]) => {
+          if (r === row && c === col) return;
+          retrigger(cellEls[r * 9 + c], 'unit-flash');
+        });
+      });
+      return flashed;
+    }
+
+    function showResultBanner(kind, title, detail) {
+      hideResultBanner();
+      const banner = document.createElement('div');
+      banner.className = 'sudoku-result-banner' + (kind === 'fail' ? ' is-fail' : '');
+      banner.setAttribute('role', 'status');
+      const icon = kind === 'win' ? '🏆' : kind === 'fail' ? '💥' : '⏸';
+      banner.innerHTML = `
+        <div class="result-icon" aria-hidden="true">${icon}</div>
+        <strong></strong>
+        <p></p>
+        <button type="button" class="pill-btn active" data-banner-action="${kind === 'pause' ? 'resume' : 'new'}">
+          ${kind === 'pause' ? '▶ Tiếp tục' : '🔄 Chơi ván mới'}
+        </button>
+      `;
+      banner.querySelector('strong').textContent = title;
+      banner.querySelector('p').textContent = detail;
+      boardWrapEl.appendChild(banner);
+    }
+
+    function hideResultBanner() {
+      const old = boardWrapEl.querySelector('.sudoku-result-banner');
+      if (old) old.remove();
+    }
+
+    function renderBoard() {
+      if (cellEls.length !== 81) buildCells();
+      const selVal = board[selected.r][selected.c];
+
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const cell = cellEls[r * 9 + c];
           const isFixed = fixedMask[r][c];
           const val = board[r][c];
-
-          if (isFixed) {
-            cell.classList.add('fixed');
-          } else if (val !== 0) {
-            cell.classList.add('user-filled');
-            if (val !== solution[r][c]) {
-              cell.classList.add('error-cell');
-            }
-          }
-
           const sameBox =
-            Math.floor(r / 3) === Math.floor(selected.r / 3) &&
-            Math.floor(c / 3) === Math.floor(selected.c / 3);
-          if (r === selected.r && c === selected.c) {
-            cell.classList.add('selected');
-          } else if (r === selected.r || c === selected.c || sameBox) {
-            cell.classList.add('related');
-          }
+            Math.floor(r / 3) === Math.floor(selected.r / 3) && Math.floor(c / 3) === Math.floor(selected.c / 3);
+          const isSel = r === selected.r && c === selected.c;
 
-          if (val !== 0 && selVal !== 0 && val === selVal) {
-            cell.classList.add('same-num');
-          }
+          cell.classList.toggle('fixed', isFixed);
+          cell.classList.toggle('user-filled', !isFixed && val !== 0);
+          cell.classList.toggle('error-cell', !isFixed && val !== 0 && val !== solution[r][c]);
+          cell.classList.toggle('selected', isSel);
+          cell.classList.toggle('related', !isSel && (r === selected.r || c === selected.c || sameBox));
+          cell.classList.toggle('same-num', val !== 0 && selVal !== 0 && val === selVal);
+          if (isSel) cell.setAttribute('aria-selected', 'true');
+          else cell.removeAttribute('aria-selected');
 
-          if (val !== 0) {
-            cell.textContent = String(val);
-          } else if (notes[r][c].size > 0) {
-            const notesGrid = document.createElement('div');
-            notesGrid.className = 'sudoku-notes-grid';
-            for (let n = 1; n <= 9; n++) {
-              const sp = document.createElement('span');
-              sp.textContent = notes[r][c].has(n) ? String(n) : '';
-              notesGrid.appendChild(sp);
+          // Only touch the DOM content when it actually changed
+          const key = val !== 0 ? `v${val}` : notes[r][c].size > 0 ? `n${Array.from(notes[r][c]).sort().join('')}` : '';
+          if (cell.dataset.key !== key) {
+            cell.dataset.key = key;
+            if (val !== 0) {
+              cell.textContent = String(val);
+            } else if (notes[r][c].size > 0) {
+              const notesGrid = document.createElement('div');
+              notesGrid.className = 'sudoku-notes-grid';
+              for (let n = 1; n <= 9; n++) {
+                const sp = document.createElement('span');
+                sp.textContent = notes[r][c].has(n) ? String(n) : '';
+                notesGrid.appendChild(sp);
+              }
+              cell.textContent = '';
+              cell.appendChild(notesGrid);
+            } else {
+              cell.textContent = '';
             }
-            cell.appendChild(notesGrid);
           }
-
-          cell.addEventListener('pointerdown', (evt) => {
-            evt.preventDefault();
-            selected = { r, c };
-            ArcadeHub.sound.click();
-            renderBoard();
-          });
-
-          boardEl.appendChild(cell);
         }
       }
 
-      // Update progress bar & numpad remaining counts
+      // Progress bar & numpad remaining counts
       let solvedCells = 0;
       const digitCounts = Array(10).fill(0);
       for (let r = 0; r < 9; r++) {
@@ -301,7 +375,8 @@
         const n = Number(btn.getAttribute('data-num'));
         const rem = Math.max(0, 9 - digitCounts[n]);
         btn.innerHTML = `${n}<span style="position:absolute;bottom:3px;right:6px;font-size:0.62rem;font-weight:700;color:${rem === 0 ? '#34d399' : '#94a3b8'};">${rem === 0 ? '✓' : rem}</span>`;
-        btn.style.opacity = rem === 0 ? '0.5' : '1';
+        btn.classList.toggle('is-complete', rem === 0);
+        btn.setAttribute('aria-label', rem === 0 ? `Số ${n} (đã đủ)` : `Số ${n} (còn ${rem})`);
       });
     }
 
@@ -329,7 +404,7 @@
     }
 
     function inputNumber(num) {
-      if (isFinished) return;
+      if (isFinished || isPaused) return;
       const { r, c } = selected;
       if (fixedMask[r][c]) {
         statusMsgEl.textContent = 'Ô này là số đề bài cố định!';
@@ -359,6 +434,8 @@
       if (num === solution[r][c]) {
         ArcadeHub.sound.move();
         clearPeerNotes(r, c, num);
+        retrigger(cellEls[r * 9 + c], 'just-filled');
+        flashCompletedUnits(r, c);
         const gain = Math.round(50 * cfg.multiplier);
         currentScore += gain;
         ctx.updateScore(currentScore);
@@ -378,10 +455,17 @@
             finalScore,
             `Độ khó ${cfg.label} • ${formatTime(elapsedSeconds)}`
           );
+          boardEl.classList.add('is-solved');
+          const doneTime = formatTime(elapsedSeconds);
+          bannerTimeoutId = setTimeout(() => {
+            bannerTimeoutId = null;
+            showResultBanner('win', 'HOÀN THÀNH XUẤT SẮC!', `Tổng ${finalScore.toLocaleString('vi-VN')} điểm • Thời gian ${doneTime}`);
+          }, 950);
         }
       } else {
         mistakes += 1;
         ArcadeHub.sound.error();
+        retrigger(cellEls[r * 9 + c], 'shake');
         currentScore = Math.max(0, currentScore - 30);
         ctx.updateScore(currentScore);
         updateHeaderIndicators();
@@ -395,6 +479,8 @@
           if (currentScore > 0) {
             ctx.submitHighScore(currentScore, `Độ khó ${cfg.label} (Chưa hoàn tất)`);
           }
+          boardEl.classList.add('is-failed');
+          showResultBanner('fail', 'QUÁ 5 LẦN SAI!', `Điểm: ${currentScore.toLocaleString('vi-VN')} • Thử lại một ván mới nhé`);
         }
       }
 
@@ -402,7 +488,7 @@
     }
 
     function eraseSelected() {
-      if (isFinished) return;
+      if (isFinished || isPaused) return;
       const { r, c } = selected;
       if (fixedMask[r][c]) return;
       board[r][c] = 0;
@@ -412,7 +498,7 @@
     }
 
     function useHint() {
-      if (isFinished || hintsLeft <= 0) return;
+      if (isFinished || isPaused || hintsLeft <= 0) return;
       let target = selected;
       if (fixedMask[target.r][target.c] || board[target.r][target.c] === solution[target.r][target.c]) {
         // Find any unsolved cell
@@ -435,7 +521,54 @@
       inputNumber(solution[target.r][target.c]);
     }
 
+    function syncPauseBtn() {
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    function setPaused(next) {
+      const value = !!next && !isFinished;
+      if (value === isPaused) return;
+      isPaused = value;
+      syncPauseBtn();
+      // The board is hidden while paused so the clock cannot be gamed
+      boardWrapEl.classList.toggle('is-paused', isPaused);
+      if (isPaused) {
+        showResultBanner('pause', 'TẠM DỪNG', 'Đồng hồ đã dừng. Bảng số được che lại cho tới khi chơi tiếp.');
+      } else {
+        hideResultBanner();
+      }
+    }
+
     // Event bindings
+    boardEl.addEventListener('pointerdown', (evt) => {
+      const cell = evt.target.closest('.sudoku-cell');
+      if (!cell || isPaused) return;
+      evt.preventDefault();
+      const idx = Number(cell.dataset.idx);
+      selected = { r: Math.floor(idx / 9), c: idx % 9 };
+      ArcadeHub.sound.click();
+      renderBoard();
+    });
+
+    boardEl.addEventListener('animationend', (evt) => {
+      if (evt.target.classList) evt.target.classList.remove('just-filled', 'shake', 'unit-flash');
+    });
+
+    boardWrapEl.addEventListener('click', (evt) => {
+      const btn = evt.target.closest('[data-banner-action]');
+      if (!btn) return;
+      ArcadeHub.sound.click();
+      if (btn.getAttribute('data-banner-action') === 'resume') setPaused(false);
+      else startNewGame();
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      setPaused(!isPaused);
+    });
+
     shell.querySelectorAll('[data-diff]').forEach((btn) => {
       btn.addEventListener('click', () => {
         ArcadeHub.sound.click();
@@ -466,6 +599,7 @@
       if (evt.target && (evt.target.tagName === 'INPUT' || evt.target.tagName === 'TEXTAREA')) {
         return;
       }
+      if (isPaused) return;
       if (evt.key >= '1' && evt.key <= '9') {
         evt.preventDefault();
         inputNumber(Number(evt.key));
@@ -502,8 +636,18 @@
       restart() {
         startNewGame();
       },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
+      },
       destroy() {
         if (timerId) clearInterval(timerId);
+        if (bannerTimeoutId) clearTimeout(bannerTimeoutId);
         window.removeEventListener('keydown', onKeyDown);
       }
     };
