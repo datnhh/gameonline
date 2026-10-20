@@ -703,14 +703,27 @@
       const gapX = (w - cols * winW) / (cols + 1);
       const gapY = (h * 0.72 - rows * winH) / (rows + 1);
 
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const wx = frontX + gapX + c * (winW + gapX);
-          const wy = frontY + 12 * scale + r * (winH + gapY);
-          g2d.fillStyle = (r + c) % 2 === 0 ? '#fef08a' : '#38bdf8';
-          g2d.fillRect(wx, wy, winW, winH);
-          if (winW >= 5) g2d.strokeRect(wx, wy, winW, winH);
+      // Windows never overlap, so they are batched: one fill per colour, then one outline pass
+      // (outlines are skipped on far buildings where the ink would be wider than the window).
+      ['#fef08a', '#38bdf8'].forEach((color, parity) => {
+        g2d.beginPath();
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if ((r + c) % 2 !== parity) continue;
+            g2d.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
+          }
         }
+        g2d.fillStyle = color;
+        g2d.fill();
+      });
+      if (winW >= 5) {
+        g2d.beginPath();
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            g2d.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
+          }
+        }
+        g2d.stroke();
       }
 
       // Ground Floor Storefront Awning
@@ -722,79 +735,114 @@
       g2d.restore();
     }
 
-    function drawComicPalmTree(x, y, scale, isLeft) {
-      g2d.save();
-      g2d.translate(x, y);
-      g2d.scale(scale * (isLeft ? 1 : -1), scale);
+    // Static roadside props are painted once into sprites at the largest on-screen size and
+    // blitted afterwards; the right-hand side uses the same sprite mirrored.
+    const PROP_REF_SCALE = 1.4; // >= the biggest propScale drawScene produces (about 1.32)
+    const PROP_BOUNDS = {
+      palm: { x0: -45, y0: -185, x1: 70, y1: 15 },
+      lamp: { x0: -10, y0: -165, x1: 62, y1: 8 }
+    };
+    const propSprites = new Map();
 
+    function paintPalmTree(g) {
       // Curved Trunk with bold comic outline
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 14;
-      g2d.lineCap = 'round';
-      g2d.beginPath();
-      g2d.moveTo(0, 0);
-      g2d.quadraticCurveTo(14, -55, 6, -115);
-      g2d.stroke();
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 14;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(14, -55, 6, -115);
+      g.stroke();
 
-      g2d.strokeStyle = '#92400e';
-      g2d.lineWidth = 9;
-      g2d.beginPath();
-      g2d.moveTo(0, 0);
-      g2d.quadraticCurveTo(14, -55, 6, -115);
-      g2d.stroke();
+      g.strokeStyle = '#92400e';
+      g.lineWidth = 9;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.quadraticCurveTo(14, -55, 6, -115);
+      g.stroke();
 
       // Palm Fronds
       const crownX = 6;
       const crownY = -115;
       const angles = [-2.4, -1.8, -1.1, -0.4, 0.25];
       angles.forEach((ang, i) => {
-        g2d.save();
-        g2d.translate(crownX, crownY);
-        g2d.rotate(ang);
-        g2d.fillStyle = i % 2 === 0 ? '#16a34a' : '#22c55e';
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 2.5;
-        g2d.beginPath();
-        g2d.moveTo(0, 0);
-        g2d.quadraticCurveTo(26, -14, 52, 6);
-        g2d.quadraticCurveTo(24, 2, 0, 0);
-        g2d.fill();
-        g2d.stroke();
-        g2d.restore();
+        g.save();
+        g.translate(crownX, crownY);
+        g.rotate(ang);
+        g.fillStyle = i % 2 === 0 ? '#16a34a' : '#22c55e';
+        g.strokeStyle = '#090d16';
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.quadraticCurveTo(26, -14, 52, 6);
+        g.quadraticCurveTo(24, 2, 0, 0);
+        g.fill();
+        g.stroke();
+        g.restore();
       });
+    }
 
+    function paintStreetLamp(g) {
+      const dir = 1;
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 6;
+      g.beginPath();
+      g.moveTo(0, 0);
+      g.lineTo(0, -130);
+      g.lineTo(dir * 34, -138);
+      g.stroke();
+
+      g.strokeStyle = '#cbd5e1';
+      g.lineWidth = 3;
+      g.stroke();
+
+      // Lamp Head & Glow
+      g.fillStyle = '#fef08a';
+      g.beginPath();
+      g.arc(dir * 34, -136, 7, 0, Math.PI * 2);
+      g.fill();
+
+      g.fillStyle = 'rgba(254, 240, 138, 0.22)';
+      g.beginPath();
+      g.arc(dir * 34, -136, 22, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    function getPropSprite(kind) {
+      const key = `${kind}@${canvasDpr}`;
+      let sprite = propSprites.get(key);
+      if (sprite) return sprite;
+      const bounds = PROP_BOUNDS[kind];
+      const k = PROP_REF_SCALE * canvasDpr;
+      const cv = document.createElement('canvas');
+      cv.width = Math.ceil((bounds.x1 - bounds.x0) * k);
+      cv.height = Math.ceil((bounds.y1 - bounds.y0) * k);
+      const pg = cv.getContext('2d');
+      pg.scale(k, k);
+      pg.translate(-bounds.x0, -bounds.y0);
+      if (kind === 'palm') paintPalmTree(pg);
+      else paintStreetLamp(pg);
+      sprite = { canvas: cv, x: bounds.x0, y: bounds.y0, w: cv.width / k, h: cv.height / k };
+      propSprites.set(key, sprite);
+      return sprite;
+    }
+
+    function drawPropSprite(kind, x, y, scale, isLeft) {
+      const sprite = getPropSprite(kind);
+      g2d.save();
+      g2d.translate(x, y);
+      g2d.scale(scale * (isLeft ? 1 : -1), scale);
+      g2d.imageSmoothingQuality = 'high';
+      g2d.drawImage(sprite.canvas, sprite.x, sprite.y, sprite.w, sprite.h);
       g2d.restore();
     }
 
+    function drawComicPalmTree(x, y, scale, isLeft) {
+      drawPropSprite('palm', x, y, scale, isLeft);
+    }
+
     function drawStreetLamp(x, y, scale, isLeft) {
-      g2d.save();
-      g2d.translate(x, y);
-      g2d.scale(scale, scale);
-      const dir = isLeft ? 1 : -1;
-
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 6;
-      g2d.beginPath();
-      g2d.moveTo(0, 0);
-      g2d.lineTo(0, -130);
-      g2d.lineTo(dir * 34, -138);
-      g2d.stroke();
-
-      g2d.strokeStyle = '#cbd5e1';
-      g2d.lineWidth = 3;
-      g2d.stroke();
-
-      // Lamp Head & Glow
-      g2d.fillStyle = '#fef08a';
-      g2d.beginPath();
-      g2d.arc(dir * 34, -136, 7, 0, Math.PI * 2);
-      g2d.fill();
-
-      g2d.fillStyle = 'rgba(254, 240, 138, 0.22)';
-      g2d.beginPath();
-      g2d.arc(dir * 34, -136, 22, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.restore();
+      drawPropSprite('lamp', x, y, scale, isLeft);
     }
 
     function drawBillboard(x, y, scale) {
@@ -1433,66 +1481,96 @@
         });
       }
 
-      // Render Road Slices from Far to Near
+      // Road surface, batched by colour. Props stand on their slice line and only extend
+      // upwards, so nearer road slices never cover them: the whole road can go first and the
+      // props are then painted far -> near on top, keeping their mutual overlap order.
+      const roadTop = sliceData[sliceData.length - 1].screenY;
+      const roadBottom = sliceData[0].screenY + 1.5;
+      g2d.fillStyle = '#0f172a';
+      g2d.fillRect(0, roadTop, width, roadBottom - roadTop);
+      const groundAlt = new Path2D();
+      const curb = [new Path2D(), new Path2D()];
+      const asphalt = [new Path2D(), new Path2D()];
+      const ink = new Path2D();
+      const laneMarks = new Path2D();
+      const quad = (path, x1, y1, x2, y2, x3, y3, x4, y4) => {
+        path.moveTo(x1, y1);
+        path.lineTo(x2, y2);
+        path.lineTo(x3, y3);
+        path.lineTo(x4, y4);
+        path.closePath();
+      };
+      // A stroked segment of width w as a filled quad, so all edges share one fill call
+      const thickLine = (path, ax, ay, bx, by, w) => {
+        const len = Math.hypot(bx - ax, by - ay) || 1;
+        const nx = (-(by - ay) / len) * (w / 2);
+        const ny = ((bx - ax) / len) * (w / 2);
+        quad(path, ax + nx, ay + ny, bx + nx, by + ny, bx - nx, by - ny, ax - nx, ay - ny);
+      };
+
       for (let i = sliceData.length - 1; i > 0; i--) {
         const far = sliceData[i];
         const near = sliceData[i - 1];
         const segIndex = far.seg.index;
-        const isAlt = segIndex % 2 === 0;
+        const alt = segIndex % 2 === 0 ? 1 : 0;
 
-        // Urban Sidewalk / Ground
-        g2d.fillStyle = isAlt ? '#1e293b' : '#0f172a';
-        g2d.fillRect(0, far.screenY, width, near.screenY - far.screenY + 1.5);
+        // Urban Sidewalk / Ground (the other colour is the backdrop filled above)
+        if (alt) groundAlt.rect(0, far.screenY, width, near.screenY - far.screenY);
 
         // Sidewalk Curb (Red/Yellow Comic Curbs)
         const farCurb = far.roadHalfWidth * 1.15;
         const nearCurb = near.roadHalfWidth * 1.15;
-        g2d.fillStyle = isAlt ? '#ef4444' : '#facc15';
-        g2d.beginPath();
-        g2d.moveTo(far.centerX - farCurb, far.screenY);
-        g2d.lineTo(far.centerX + farCurb, far.screenY);
-        g2d.lineTo(near.centerX + nearCurb, near.screenY);
-        g2d.lineTo(near.centerX - nearCurb, near.screenY);
-        g2d.closePath();
-        g2d.fill();
+        quad(
+          curb[alt],
+          far.centerX - farCurb, far.screenY,
+          far.centerX + farCurb, far.screenY,
+          near.centerX + nearCurb, near.screenY,
+          near.centerX - nearCurb, near.screenY
+        );
 
         // Main Asphalt Highway
-        g2d.fillStyle = isAlt ? '#334155' : '#475569';
-        g2d.beginPath();
-        g2d.moveTo(far.centerX - far.roadHalfWidth, far.screenY);
-        g2d.lineTo(far.centerX + far.roadHalfWidth, far.screenY);
-        g2d.lineTo(near.centerX + near.roadHalfWidth, near.screenY);
-        g2d.lineTo(near.centerX - near.roadHalfWidth, near.screenY);
-        g2d.closePath();
-        g2d.fill();
+        quad(
+          asphalt[alt],
+          far.centerX - far.roadHalfWidth, far.screenY,
+          far.centerX + far.roadHalfWidth, far.screenY,
+          near.centerX + near.roadHalfWidth, near.screenY,
+          near.centerX - near.roadHalfWidth, near.screenY
+        );
 
         // Bold Comic Road Edge Ink Lines
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = Math.max(1, 3 * far.perspective);
-        g2d.beginPath();
-        g2d.moveTo(far.centerX - far.roadHalfWidth, far.screenY);
-        g2d.lineTo(near.centerX - near.roadHalfWidth, near.screenY);
-        g2d.moveTo(far.centerX + far.roadHalfWidth, far.screenY);
-        g2d.lineTo(near.centerX + near.roadHalfWidth, near.screenY);
-        g2d.stroke();
+        const inkW = Math.max(1, 3 * far.perspective);
+        thickLine(ink, far.centerX - far.roadHalfWidth, far.screenY, near.centerX - near.roadHalfWidth, near.screenY, inkW);
+        thickLine(ink, far.centerX + far.roadHalfWidth, far.screenY, near.centerX + near.roadHalfWidth, near.screenY, inkW);
 
         // Lane Dividers (2 lanes)
         if (segIndex % 3 === 0) {
-          g2d.fillStyle = '#f8fafc';
           [-0.33, 0.33].forEach((laneOffset) => {
-            const fx = far.centerX + far.roadHalfWidth * laneOffset;
-            const nx = near.centerX + near.roadHalfWidth * laneOffset;
+            const fxl = far.centerX + far.roadHalfWidth * laneOffset;
+            const nxl = near.centerX + near.roadHalfWidth * laneOffset;
             const lwF = Math.max(1, far.roadHalfWidth * 0.025);
             const lwN = Math.max(1.5, near.roadHalfWidth * 0.025);
-            g2d.beginPath();
-            g2d.moveTo(fx - lwF, far.screenY);
-            g2d.lineTo(fx + lwF, far.screenY);
-            g2d.lineTo(nx + lwN, near.screenY);
-            g2d.lineTo(nx - lwN, near.screenY);
-            g2d.closePath();
-            g2d.fill();
+            quad(laneMarks, fxl - lwF, far.screenY, fxl + lwF, far.screenY, nxl + lwN, near.screenY, nxl - lwN, near.screenY);
           });
         }
+      }
+
+      g2d.fillStyle = '#1e293b';
+      g2d.fill(groundAlt);
+      g2d.fillStyle = '#facc15';
+      g2d.fill(curb[0]);
+      g2d.fillStyle = '#ef4444';
+      g2d.fill(curb[1]);
+      g2d.fillStyle = '#475569';
+      g2d.fill(asphalt[0]);
+      g2d.fillStyle = '#334155';
+      g2d.fill(asphalt[1]);
+      g2d.fillStyle = '#090d16';
+      g2d.fill(ink);
+      g2d.fillStyle = '#f8fafc';
+      g2d.fill(laneMarks);
+
+      for (let i = sliceData.length - 1; i > 0; i--) {
+        const far = sliceData[i];
 
         // Roadside Buildings, Streetlamps, Palm Trees & Billboards
         const propScale = far.perspective * 1.45;
