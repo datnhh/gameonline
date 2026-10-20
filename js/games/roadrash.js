@@ -11,8 +11,21 @@
     let lastTime = performance.now();
 
     // Road & Bike State
-    const TOTAL_SEGMENTS = 260;
+    // The track is stretched 2.5x (curves keep their duration) because the road now scrolls
+    // 2.5x faster, which is what makes the bike feel fast.
+    const TRACK_STRETCH = 2.5;
+    const TOTAL_SEGMENTS = Math.round(260 * TRACK_STRETCH);
     const SEGMENT_LENGTH = 180;
+    // trackPos advanced per unit of speed per second
+    const ROAD_SCROLL = 4.6 * TRACK_STRETCH;
+    // Entities (cars, rivals) live in z units of 32 per road segment. Moving them at
+    // (their speed - your speed) * Z_PER_SPEED keeps them in step with the road surface: a car
+    // parked on the road drifts towards you exactly as fast as the lane markings, and a slower
+    // car is visibly overtaken instead of reversing into you.
+    const Z_PER_SEGMENT = 32;
+    const Z_PER_SPEED = (ROAD_SCROLL / SEGMENT_LENGTH) * Z_PER_SEGMENT;
+    // Rival speeds as a fraction of the player's top speed (traffic: DIFFICULTY_CFG.carSpeed)
+    const RIVAL_SPEED_RANGE = [0.65, 0.85];
     let segments = [];
     let skylineBuildings = [];
     // The skyline (about 1,000 lit windows) is painted once into a repeating strip and blitted
@@ -26,10 +39,10 @@
     let speed = 0;
     // "hard" keeps the original tuning; "easy" is slower and more forgiving
     const DIFFICULTY_CFG = {
-      easy: { label: 'Dễ', maxSpeed: 250, nitroMaxSpeed: 340, carDamage: 12, rivalDamage: 3, curvePull: 0.24 },
-      hard: { label: 'Khó', maxSpeed: 310, nitroMaxSpeed: 420, carDamage: 22, rivalDamage: 6, curvePull: 0.4 }
+      // carSpeed: traffic speed range as a fraction of maxSpeed (slower cars = more cars per minute)
+      easy: { label: 'Dễ', maxSpeed: 250, nitroMaxSpeed: 340, carDamage: 12, rivalDamage: 3, curvePull: 0.24, carSpeed: [0.38, 0.55] },
+      hard: { label: 'Khó', maxSpeed: 310, nitroMaxSpeed: 420, carDamage: 22, rivalDamage: 6, curvePull: 0.4, carSpeed: [0.22, 0.4] }
     };
-    const BASE_MAX_SPEED = DIFFICULTY_CFG.hard.maxSpeed;
     let difficulty = 'easy';
     let maxSpeed = DIFFICULTY_CFG.easy.maxSpeed;
     let nitroMaxSpeed = DIFFICULTY_CFG.easy.nitroMaxSpeed;
@@ -225,10 +238,11 @@
 
       for (let i = 0; i < TOTAL_SEGMENTS; i++) {
         let curve = 0;
-        if (i > 20 && i < 68) curve = 1.55;
-        else if (i >= 88 && i < 135) curve = -1.85;
-        else if (i >= 155 && i < 192) curve = 1.35;
-        else if (i >= 205 && i < 240) curve = -1.45;
+        const u = i / TRACK_STRETCH; // position on the original 260-segment layout
+        if (u > 20 && u < 68) curve = 1.55;
+        else if (u >= 88 && u < 135) curve = -1.85;
+        else if (u >= 155 && u < 192) curve = 1.35;
+        else if (u >= 205 && u < 240) curve = -1.45;
 
         let leftProp = null;
         let rightProp = null;
@@ -310,7 +324,7 @@
         {
           zOffset: 420,
           x: -0.45,
-          speed: 235 * (maxSpeed / BASE_MAX_SPEED),
+          speed: maxSpeed * 0.7,
           suitColor: '#9333ea',
           accentColor: '#22c55e',
           bikeColor: '#581c87',
@@ -320,7 +334,7 @@
         {
           zOffset: 860,
           x: 0.42,
-          speed: 255 * (maxSpeed / BASE_MAX_SPEED),
+          speed: maxSpeed * 0.76,
           suitColor: '#dc2626',
           accentColor: '#facc15',
           bikeColor: '#991b1b',
@@ -330,7 +344,7 @@
         {
           zOffset: 1320,
           x: -0.15,
-          speed: 268 * (maxSpeed / BASE_MAX_SPEED),
+          speed: maxSpeed * 0.82,
           suitColor: '#1e293b',
           accentColor: '#38bdf8',
           bikeColor: '#0f172a',
@@ -340,9 +354,10 @@
       ];
 
       cars = [
-        { zOffset: 620, x: -0.58, speed: 150, bodyColor: '#ef4444', roofColor: '#fca5a5', kind: 'sedan' },
-        { zOffset: 1120, x: 0.56, speed: 165, bodyColor: '#eab308', roofColor: '#fef08a', kind: 'taxi' },
-        { zOffset: 1640, x: 0.0, speed: 142, bodyColor: '#2563eb', roofColor: '#93c5fd', kind: 'suv' }
+        { zOffset: 620, x: -0.62, speed: randomCarSpeed(), bodyColor: '#ef4444', roofColor: '#fca5a5', kind: 'sedan' },
+        { zOffset: 1080, x: 0.62, speed: randomCarSpeed(), bodyColor: '#eab308', roofColor: '#fef08a', kind: 'taxi' },
+        { zOffset: 1540, x: 0.0, speed: randomCarSpeed(), bodyColor: '#2563eb', roofColor: '#93c5fd', kind: 'suv' },
+        { zOffset: 2000, x: -0.62, speed: randomCarSpeed(), bodyColor: '#10b981', roofColor: '#a7f3d0', kind: 'van' }
       ];
 
       ctx.updateScore(0);
@@ -414,7 +429,13 @@
       return best;
     }
 
+    function randomCarSpeed() {
+      const [lo, hi] = DIFFICULTY_CFG[difficulty].carSpeed;
+      return maxSpeed * (lo + Math.random() * (hi - lo));
+    }
+
     function placeCar(car, z) {
+      car.speed = randomCarSpeed();
       let zNew = z;
       for (let tries = 0; tries < 4; tries++) {
         const near = cars.filter((o) => o !== car && Math.abs(o.zOffset - zNew) < CAR_SPACING);
@@ -474,7 +495,7 @@
         speed = Math.max(75, speed - dt * 155);
       }
 
-      const forwardStep = speed * dt * 4.6;
+      const forwardStep = speed * dt * ROAD_SCROLL;
       trackPos += forwardStep;
       distanceKm += (speed * dt) / 3600;
       score += Math.round(speed * dt * 0.65);
@@ -502,14 +523,13 @@
 
       // Rivals update
       rivals.forEach((rv) => {
-        const relSpeed = rv.speed - speed;
-        rv.zOffset += relSpeed * dt * 3.8;
-
         if (rv.knocked > 0) {
+          // A knocked-down bike lies still on the road, so it slides back with the asphalt
           rv.knocked -= dt;
           rv.x += (rv.vxKnock || 1) * dt;
-          rv.zOffset -= speed * dt * 1.4;
+          rv.zOffset -= speed * dt * Z_PER_SPEED;
         } else {
+          rv.zOffset += (rv.speed - speed) * dt * Z_PER_SPEED;
           rv.x += Math.sin(performance.now() * 0.0022 + rv.speed) * dt * 0.26;
           rv.x = Math.max(-0.85, Math.min(0.85, rv.x));
 
@@ -542,14 +562,13 @@
           rv.zOffset = 1450 + Math.random() * 650;
           rv.x = (Math.random() - 0.5) * 1.4;
           rv.knocked = 0;
-          rv.speed = (225 + Math.random() * 65) * (maxSpeed / BASE_MAX_SPEED);
+          rv.speed = maxSpeed * (RIVAL_SPEED_RANGE[0] + Math.random() * (RIVAL_SPEED_RANGE[1] - RIVAL_SPEED_RANGE[0]));
         }
       });
 
       // Traffic cars update
       cars.forEach((car) => {
-        const relSpeed = car.speed - speed;
-        car.zOffset += relSpeed * dt * 4.0;
+        car.zOffset += (car.speed - speed) * dt * Z_PER_SPEED;
 
         if (Math.abs(car.zOffset - COLLIDE_Z) < 55 && Math.abs(car.x - playerX) < collisionReach(CAR_HALF_W)) {
           ArcadeHub.sound.explosion();
@@ -1477,7 +1496,7 @@
       const curveDrift = segments.length
         ? segments[Math.floor(trackPos / SEGMENT_LENGTH) % TOTAL_SEGMENTS].curve * 6
         : 0;
-      const ridgeShift = ((trackPos * 0.008 + curveDrift * 10) % 360 + 360) % 360;
+      const ridgeShift = (((trackPos / TRACK_STRETCH) * 0.008 + curveDrift * 10) % 360 + 360) % 360;
       g2d.fillStyle = '#1e0b3a';
       g2d.strokeStyle = 'rgba(244, 114, 182, 0.7)';
       g2d.lineWidth = 1.5;
@@ -1495,7 +1514,7 @@
 
       // Parallax city skyline: pre-painted strip tiled every SKYLINE_SPAN px (continuous wrap)
       if (!skylineLayer || skylineLayer.dpr !== canvasDpr) buildSkylineLayer();
-      const parallaxOffset = trackPos * 0.04 + curveDrift * 4;
+      const parallaxOffset = (trackPos / TRACK_STRETCH) * 0.04 + curveDrift * 4;
       const tileX = ((((-parallaxOffset) % SKYLINE_SPAN) + SKYLINE_SPAN) % SKYLINE_SPAN) - 120;
       const stripY = horizonY - SKYLINE_STRIP_H;
       [tileX, tileX - SKYLINE_SPAN].forEach((x0) => {
@@ -1535,7 +1554,9 @@
         const screenY = horizonY + (height - horizonY) * perspective;
         const roadHalfWidth = width * 0.56 * perspective;
 
-        curveStep += seg.curve * 0.45;
+        // The nearest segment is partly behind the camera: fade its bend out as it passes so
+        // the road does not snap sideways each time a segment drops off on a curve.
+        curveStep += seg.curve * 0.45 * (i === 1 ? 1 - subSegOffset : 1);
         accumCurve += curveStep * (1 - perspective);
         const centerX = width * 0.5 - playerX * roadHalfWidth + accumCurve;
 
@@ -1545,7 +1566,7 @@
           roadHalfWidth,
           centerX,
           perspective,
-          zDist: i * 32
+          curveX: accumCurve
         });
       }
 
@@ -1671,14 +1692,24 @@
 
       // Helper to project vehicles & bikers onto the road
       const spriteK = spriteScale();
+      // Continuous projection: an entity zOffset/Z_PER_SEGMENT segments ahead uses the same
+      // perspective formula as the road slices, and the road bend is interpolated between the
+      // two slices around it, so it glides instead of snapping from slice to slice.
       function projectEntity(zOffset, xLane) {
-        if (zOffset < 40 || zOffset > 2050) return null;
-        const idx = Math.min(sliceData.length - 1, Math.max(0, Math.floor(zOffset / 32)));
-        const s = sliceData[idx];
+        if (zOffset < 40) return null;
+        const dist = zOffset / Z_PER_SEGMENT; // segments ahead of the player
+        const f = dist + subSegOffset; // fractional slice number (slice i sits at i - subSegOffset)
+        if (f >= roadSlices) return null;
+        const j = Math.floor(f);
+        const t = f - j;
+        const curveA = j >= 1 ? sliceData[j - 1].curveX : 0;
+        const curveB = sliceData[Math.min(j, roadSlices - 1)].curveX;
+        const perspective = 1 / (1 + (dist / roadSlices) * 6.5);
+        const roadHalfWidth = width * 0.56 * perspective;
         return {
-          x: s.centerX + xLane * s.roadHalfWidth,
-          y: s.screenY,
-          scale: s.perspective * 1.45 * spriteK
+          x: width * 0.5 - playerX * roadHalfWidth + curveA + (curveB - curveA) * t + xLane * roadHalfWidth,
+          y: horizonY + (height - horizonY) * perspective,
+          scale: perspective * 1.45 * spriteK
         };
       }
 
