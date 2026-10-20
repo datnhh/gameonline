@@ -30,9 +30,18 @@
     let animFrame = null;
     let pulsePhase = 0;
     let ripples = []; // { r, c, radius, maxRadius, color, alpha }
-    let victoryParticles = []; // { x, y, vx, vy, color, life }
     let endBannerText = '';
     let endBannerSub = '';
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(260);
+    const placeTimes = new Map(); // cellIndex -> placement time (s)
+    let lastPlaceAt = -10;
+    let winLineAt = -10;
+    let endAt = -10;
+    let endTone = '';
 
     // UI Structure
     const shell = document.createElement('div');
@@ -79,9 +88,11 @@
       winLine = null;
       hoverCell = null;
       ripples = [];
-      victoryParticles = [];
       endBannerText = '';
       endBannerSub = '';
+      endTone = '';
+      placeTimes.clear();
+      sparks.clear();
       updateStatusText();
       resizeCanvas();
     }
@@ -127,81 +138,114 @@
       return { size, padding, cellSize };
     }
 
+    function drawPiece(val, cx, cy, radius, scale) {
+      const rr = radius * scale;
+      const lw = Math.max(3, radius * 0.38);
+      g2d.save();
+      g2d.lineCap = 'round';
+      g2d.lineJoin = 'round';
+      const path = () => {
+        g2d.beginPath();
+        if (val === PLAYER_X) {
+          g2d.moveTo(cx - rr, cy - rr);
+          g2d.lineTo(cx + rr, cy + rr);
+          g2d.moveTo(cx + rr, cy - rr);
+          g2d.lineTo(cx - rr, cy + rr);
+        } else {
+          g2d.arc(cx, cy, rr, 0, Math.PI * 2);
+        }
+      };
+      const base = val === PLAYER_X ? '#38bdf8' : '#f43f5e';
+      const deep = val === PLAYER_X ? '#0369a1' : '#9f1239';
+      const core = val === PLAYER_X ? '#e0f2fe' : '#ffe4e6';
+      // Soft halo (cheap wide translucent stroke instead of shadowBlur)
+      path();
+      g2d.strokeStyle = fx.rgba(base, 0.18);
+      g2d.lineWidth = lw * 2.4;
+      g2d.stroke();
+      // Body with a slight 3D offset
+      g2d.translate(0, 1.2);
+      path();
+      g2d.strokeStyle = deep;
+      g2d.lineWidth = lw;
+      g2d.stroke();
+      g2d.translate(0, -1.2);
+      path();
+      g2d.strokeStyle = base;
+      g2d.lineWidth = lw * 0.86;
+      g2d.stroke();
+      path();
+      g2d.strokeStyle = core;
+      g2d.lineWidth = Math.max(1.2, lw * 0.3);
+      g2d.stroke();
+      g2d.restore();
+    }
+
     function drawBoard() {
       const { size, padding, cellSize } = getCellMetrics();
+      const now = performance.now() / 1000;
       g2d.clearRect(0, 0, size, size);
 
-      // Rich tactical obsidian board background
-      const bgGrad = g2d.createRadialGradient(
-        size * 0.5,
-        size * 0.45,
-        size * 0.08,
-        size * 0.5,
-        size * 0.5,
-        size * 0.72
-      );
-      bgGrad.addColorStop(0, '#13203d');
+      // Obsidian tactical board
+      const bgGrad = g2d.createRadialGradient(size * 0.5, size * 0.42, size * 0.08, size * 0.5, size * 0.5, size * 0.75);
+      bgGrad.addColorStop(0, '#15244a');
       bgGrad.addColorStop(0.65, '#0b1326');
-      bgGrad.addColorStop(1, '#060b17');
+      bgGrad.addColorStop(1, '#050913');
       g2d.fillStyle = bgGrad;
       g2d.fillRect(0, 0, size, size);
 
-      // Outer beveled board frame
-      g2d.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+      // Inset playing surface
+      fx.roundRectPath(g2d, padding - 6, padding - 6, size - padding * 2 + 12, size - padding * 2 + 12, 10);
+      g2d.fillStyle = 'rgba(2, 6, 23, 0.45)';
+      g2d.fill();
+      const frame = g2d.createLinearGradient(0, padding, size, size - padding);
+      frame.addColorStop(0, 'rgba(56, 189, 248, 0.55)');
+      frame.addColorStop(1, 'rgba(244, 63, 94, 0.45)');
+      g2d.strokeStyle = frame;
       g2d.lineWidth = 2;
-      g2d.strokeRect(padding - 1, padding - 1, size - padding * 2 + 2, size - padding * 2 + 2);
+      g2d.stroke();
 
-      // Subtle checkerboard cell depth
       for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
           if ((r + c) % 2 === 1) {
-            g2d.fillStyle = 'rgba(255, 255, 255, 0.018)';
+            g2d.fillStyle = 'rgba(255, 255, 255, 0.022)';
             g2d.fillRect(padding + c * cellSize, padding + r * cellSize, cellSize, cellSize);
           }
         }
       }
 
-      // Coordinate labels (A-O top, 1-15 left)
-      g2d.fillStyle = 'rgba(148, 163, 184, 0.58)';
-      g2d.font = `700 ${Math.max(9, Math.floor(cellSize * 0.31))}px sans-serif`;
+      g2d.fillStyle = 'rgba(148, 163, 184, 0.6)';
+      g2d.font = fx.font(Math.max(9, Math.floor(cellSize * 0.31)), 700);
       g2d.textAlign = 'center';
       g2d.textBaseline = 'middle';
       for (let i = 0; i < BOARD_SIZE; i++) {
-        const colChar = String.fromCharCode(65 + i);
-        g2d.fillText(colChar, padding + (i + 0.5) * cellSize, padding * 0.5);
-        g2d.fillText(String(i + 1), padding * 0.48, padding + (i + 0.5) * cellSize);
+        g2d.fillText(String.fromCharCode(65 + i), padding + (i + 0.5) * cellSize, padding * 0.42);
+        g2d.fillText(String(i + 1), padding * 0.42, padding + (i + 0.5) * cellSize);
       }
 
-      // Grid lines
-      g2d.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+      g2d.strokeStyle = 'rgba(148, 163, 184, 0.2)';
       g2d.lineWidth = 1;
+      g2d.beginPath();
       for (let i = 0; i <= BOARD_SIZE; i++) {
         const pos = padding + i * cellSize;
-        g2d.beginPath();
         g2d.moveTo(padding, pos);
         g2d.lineTo(size - padding, pos);
-        g2d.stroke();
-
-        g2d.beginPath();
         g2d.moveTo(pos, padding);
         g2d.lineTo(pos, size - padding);
-        g2d.stroke();
       }
+      g2d.stroke();
 
-      // Star points (center & tactical intersections)
       const starCoords = [3, 7, 11];
-      g2d.fillStyle = 'rgba(56, 189, 248, 0.55)';
+      g2d.fillStyle = 'rgba(56, 189, 248, 0.6)';
       starCoords.forEach((r) => {
         starCoords.forEach((c) => {
-          const cx = padding + (c + 0.5) * cellSize;
-          const cy = padding + (r + 0.5) * cellSize;
           g2d.beginPath();
-          g2d.arc(cx, cy, 2.8, 0, Math.PI * 2);
+          g2d.arc(padding + (c + 0.5) * cellSize, padding + (r + 0.5) * cellSize, 2.6, 0, Math.PI * 2);
           g2d.fill();
         });
       });
 
-      // Hover cell preview with ghost token
+      // Hover ghost
       if (
         hoverCell &&
         !isGameOver &&
@@ -210,47 +254,40 @@
       ) {
         const hx = padding + hoverCell.c * cellSize;
         const hy = padding + hoverCell.r * cellSize;
-        const cx = hx + cellSize * 0.5;
-        const cy = hy + cellSize * 0.5;
-        const r = cellSize * 0.28;
-
-        g2d.fillStyle =
-          currentTurn === PLAYER_X ? 'rgba(56, 189, 248, 0.16)' : 'rgba(244, 63, 94, 0.16)';
-        g2d.fillRect(hx + 1, hy + 1, cellSize - 2, cellSize - 2);
-
+        g2d.fillStyle = currentTurn === PLAYER_X ? 'rgba(56, 189, 248, 0.14)' : 'rgba(244, 63, 94, 0.14)';
+        fx.roundRectPath(g2d, hx + 1.5, hy + 1.5, cellSize - 3, cellSize - 3, 4);
+        g2d.fill();
         g2d.save();
-        g2d.globalAlpha = 0.42;
-        g2d.strokeStyle = currentTurn === PLAYER_X ? '#38bdf8' : '#f43f5e';
-        g2d.lineWidth = Math.max(2, cellSize * 0.09);
-        g2d.lineCap = 'round';
-        if (currentTurn === PLAYER_X) {
-          g2d.beginPath();
-          g2d.moveTo(cx - r, cy - r);
-          g2d.lineTo(cx + r, cy + r);
-          g2d.moveTo(cx + r, cy - r);
-          g2d.lineTo(cx - r, cy + r);
-          g2d.stroke();
-        } else {
-          g2d.beginPath();
-          g2d.arc(cx, cy, r, 0, Math.PI * 2);
-          g2d.stroke();
-        }
+        g2d.globalAlpha = 0.38;
+        drawPiece(currentTurn, hx + cellSize / 2, hy + cellSize / 2, cellSize * 0.28, 1);
         g2d.restore();
       }
 
-      // Highlight last move with golden tactical brackets
+      // Last move marker
       if (moveHistory.length > 0) {
         const last = moveHistory[moveHistory.length - 1];
         const lx = padding + last.c * cellSize;
         const ly = padding + last.r * cellSize;
-        g2d.fillStyle = 'rgba(251, 191, 36, 0.2)';
-        g2d.fillRect(lx + 1, ly + 1, cellSize - 2, cellSize - 2);
+        g2d.fillStyle = 'rgba(251, 191, 36, 0.16)';
+        fx.roundRectPath(g2d, lx + 1, ly + 1, cellSize - 2, cellSize - 2, 4);
+        g2d.fill();
         g2d.strokeStyle = '#fbbf24';
-        g2d.lineWidth = 1.8;
-        g2d.strokeRect(lx + 1.5, ly + 1.5, cellSize - 3, cellSize - 3);
+        g2d.lineWidth = 1.6;
+        const k = cellSize * 0.28;
+        g2d.beginPath();
+        [
+          [lx + 2, ly + 2, 1, 1],
+          [lx + cellSize - 2, ly + 2, -1, 1],
+          [lx + 2, ly + cellSize - 2, 1, -1],
+          [lx + cellSize - 2, ly + cellSize - 2, -1, -1]
+        ].forEach(([bx, by, sx, sy]) => {
+          g2d.moveTo(bx + sx * k, by);
+          g2d.lineTo(bx, by);
+          g2d.lineTo(bx, by + sy * k);
+        });
+        g2d.stroke();
       }
 
-      // Placement ripples
       ripples.forEach((rp) => {
         const rx = padding + (rp.c + 0.5) * cellSize;
         const ry = padding + (rp.r + 0.5) * cellSize;
@@ -264,113 +301,80 @@
         g2d.restore();
       });
 
-      // Draw X and O pieces with specular core
+      // Pieces (pop in with a little overshoot)
       for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
           const val = board[r][c];
           if (val === EMPTY) continue;
-          const cx = padding + (c + 0.5) * cellSize;
-          const cy = padding + (r + 0.5) * cellSize;
-          const radius = cellSize * 0.34;
-
-          if (val === PLAYER_X) {
-            g2d.save();
-            g2d.strokeStyle = '#0ea5e9';
-            g2d.shadowColor = '#38bdf8';
-            g2d.shadowBlur = 10;
-            g2d.lineWidth = Math.max(3, cellSize * 0.13);
-            g2d.lineCap = 'round';
-            g2d.beginPath();
-            g2d.moveTo(cx - radius, cy - radius);
-            g2d.lineTo(cx + radius, cy + radius);
-            g2d.moveTo(cx + radius, cy - radius);
-            g2d.lineTo(cx - radius, cy + radius);
-            g2d.stroke();
-
-            // Bright core
-            g2d.strokeStyle = '#e0f2fe';
-            g2d.shadowBlur = 0;
-            g2d.lineWidth = Math.max(1.3, cellSize * 0.045);
-            g2d.stroke();
-            g2d.restore();
-          } else if (val === PLAYER_O) {
-            g2d.save();
-            g2d.strokeStyle = '#f43f5e';
-            g2d.shadowColor = '#f43f5e';
-            g2d.shadowBlur = 10;
-            g2d.lineWidth = Math.max(3, cellSize * 0.13);
-            g2d.beginPath();
-            g2d.arc(cx, cy, radius, 0, Math.PI * 2);
-            g2d.stroke();
-
-            // Bright core
-            g2d.strokeStyle = '#ffe4e6';
-            g2d.shadowBlur = 0;
-            g2d.lineWidth = Math.max(1.3, cellSize * 0.045);
-            g2d.stroke();
-            g2d.restore();
+          const placedAt = placeTimes.get(r * BOARD_SIZE + c);
+          let scale = 1;
+          if (placedAt != null && !reduced) {
+            const t = Math.min(1, (now - placedAt) / 0.32);
+            scale = t >= 1 ? 1 : 0.3 + fx.ease.outBack(t) * 0.7;
           }
+          drawPiece(val, padding + (c + 0.5) * cellSize, padding + (r + 0.5) * cellSize, cellSize * 0.32, scale);
         }
       }
 
-      // Draw Winning Line
+      // Winning line: draws itself in, then shimmers
       if (winLine) {
         const x1 = padding + (winLine.c1 + 0.5) * cellSize;
         const y1 = padding + (winLine.r1 + 0.5) * cellSize;
         const x2 = padding + (winLine.c2 + 0.5) * cellSize;
         const y2 = padding + (winLine.r2 + 0.5) * cellSize;
-
+        const prog = reduced ? 1 : Math.min(1, (now - winLineAt) / 0.45);
+        const ex = x1 + (x2 - x1) * prog;
+        const ey = y1 + (y2 - y1) * prog;
         g2d.save();
-        g2d.strokeStyle = '#fbbf24';
-        g2d.shadowColor = '#fbbf24';
-        g2d.shadowBlur = 16 + Math.sin(pulsePhase) * 6;
-        g2d.lineWidth = Math.max(4.5, cellSize * 0.16);
         g2d.lineCap = 'round';
-        g2d.beginPath();
-        g2d.moveTo(x1, y1);
-        g2d.lineTo(x2, y2);
-        g2d.stroke();
-
-        g2d.strokeStyle = '#ffffff';
-        g2d.lineWidth = 2;
-        g2d.stroke();
+        [
+          [Math.max(14, cellSize * 0.5), 'rgba(251, 191, 36, 0.18)'],
+          [Math.max(6, cellSize * 0.2), '#fbbf24'],
+          [2, '#ffffff']
+        ].forEach(([lw, col]) => {
+          g2d.strokeStyle = col;
+          g2d.lineWidth = lw;
+          g2d.beginPath();
+          g2d.moveTo(x1, y1);
+          g2d.lineTo(ex, ey);
+          g2d.stroke();
+        });
+        if (prog >= 1) {
+          const tt = ((now - winLineAt) * 0.8) % 1;
+          fx.glow(g2d, x1 + (x2 - x1) * tt, y1 + (y2 - y1) * tt, cellSize * 0.9, '#fde68a', 0.7);
+        }
         g2d.restore();
       }
 
-      // Victory particles
-      victoryParticles.forEach((p) => {
-        g2d.save();
-        g2d.globalAlpha = Math.max(0, p.life);
-        g2d.fillStyle = p.color;
-        g2d.beginPath();
-        g2d.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
-        g2d.fill();
-        g2d.restore();
-      });
+      sparks.draw(g2d);
 
-      // End-of-match banner
+      // End-of-match card at the bottom (keeps the final board visible)
       if (isGameOver && endBannerText) {
+        const appear = reduced ? 1 : Math.min(1, (now - endAt) / 0.35);
+        const accent = endTone === 'win' ? '#10b981' : endTone === 'lose' ? '#f43f5e' : endTone === 'draw' ? '#94a3b8' : '#fbbf24';
         g2d.save();
-        g2d.fillStyle = 'rgba(9, 14, 28, 0.86)';
-        g2d.strokeStyle = '#fbbf24';
-        g2d.lineWidth = 2.5;
-        const bw = Math.min(size - 32, 370);
-        const bh = 78;
+        g2d.globalAlpha = appear;
+        const bw = Math.min(size - 32, 390);
+        const bh = 80;
         const bx = (size - bw) / 2;
-        const by = size - bh - 16;
-        g2d.beginPath();
-        g2d.roundRect(bx, by, bw, bh, 14);
+        const by = size - bh - 16 + (1 - fx.ease.outCubic(appear)) * 24;
+        fx.roundRectPath(g2d, bx, by, bw, bh, 16);
+        g2d.fillStyle = 'rgba(9, 14, 28, 0.9)';
         g2d.fill();
+        g2d.strokeStyle = accent;
+        g2d.lineWidth = 2.5;
         g2d.stroke();
-
-        g2d.fillStyle = '#fbbf24';
-        g2d.font = '900 18px sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText(endBannerText, size / 2, by + 28);
-
+        fx.roundRectPath(g2d, bx, by, bw, 5, 3);
+        g2d.fillStyle = accent;
+        g2d.fill();
+        const ts = fx.fitFontSize(g2d, endBannerText, bw - 28, 19, 12, 900);
+        fx.outlinedText(g2d, endBannerText, size / 2, by + 30, { size: ts, color: endTone === 'lose' ? '#fda4af' : '#fde68a' });
         g2d.fillStyle = '#e2e8f0';
-        g2d.font = '700 13px sans-serif';
-        g2d.fillText(endBannerSub || 'Bấm vào bàn cờ để chơi ván tiếp theo!', size / 2, by + 54);
+        const ss = fx.fitFontSize(g2d, endBannerSub || 'Bấm vào bàn cờ để chơi ván tiếp theo!', bw - 28, 13, 10, 700);
+        g2d.font = fx.font(ss, 700);
+        g2d.textAlign = 'center';
+        g2d.textBaseline = 'middle';
+        g2d.fillText(endBannerSub || 'Bấm vào bàn cờ để chơi ván tiếp theo!', size / 2, by + 56);
         g2d.restore();
       }
     }
@@ -567,6 +571,18 @@
 
       board[r][c] = currentTurn;
       moveHistory.push({ r, c, player: currentTurn });
+      lastPlaceAt = performance.now() / 1000;
+      placeTimes.set(r * BOARD_SIZE + c, lastPlaceAt);
+      {
+        const m = getCellMetrics();
+        sparks.burst(m.padding + (c + 0.5) * m.cellSize, m.padding + (r + 0.5) * m.cellSize, {
+          count: 6,
+          speed: [30, 90],
+          life: [0.25, 0.45],
+          size: [1.5, 3],
+          colors: [currentTurn === PLAYER_X ? '#7dd3fc' : '#fda4af', '#ffffff']
+        });
+      }
       ripples.push({
         r,
         c,
@@ -588,6 +604,10 @@
       if (moveHistory.length >= BOARD_SIZE * BOARD_SIZE) {
         isGameOver = true;
         updateStatusText('Hòa cờ! Bàn cờ đã kín.', '#cbd5e1');
+        endBannerText = '🤝 HÒA CỜ!';
+        endBannerSub = 'Bàn cờ đã kín • Bấm vào bàn cờ để chơi ván mới';
+        endTone = 'draw';
+        endAt = performance.now() / 1000;
         drawBoard();
         return;
       }
@@ -605,17 +625,33 @@
     }
 
     function handleMatchEnd(winner) {
-      const { size } = getCellMetrics();
-      for (let i = 0; i < 28; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const spd = 2 + Math.random() * 4;
-        victoryParticles.push({
-          x: size / 2,
-          y: size / 2,
-          vx: Math.cos(ang) * spd,
-          vy: Math.sin(ang) * spd,
-          color: i % 2 === 0 ? '#fbbf24' : '#38bdf8',
-          life: 1.0
+      const { size, padding, cellSize } = getCellMetrics();
+      const nowS = performance.now() / 1000;
+      winLineAt = nowS;
+      endAt = nowS;
+      endTone = gameMode === 'pvp' ? 'pvp' : winner === PLAYER_X ? 'win' : 'lose';
+      const lineColor = winner === PLAYER_X ? '#38bdf8' : '#f43f5e';
+      if (winLine) {
+        // Sparkles on every stone of the winning five
+        const steps = Math.max(Math.abs(winLine.r2 - winLine.r1), Math.abs(winLine.c2 - winLine.c1));
+        const sr = Math.sign(winLine.r2 - winLine.r1);
+        const sc = Math.sign(winLine.c2 - winLine.c1);
+        for (let k = 0; k <= steps; k++) {
+          const px = padding + (winLine.c1 + sc * k + 0.5) * cellSize;
+          const py = padding + (winLine.r1 + sr * k + 0.5) * cellSize;
+          sparks.burst(px, py, { count: 8, kind: 'star', speed: [40, 140], life: [0.5, 0.9], size: [2.5, 5], colors: ['#fde68a', lineColor, '#ffffff'] });
+        }
+      }
+      if (endTone !== 'lose') {
+        sparks.burst(size / 2, size * 0.45, {
+          count: 46,
+          kind: 'confetti',
+          speed: [120, 320],
+          life: [0.9, 1.6],
+          size: [4, 7],
+          gravity: 300,
+          drag: 1.2,
+          colors: ['#fbbf24', '#38bdf8', '#f43f5e', '#10b981', '#ffffff']
         });
       }
 
@@ -746,10 +782,22 @@
       drawBoard();
     });
 
+    let lastTick = performance.now();
     function animateLoop() {
+      const tick = performance.now();
+      const dt = Math.min(0.05, (tick - lastTick) / 1000);
+      lastTick = tick;
+      const nowS = tick / 1000;
       let needsRedraw = false;
       if (winLine) {
         pulsePhase += 0.12;
+        needsRedraw = true;
+      }
+      if (sparks.count > 0) {
+        sparks.update(dt);
+        needsRedraw = true;
+      }
+      if (nowS - lastPlaceAt < 0.4 || (isGameOver && nowS - endAt < 0.45)) {
         needsRedraw = true;
       }
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -757,14 +805,6 @@
         ripples[i].alpha -= 0.045;
         needsRedraw = true;
         if (ripples[i].alpha <= 0) ripples.splice(i, 1);
-      }
-      for (let i = victoryParticles.length - 1; i >= 0; i--) {
-        const p = victoryParticles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.02;
-        needsRedraw = true;
-        if (p.life <= 0) victoryParticles.splice(i, 1);
       }
       if (needsRedraw) {
         drawBoard();
