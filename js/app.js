@@ -107,6 +107,128 @@
       `
     },
     {
+      id: 'bubbleshooter',
+      title: 'Khủng Long Bắn Trứng',
+      subtitle: 'Ghép 3 Bóng Màu • Dễ & Khó',
+      genre: 'Thiếu nhi • Giải đố Hành động',
+      devices: '🖱 Ngắm bắn • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Cùng Khủng Long Con ngắm bắn các quả trứng phép thuật cùng màu để làm nổ tung cả chùm bóng, có tia laser dẫn đường cho bé ở chế độ Dễ.',
+      gradient: 'linear-gradient(135deg, #831843 0%, #db2777 50%, #7c3aed 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="220" cy="42" r="18" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="256" cy="42" r="18" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="292" cy="42" r="18" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="238" cy="72" r="18" fill="#facc15" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="274" cy="72" r="18" fill="#22c55e" stroke="#ffffff" stroke-width="2"/>
+          <line x1="256" y1="132" x2="238" y2="85" stroke="#f43f5e" stroke-width="3" stroke-dasharray="5 5"/>
+          <circle cx="256" cy="128" r="16" fill="#f43f5e" stroke="#fef08a" stroke-width="2.5"/>
+        </svg>
+      `
+    },
+    {
+      id: 'brickbreaker',
+      title: 'Phá Gạch Vũ Trụ',
+      subtitle: 'Giải Cứu Hành Tinh • Dễ & Khó',
+      genre: 'Thiếu nhi • Phản xạ & Giải đố',
+      devices: '🖱 Rê chuột • ⌨ Phím • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Điều khiển tàu đệm năng lượng hứng bóng phá vỡ pháo đài gạch vũ trụ, nhặt vật phẩm nhân 3 bóng, mở rộng ván trượt và súng đôi Laser.',
+      gradient: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0891b2 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="190" y="28" width="44" height="18" rx="4" fill="#f43f5e"/>
+          <rect x="240" y="28" width="44" height="18" rx="4" fill="#facc15"/>
+          <rect x="290" y="28" width="44" height="18" rx="4" fill="#22c55e"/>
+          <rect x="215" y="52" width="44" height="18" rx="4" fill="#38bdf8"/>
+          <rect x="265" y="52" width="44" height="18" rx="4" fill="#a855f7"/>
+          <circle cx="262" cy="92" r="9" fill="#fef08a" stroke="#f97316" stroke-width="2"/>
+          <rect x="220" y="118" width="88" height="14" rx="7" fill="#38bdf8" stroke="#e0f2fe" stroke-width="2"/>
+        </svg>
+      `
+    },
+    {
+      id: 'mathsnake',
+      title: 'Rồng Con Săn Táo Toán Học',
+      subtitle: 'Vừa Chơi Vừa Học Toán • Dễ & Khó',
+      genre: 'Thiếu nhi • Toán học & Điều khiển',
+      devices: '⌨ Mũi tên • 🖱 Chuột • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Tính nhẩm nhanh phép toán trên màn hình rồi dẫn Rồng Con đi ăn đúng quả táo mang số kết quả chính xác để Rồng lớn nhanh.',
+      gradient: 'linear-gradient(135deg, #064e3b 0%, #16a34a 50%, #ca8a04 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="205" cy="82" r="15" fill="#16a34a"/>
+          <circle cx="230" cy="82" r="17" fill="#4ade80"/>
+          <circle cx="258" cy="82" r="20" fill="#22c55e" stroke="#fef08a" stroke-width="2.5"/>
+          <circle cx="318" cy="78" r="18" fill="#ef4444" stroke="#fecaca" stroke-width="2"/>
+          <text x="318" y="84" fill="#ffffff" font-size="16" font-weight="900" text-anchor="middle">8</text>
+          <rect x="215" y="24" width="110" height="28" rx="8" fill="rgba(15,23,42,0.8)" stroke="#facc15" stroke-width="2"/>
+          <text x="270" y="43" fill="#facc15" font-size="15" font-weight="900" text-anchor="middle">5 + 3 = ?</text>
+        </svg>
+      `
+    },
+    {
+      id: 'sokoban',
+      title: 'Hiệp Sĩ Đẩy Đá Mở Kho Báu',
+      subtitle: 'Giải Đố Đẩy Đá • Có Nút Đi Lại',
+      genre: 'Thiếu nhi • Tư duy Không gian',
+      devices: '⌨ Mũi tên • 🖱 Bấm ô • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Giúp Hiệp Sĩ Nhí suy nghĩ đường đi thông minh để đẩy các viên đá phép thuật đè lên công tắc, mở khóa Rương Vàng Kho Báu.',
+      gradient: 'linear-gradient(135deg, #78350f 0%, #d97706 50%, #2563eb 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="215" cy="78" r="20" fill="#38bdf8" stroke="#ffffff" stroke-width="2.5"/>
+          <rect x="252" y="56" width="44" height="44" rx="8" fill="#f59e0b" stroke="#fef08a" stroke-width="2.5"/>
+          <circle cx="328" cy="78" r="16" fill="rgba(56,189,248,0.3)" stroke="#38bdf8" stroke-width="3"/>
+        </svg>
+      `
+    },
+    {
+      id: 'memorybattle',
+      title: 'Lật Hình Siêu Nhân Đấu Boss',
+      subtitle: 'Luyện Trí Nhớ • Tung Chưởng Diệt Boss',
+      genre: 'Thiếu nhi • Luyện trí nhớ',
+      devices: '🖱 Bấm chuột • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Lật mở các cặp thẻ bài Siêu Anh Hùng giống nhau để phóng tuyệt chiêu tấn công Quái Vật Vũ Trụ hoặc bật khiên hồi máu cho đội.',
+      gradient: 'linear-gradient(135deg, #311042 0%, #7e22ce 50%, #e11d48 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="195" y="34" width="54" height="76" rx="8" fill="#1e293b" stroke="#facc15" stroke-width="2.5"/>
+          <text x="222" y="78" font-size="28" text-anchor="middle">⚡</text>
+          <rect x="262" y="34" width="54" height="76" rx="8" fill="#2563eb" stroke="#93c5fd" stroke-width="2.5"/>
+          <text x="289" y="78" font-size="24" text-anchor="middle">⭐</text>
+        </svg>
+      `
+    },
+    {
+      id: 'lasermirror',
+      title: 'Nối Gương Dẫn Tia Sáng',
+      subtitle: 'Xoay Gương 45° • Sạc Pin Cứu Robot',
+      genre: 'Thiếu nhi • Khoa học & Logic',
+      devices: '🖱 Bấm xoay gương • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Bấm chuột xoay các tấm gương phản xạ 45° để dẫn tia laser đi qua các ngôi sao và nạp đầy viên pin năng lượng cho chú Robot.',
+      gradient: 'linear-gradient(135deg, #0f172a 0%, #0284c7 50%, #10b981 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <polyline points="185,95 250,95 250,42 320,42" fill="none" stroke="#f43f5e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="236" y1="109" x2="264" y2="81" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+          <line x1="236" y1="56" x2="264" y2="28" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="326" cy="42" r="18" fill="#16a34a" stroke="#bbf7d0" stroke-width="2.5"/>
+        </svg>
+      `
+    },
+    {
       id: 'caro',
       title: 'Cờ Caro Chiến Thuật',
       subtitle: 'Gomoku 15x15 • Đấu AI & 2 Người',
