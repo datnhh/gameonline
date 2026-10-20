@@ -5,6 +5,108 @@
 
   const GAME_CATALOG = [
     {
+      id: 'typing',
+      title: 'Bóng Bay Luyện Phím',
+      subtitle: 'Tập Gõ Bàn Phím • Dễ & Khó',
+      genre: 'Thiếu nhi • Luyện bàn phím',
+      devices: '⌨ Bàn phím • 📱 Cảm ứng',
+      unit: 'điểm',
+      description:
+        'Trò chơi luyện gõ 10 ngón vui nhộn cho trẻ: bàn phím mẫu trên màn hình tự động sáng phím cần bấm để bắn nổ bóng bay chữ cái và từ vựng.',
+      gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #db2777 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g transform="translate(225, 58)">
+            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#f43f5e" stroke="#090d16" stroke-width="2.5"/>
+            <text x="0" y="7" fill="#ffffff" font-size="22" font-weight="900" text-anchor="middle">A</text>
+          </g>
+          <g transform="translate(295, 48)">
+            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#facc15" stroke="#090d16" stroke-width="2.5"/>
+            <text x="0" y="7" fill="#090d16" font-size="22" font-weight="900" text-anchor="middle">B</text>
+          </g>
+          <rect x="200" y="102" width="120" height="32" rx="6" fill="rgba(15,23,42,0.8)" stroke="#38bdf8" stroke-width="2"/>
+          <text x="260" y="123" fill="#facc15" font-size="14" font-weight="800" text-anchor="middle">Q W E R T Y</text>
+        </svg>
+      `
+    },
+    {
+      id: 'maze',
+      title: 'Mê Cung Siêu Nhân',
+      subtitle: 'Giải Cứu Công Chúa • 4 Siêu Anh Hùng',
+      genre: 'Thiếu nhi • Luyện chuột & phím',
+      devices: '🖱 Kéo chuột • ⌨ Mũi tên',
+      unit: 'điểm',
+      description:
+        'Hóa thân thành Người Nhện, The Flash, Batman hoặc Superman vượt mê cung giải cứu Công Chúa, hỗ trợ cả kéo chuột lẫn phím mũi tên (Dễ & Khó).',
+      gradient: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #dc2626 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g stroke="rgba(56,189,248,0.45)" stroke-width="3" fill="none">
+            <rect x="190" y="25" width="150" height="100" rx="6"/>
+            <line x1="235" y1="25" x2="235" y2="85"/>
+            <line x1="285" y1="65" x2="285" y2="125"/>
+            <line x1="235" y1="85" x2="310" y2="85"/>
+          </g>
+          <circle cx="212" cy="52" r="14" fill="#dc2626" stroke="#090d16" stroke-width="2.5"/>
+          <ellipse cx="207" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
+          <ellipse cx="217" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
+          <circle cx="316" cy="104" r="14" fill="#ec4899" stroke="#090d16" stroke-width="2.5"/>
+          <polygon points="308,90 312,82 316,88 320,82 324,90" fill="#facc15"/>
+        </svg>
+      `
+    },
+    {
+      id: 'feedingfrenzy',
+      title: 'Cá Lớn Nuốt Cá Bé',
+      subtitle: 'Luyện Điều Khiển Chuột • 2 Chế Độ',
+      genre: 'Thiếu nhi • Luyện chuột',
+      devices: '🖱 Rê chuột • 📱 Chạm kéo',
+      unit: 'điểm',
+      description:
+        'Giúp trẻ tập điều khiển chuột mượt mà dưới đại dương rực rỡ: ăn cá nhỏ hơn để tiến hóa thành Cá Mập Vua, có chế độ Dễ và Khó.',
+      gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #0d9488 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="195" cy="45" r="5" fill="rgba(255,255,255,0.35)"/>
+          <circle cx="210" cy="30" r="8" fill="rgba(255,255,255,0.25)"/>
+          <g transform="translate(245, 78)">
+            <polygon points="-32,0 -54,-18 -54,18" fill="#ea580c" stroke="#090d16" stroke-width="2"/>
+            <ellipse cx="0" cy="0" rx="34" ry="22" fill="#f97316" stroke="#090d16" stroke-width="2.5"/>
+            <circle cx="16" cy="-5" r="6" fill="#ffffff" stroke="#090d16" stroke-width="2"/>
+            <circle cx="18" cy="-5" r="3" fill="#090d16"/>
+          </g>
+          <g transform="translate(325, 82)">
+            <ellipse cx="0" cy="0" rx="14" ry="9" fill="#4ade80" stroke="#090d16" stroke-width="2"/>
+            <circle cx="-6" cy="-2" r="2.5" fill="#090d16"/>
+          </g>
+        </svg>
+      `
+    },
+    {
+      id: 'whackamole',
+      title: 'Đập Chuột Vui Nhộn',
+      subtitle: 'Luyện Phản Xạ Bấm Chuột • Dễ & Khó',
+      genre: 'Thiếu nhi • Phản xạ chuột',
+      devices: '🖱 Bấm chuột • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Rèn luyện phản xạ mắt và tay cho trẻ: cầm búa hoạt hình đập trúng Chuột Nâu và Chuột Vàng Vương Miện, khéo léo tránh các chú Thỏ Trắng.',
+      gradient: 'linear-gradient(135deg, #166534 0%, #15803d 50%, #ca8a04 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <ellipse cx="265" cy="112" rx="46" ry="15" fill="#78350f" stroke="#090d16" stroke-width="2.5"/>
+          <rect x="241" y="58" width="48" height="52" rx="22" fill="#b45309" stroke="#090d16" stroke-width="2.5"/>
+          <circle cx="255" cy="76" r="4" fill="#090d16"/>
+          <circle cx="275" cy="76" r="4" fill="#090d16"/>
+          <ellipse cx="265" cy="84" rx="6" ry="4" fill="#f43f5e"/>
+          <g transform="translate(315, 48) rotate(-25)">
+            <rect x="-5" y="0" width="10" height="38" rx="4" fill="#f59e0b" stroke="#090d16" stroke-width="2"/>
+            <rect x="-22" y="-18" width="44" height="22" rx="6" fill="#ef4444" stroke="#090d16" stroke-width="2"/>
+          </g>
+        </svg>
+      `
+    },
+    {
       id: 'caro',
       title: 'Cờ Caro Chiến Thuật',
       subtitle: 'Gomoku 15x15 • Đấu AI & 2 Người',
@@ -124,108 +226,6 @@
           <line x1="265" y1="40" x2="265" y2="150" stroke="#38bdf8" stroke-width="3" stroke-dasharray="10 8"/>
           <rect x="251" y="75" width="28" height="44" rx="8" fill="#2563eb" stroke="#f8fafc" stroke-width="2"/>
           <circle cx="265" cy="68" r="10" fill="#fbbf24"/>
-        </svg>
-      `
-    },
-    {
-      id: 'feedingfrenzy',
-      title: 'Cá Lớn Nuốt Cá Bé',
-      subtitle: 'Luyện Điều Khiển Chuột • 2 Chế Độ',
-      genre: 'Thiếu nhi • Luyện chuột',
-      devices: '🖱 Rê chuột • 📱 Chạm kéo',
-      unit: 'điểm',
-      description:
-        'Giúp trẻ tập điều khiển chuột mượt mà dưới đại dương rực rỡ: ăn cá nhỏ hơn để tiến hóa thành Cá Mập Vua, có chế độ Dễ và Khó.',
-      gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #0d9488 100%)',
-      svgArt: `
-        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="195" cy="45" r="5" fill="rgba(255,255,255,0.35)"/>
-          <circle cx="210" cy="30" r="8" fill="rgba(255,255,255,0.25)"/>
-          <g transform="translate(245, 78)">
-            <polygon points="-32,0 -54,-18 -54,18" fill="#ea580c" stroke="#090d16" stroke-width="2"/>
-            <ellipse cx="0" cy="0" rx="34" ry="22" fill="#f97316" stroke="#090d16" stroke-width="2.5"/>
-            <circle cx="16" cy="-5" r="6" fill="#ffffff" stroke="#090d16" stroke-width="2"/>
-            <circle cx="18" cy="-5" r="3" fill="#090d16"/>
-          </g>
-          <g transform="translate(325, 82)">
-            <ellipse cx="0" cy="0" rx="14" ry="9" fill="#4ade80" stroke="#090d16" stroke-width="2"/>
-            <circle cx="-6" cy="-2" r="2.5" fill="#090d16"/>
-          </g>
-        </svg>
-      `
-    },
-    {
-      id: 'typing',
-      title: 'Bóng Bay Luyện Phím',
-      subtitle: 'Tập Gõ Bàn Phím • Dễ & Khó',
-      genre: 'Thiếu nhi • Luyện bàn phím',
-      devices: '⌨ Bàn phím • 📱 Cảm ứng',
-      unit: 'điểm',
-      description:
-        'Trò chơi luyện gõ 10 ngón vui nhộn cho trẻ: bàn phím mẫu trên màn hình tự động sáng phím cần bấm để bắn nổ bóng bay chữ cái và từ vựng.',
-      gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #db2777 100%)',
-      svgArt: `
-        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g transform="translate(225, 58)">
-            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#f43f5e" stroke="#090d16" stroke-width="2.5"/>
-            <text x="0" y="7" fill="#ffffff" font-size="22" font-weight="900" text-anchor="middle">A</text>
-          </g>
-          <g transform="translate(295, 48)">
-            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#facc15" stroke="#090d16" stroke-width="2.5"/>
-            <text x="0" y="7" fill="#090d16" font-size="22" font-weight="900" text-anchor="middle">B</text>
-          </g>
-          <rect x="200" y="102" width="120" height="32" rx="6" fill="rgba(15,23,42,0.8)" stroke="#38bdf8" stroke-width="2"/>
-          <text x="260" y="123" fill="#facc15" font-size="14" font-weight="800" text-anchor="middle">Q W E R T Y</text>
-        </svg>
-      `
-    },
-    {
-      id: 'maze',
-      title: 'Mê Cung Siêu Nhân',
-      subtitle: 'Giải Cứu Công Chúa • 4 Siêu Anh Hùng',
-      genre: 'Thiếu nhi • Luyện chuột & phím',
-      devices: '🖱 Kéo chuột • ⌨ Mũi tên',
-      unit: 'điểm',
-      description:
-        'Hóa thân thành Người Nhện, The Flash, Batman hoặc Superman vượt mê cung giải cứu Công Chúa, hỗ trợ cả kéo chuột lẫn phím mũi tên (Dễ & Khó).',
-      gradient: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #dc2626 100%)',
-      svgArt: `
-        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g stroke="rgba(56,189,248,0.45)" stroke-width="3" fill="none">
-            <rect x="190" y="25" width="150" height="100" rx="6"/>
-            <line x1="235" y1="25" x2="235" y2="85"/>
-            <line x1="285" y1="65" x2="285" y2="125"/>
-            <line x1="235" y1="85" x2="310" y2="85"/>
-          </g>
-          <circle cx="212" cy="52" r="14" fill="#dc2626" stroke="#090d16" stroke-width="2.5"/>
-          <ellipse cx="207" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
-          <ellipse cx="217" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
-          <circle cx="316" cy="104" r="14" fill="#ec4899" stroke="#090d16" stroke-width="2.5"/>
-          <polygon points="308,90 312,82 316,88 320,82 324,90" fill="#facc15"/>
-        </svg>
-      `
-    },
-    {
-      id: 'whackamole',
-      title: 'Đập Chuột Vui Nhộn',
-      subtitle: 'Luyện Phản Xạ Bấm Chuột • Dễ & Khó',
-      genre: 'Thiếu nhi • Phản xạ chuột',
-      devices: '🖱 Bấm chuột • 📱 Chạm',
-      unit: 'điểm',
-      description:
-        'Rèn luyện phản xạ mắt và tay cho trẻ: cầm búa hoạt hình đập trúng Chuột Nâu và Chuột Vàng Vương Miện, khéo léo tránh các chú Thỏ Trắng.',
-      gradient: 'linear-gradient(135deg, #166534 0%, #15803d 50%, #ca8a04 100%)',
-      svgArt: `
-        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <ellipse cx="265" cy="112" rx="46" ry="15" fill="#78350f" stroke="#090d16" stroke-width="2.5"/>
-          <rect x="241" y="58" width="48" height="52" rx="22" fill="#b45309" stroke="#090d16" stroke-width="2.5"/>
-          <circle cx="255" cy="76" r="4" fill="#090d16"/>
-          <circle cx="275" cy="76" r="4" fill="#090d16"/>
-          <ellipse cx="265" cy="84" rx="6" ry="4" fill="#f43f5e"/>
-          <g transform="translate(315, 48) rotate(-25)">
-            <rect x="-5" y="0" width="10" height="38" rx="4" fill="#f59e0b" stroke="#090d16" stroke-width="2"/>
-            <rect x="-22" y="-18" width="44" height="22" rx="6" fill="#ef4444" stroke="#090d16" stroke-width="2"/>
-          </g>
         </svg>
       `
     }
