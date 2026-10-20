@@ -126,6 +126,58 @@
           <circle cx="265" cy="68" r="10" fill="#fbbf24"/>
         </svg>
       `
+    },
+    {
+      id: 'feedingfrenzy',
+      title: 'Cá Lớn Nuốt Cá Bé',
+      subtitle: 'Luyện Điều Khiển Chuột • 2 Chế Độ',
+      genre: 'Thiếu nhi • Luyện chuột',
+      devices: '🖱 Rê chuột • 📱 Chạm kéo',
+      unit: 'điểm',
+      description:
+        'Giúp trẻ tập điều khiển chuột mượt mà dưới đại dương rực rỡ: ăn cá nhỏ hơn để tiến hóa thành Cá Mập Vua, có chế độ Dễ và Khó.',
+      gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #0d9488 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="195" cy="45" r="5" fill="rgba(255,255,255,0.35)"/>
+          <circle cx="210" cy="30" r="8" fill="rgba(255,255,255,0.25)"/>
+          <g transform="translate(245, 78)">
+            <polygon points="-32,0 -54,-18 -54,18" fill="#ea580c" stroke="#090d16" stroke-width="2"/>
+            <ellipse cx="0" cy="0" rx="34" ry="22" fill="#f97316" stroke="#090d16" stroke-width="2.5"/>
+            <circle cx="16" cy="-5" r="6" fill="#ffffff" stroke="#090d16" stroke-width="2"/>
+            <circle cx="18" cy="-5" r="3" fill="#090d16"/>
+          </g>
+          <g transform="translate(325, 82)">
+            <ellipse cx="0" cy="0" rx="14" ry="9" fill="#4ade80" stroke="#090d16" stroke-width="2"/>
+            <circle cx="-6" cy="-2" r="2.5" fill="#090d16"/>
+          </g>
+        </svg>
+      `
+    },
+    {
+      id: 'typing',
+      title: 'Bóng Bay Luyện Phím',
+      subtitle: 'Tập Gõ Bàn Phím • Dễ & Khó',
+      genre: 'Thiếu nhi • Luyện bàn phím',
+      devices: '⌨ Bàn phím • 📱 Cảm ứng',
+      unit: 'điểm',
+      description:
+        'Trò chơi luyện gõ 10 ngón vui nhộn cho trẻ: bàn phím mẫu trên màn hình tự động sáng phím cần bấm để bắn nổ bóng bay chữ cái và từ vựng.',
+      gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #db2777 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g transform="translate(225, 58)">
+            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#f43f5e" stroke="#090d16" stroke-width="2.5"/>
+            <text x="0" y="7" fill="#ffffff" font-size="22" font-weight="900" text-anchor="middle">A</text>
+          </g>
+          <g transform="translate(295, 48)">
+            <ellipse cx="0" cy="0" rx="22" ry="26" fill="#facc15" stroke="#090d16" stroke-width="2.5"/>
+            <text x="0" y="7" fill="#090d16" font-size="22" font-weight="900" text-anchor="middle">B</text>
+          </g>
+          <rect x="200" y="102" width="120" height="32" rx="6" fill="rgba(15,23,42,0.8)" stroke="#38bdf8" stroke-width="2"/>
+          <text x="260" y="123" fill="#facc15" font-size="14" font-weight="800" text-anchor="middle">Q W E R T Y</text>
+        </svg>
+      `
     }
   ];
 
