@@ -178,6 +178,56 @@
           <text x="260" y="123" fill="#facc15" font-size="14" font-weight="800" text-anchor="middle">Q W E R T Y</text>
         </svg>
       `
+    },
+    {
+      id: 'maze',
+      title: 'Mê Cung Siêu Nhân',
+      subtitle: 'Giải Cứu Công Chúa • 4 Siêu Anh Hùng',
+      genre: 'Thiếu nhi • Luyện chuột & phím',
+      devices: '🖱 Kéo chuột • ⌨ Mũi tên',
+      unit: 'điểm',
+      description:
+        'Hóa thân thành Người Nhện, The Flash, Batman hoặc Superman vượt mê cung giải cứu Công Chúa, hỗ trợ cả kéo chuột lẫn phím mũi tên (Dễ & Khó).',
+      gradient: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #dc2626 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g stroke="rgba(56,189,248,0.45)" stroke-width="3" fill="none">
+            <rect x="190" y="25" width="150" height="100" rx="6"/>
+            <line x1="235" y1="25" x2="235" y2="85"/>
+            <line x1="285" y1="65" x2="285" y2="125"/>
+            <line x1="235" y1="85" x2="310" y2="85"/>
+          </g>
+          <circle cx="212" cy="52" r="14" fill="#dc2626" stroke="#090d16" stroke-width="2.5"/>
+          <ellipse cx="207" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
+          <ellipse cx="217" cy="50" rx="4" ry="2.5" fill="#ffffff"/>
+          <circle cx="316" cy="104" r="14" fill="#ec4899" stroke="#090d16" stroke-width="2.5"/>
+          <polygon points="308,90 312,82 316,88 320,82 324,90" fill="#facc15"/>
+        </svg>
+      `
+    },
+    {
+      id: 'whackamole',
+      title: 'Đập Chuột Vui Nhộn',
+      subtitle: 'Luyện Phản Xạ Bấm Chuột • Dễ & Khó',
+      genre: 'Thiếu nhi • Phản xạ chuột',
+      devices: '🖱 Bấm chuột • 📱 Chạm',
+      unit: 'điểm',
+      description:
+        'Rèn luyện phản xạ mắt và tay cho trẻ: cầm búa hoạt hình đập trúng Chuột Nâu và Chuột Vàng Vương Miện, khéo léo tránh các chú Thỏ Trắng.',
+      gradient: 'linear-gradient(135deg, #166534 0%, #15803d 50%, #ca8a04 100%)',
+      svgArt: `
+        <svg viewBox="0 0 400 150" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <ellipse cx="265" cy="112" rx="46" ry="15" fill="#78350f" stroke="#090d16" stroke-width="2.5"/>
+          <rect x="241" y="58" width="48" height="52" rx="22" fill="#b45309" stroke="#090d16" stroke-width="2.5"/>
+          <circle cx="255" cy="76" r="4" fill="#090d16"/>
+          <circle cx="275" cy="76" r="4" fill="#090d16"/>
+          <ellipse cx="265" cy="84" rx="6" ry="4" fill="#f43f5e"/>
+          <g transform="translate(315, 48) rotate(-25)">
+            <rect x="-5" y="0" width="10" height="38" rx="4" fill="#f59e0b" stroke="#090d16" stroke-width="2"/>
+            <rect x="-22" y="-18" width="44" height="22" rx="6" fill="#ef4444" stroke="#090d16" stroke-width="2"/>
+          </g>
+        </svg>
+      `
     }
   ];
 
@@ -187,6 +237,7 @@
   const gameStageWrapper = document.getElementById('gameStageWrapper');
   const gamesGrid = document.getElementById('gamesGrid');
   const gameMount = document.getElementById('gameMount');
+  const inGameTop3Bar = document.getElementById('inGameTop3Bar');
 
   const brandHomeBtn = document.getElementById('brandHomeBtn');
   const changeNameBtn = document.getElementById('changeNameBtn');
@@ -298,6 +349,21 @@
     return html;
   }
 
+  function renderInGameTop3(gameId) {
+    if (!inGameTop3Bar) return;
+    const gameMeta = GAME_CATALOG.find((g) => g.id === gameId);
+    if (!gameMeta) return;
+
+    inGameTop3Bar.innerHTML = `
+      <div class="ingame-top3-title">
+        <span>🏆 TOP 3 CAO THỦ — ${escapeHtml(gameMeta.title)}</span>
+      </div>
+      <div class="ingame-top3-grid">
+        ${buildTop3RowsHtml(gameId, gameMeta.unit)}
+      </div>
+    `;
+  }
+
   function renderHomeCatalog() {
     const stats = ArcadeHub.storage.getStatsSummary(GAME_CATALOG.map((g) => g.id));
     totalRecordsCountEl.textContent = String(stats.totalRecords);
@@ -320,15 +386,6 @@
             <span class="score-unit-badge">${escapeHtml(game.subtitle)}</span>
           </div>
           <p class="card-desc">${escapeHtml(game.description)}</p>
-          <div class="card-leaderboard">
-            <div class="lb-header">
-              <span>🏆 TOP 3 CAO THỦ</span>
-              <span>Thành tích tốt nhất</span>
-            </div>
-            <div class="lb-list">
-              ${buildTop3RowsHtml(game.id, game.unit)}
-            </div>
-          </div>
           <div class="card-actions">
             <button type="button" class="play-now-btn" data-launch="${game.id}">
               ▶ Chơi Ngay
@@ -433,6 +490,15 @@
     gameMount.innerHTML = '';
   }
 
+  function pushGameHistoryLock(gameId) {
+    try {
+      global.history.pushState({ inGame: true, gameId }, '', global.location.href);
+      global.history.pushState({ inGame: true, gameId }, '', global.location.href);
+    } catch (_err) {
+      // Ignore if running in restricted context
+    }
+  }
+
   function mountGame(gameId) {
     const gameMeta = GAME_CATALOG.find((g) => g.id === gameId);
     const gameModule = ArcadeHub.games && ArcadeHub.games[gameId];
@@ -443,6 +509,7 @@
 
     unmountActiveGame();
     activeGameId = gameId;
+    pushGameHistoryLock(gameId);
 
     homeView.classList.remove('active-view');
     gameView.classList.add('active-view');
@@ -454,6 +521,7 @@
     hudCurrentScoreEl.textContent = '0';
     const best = ArcadeHub.storage.getBestScore(gameId);
     hudBestScoreEl.textContent = best > 0 ? formatNumber(best) : '---';
+    renderInGameTop3(gameId);
 
     const gameContext = {
       getPlayerName() {
@@ -466,6 +534,7 @@
         const result = ArcadeHub.storage.submitScore(gameId, scoreVal, detailText);
         const newBest = ArcadeHub.storage.getBestScore(gameId);
         hudBestScoreEl.textContent = newBest > 0 ? formatNumber(newBest) : '---';
+        renderInGameTop3(gameId);
 
         if (result.isTop3) {
           showLeaderboardModal(
@@ -563,6 +632,27 @@
   ArcadeHub.fullscreen.onChange((isFull) => {
     stageFullscreenBtn.textContent = isFull ? '🗗 Thoát Full' : '⛶ Full màn hình';
   });
+
+  // Khóa nút Back của trình duyệt & thao tác vuốt cạnh màn hình trên điện thoại khi đang trong game
+  global.addEventListener('popstate', () => {
+    if (activeGameId) {
+      pushGameHistoryLock(activeGameId);
+      showToast('Đang khóa nút Back để tránh vuốt nhầm — Bấm "← Trang chủ" để thoát game!');
+    }
+  });
+
+  document.addEventListener(
+    'touchstart',
+    (evt) => {
+      if (!activeGameId || !evt.touches || evt.touches.length !== 1) return;
+      const touchX = evt.touches[0].clientX;
+      // Chặn thao tác vuốt từ sát mép trái/phải màn hình điện thoại (gesture back của iOS/Android)
+      if (touchX < 28 || touchX > global.innerWidth - 28) {
+        evt.preventDefault();
+      }
+    },
+    { passive: false }
+  );
 
   // Initial Boot
   function initApp() {

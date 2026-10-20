@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>CyberArcade Hub - Cổng Game Web Giải Trí</title>
+  <title>Mini Game - Online Web Game Miễn Phí Không Quảng Cáo</title>
   <link rel="stylesheet" href="styles/main.css" />
 </head>
 <body>
@@ -28,8 +28,8 @@
           </svg>
         </div>
         <div class="brand-text">
-          <h1>CYBER<span>ARCADE</span></h1>
-          <p>7-in-1 Classic &amp; Kids Web Games</p>
+          <h1>MINI<span>GAME</span></h1>
+          <p>Online Web Game</p>
         </div>
       </div>
 
@@ -63,13 +63,13 @@
       <section id="homeView" class="home-view active-view">
         <div class="hero-banner">
           <div class="hero-content">
-            <span class="hero-badge">⚡ 60 FPS HTML5 CANVAS • DESKTOP &amp; MOBILE</span>
-            <h2>Chọn Tựa Game Yêu Thích &amp; Chinh Phục Bảng Vàng</h2>
-            <p>Điểm số và kỷ lục Top 3 của mỗi trò chơi được lưu trực tiếp trên thiết bị của bạn. Hỗ trợ điều khiển chuột, bàn phím và cảm ứng mượt mà.</p>
+            <span class="hero-badge">⚡ MIỄN PHÍ 100% • KHÔNG QUẢNG CÁO • MÁY TÍNH &amp; ĐIỆN THOẠI</span>
+            <h2>Chơi Game Online Miễn Phí — Vừa Chơi Vừa Học Vui Thú Cho Thiếu Nhi</h2>
+            <p>Chơi game online miễn phí hoàn toàn không quảng cáo trên cả máy tính và điện thoại, giúp các bé vừa chơi giải trí vừa rèn luyện tư duy, phản xạ, điều khiển chuột và gõ bàn phím bổ ích.</p>
           </div>
           <div class="hero-stats" id="heroStats">
             <div class="stat-box">
-              <span class="stat-num">7</span>
+              <span class="stat-num">9</span>
               <span class="stat-title">Tựa Game</span>
             </div>
             <div class="stat-box">
@@ -134,6 +134,9 @@
 
           <!-- Dynamic Game Mount Area -->
           <div id="gameMount" class="game-mount"></div>
+
+          <!-- In-Game Top 3 Leaderboard Bar (Shown inside Game Detail View) -->
+          <div id="inGameTop3Bar" class="ingame-top3-bar"></div>
         </div>
       </section>
     </main>
@@ -143,7 +146,7 @@
       <div class="modal-card">
         <div class="modal-header">
           <div class="modal-badge">👤 HỒ SƠ NGƯỜI CHƠI</div>
-          <h3 id="nameModalTitle">Chào mừng đến với CyberArcade!</h3>
+          <h3 id="nameModalTitle">Chào mừng đến với Mini Game!</h3>
           <p id="nameModalDesc">Nhập tên của bạn để lưu thành tích vào bảng xếp hạng Top 3 của các trò chơi.</p>
         </div>
         <form id="playerNameForm" class="modal-form" autocomplete="off">
@@ -203,6 +206,8 @@
   <script defer src="js/games/roadrash.js"></script>
   <script defer src="js/games/feedingfrenzy.js"></script>
   <script defer src="js/games/typing.js"></script>
+  <script defer src="js/games/maze.js"></script>
+  <script defer src="js/games/whackamole.js"></script>
 
   <!-- Main Application Entry -->
   <script defer src="js/app.js"></script>
