@@ -113,7 +113,6 @@
     let solution = [];
     let board = [];
     let fixedMask = [];
-    let scoredMask = [];
     let notes = []; // 9x9 array of Set
     let selected = { r: 0, c: 0 };
     let isNoteMode = false;
@@ -216,7 +215,6 @@
       solution = generated.solution;
       board = generated.puzzle.map((r) => r.slice());
       fixedMask = generated.puzzle.map((r) => r.map((val) => val !== 0));
-      scoredMask = generated.puzzle.map((r) => r.map((val) => val !== 0));
       notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
 
       mistakes = 0;
@@ -465,15 +463,11 @@
         clearPeerNotes(r, c, num);
         retrigger(cellEls[r * 9 + c], 'just-filled');
         flashCompletedUnits(r, c);
-        if (!scoredMask[r][c]) {
-          scoredMask[r][c] = true;
-          const gain = Math.round(50 * cfg.multiplier);
-          currentScore += gain;
-          ctx.updateScore(currentScore);
-          statusMsgEl.textContent = `Chính xác! +${gain} điểm`;
-        } else {
-          statusMsgEl.textContent = 'Chính xác!';
-        }
+        // A correct cell can be scored only once: it is locked (no re-entry, no erase)
+        const gain = Math.round(50 * cfg.multiplier);
+        currentScore += gain;
+        ctx.updateScore(currentScore);
+        statusMsgEl.textContent = `Chính xác! +${gain} điểm`;
         statusMsgEl.style.color = '#10b981';
 
         if (checkCompletion()) {
