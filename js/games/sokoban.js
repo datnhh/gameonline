@@ -116,7 +116,17 @@
     let chestOpened = false;
     let transitionTimer = 0;
     let runeAngle = 0;
-    let particles = [];
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(200);
+    let coins = [];
+    let sceneTime = 0;
+    let bumpT = 10;
+    let bumpDir = { r: 0, c: 0 };
+    let chestOpenAge = 0;
+    let lastGained = 0;
 
     container.innerHTML = `
       <div class="game-shell">
@@ -150,7 +160,8 @@
     `;
 
     const canvas = container.querySelector('#sokobanCanvas');
-    const g = canvas.getContext('2d');
+    const hidpi = fx.setupHiDPICanvas(canvas, W, H);
+    const g = hidpi.g;
     const statusBadge = container.querySelector('#skStatusBadge');
     const undoBtn = container.querySelector('#skUndoBtn');
     const resetLevelBtn = container.querySelector('#skResetLevelBtn');
@@ -226,6 +237,8 @@
       const nc = player.c + dc;
       if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || walls[nr][nc]) {
         ArcadeHub.sound.error();
+        bumpT = 0;
+        bumpDir = { r: dr, c: dc };
         return;
       }
 
@@ -235,6 +248,8 @@
         const bc = nc + dc;
         if (br < 0 || br >= rows || bc < 0 || bc >= cols || walls[br][bc] || findBoxAt(br, bc)) {
           ArcadeHub.sound.error();
+          bumpT = 0;
+          bumpDir = { r: dr, c: dc };
           return;
         }
 
@@ -250,8 +265,21 @@
         player.c = nc;
         movesCount++;
 
+        const geo = getBoardGeometry();
+        const bx = geo.startX + bc * geo.cell + geo.cell / 2;
+        const by = geo.startY + br * geo.cell + geo.cell / 2;
+        sparks.burst(bx - dc * geo.cell * 0.4, by - dr * geo.cell * 0.4 + geo.cell * 0.3, {
+          count: 5,
+          kind: 'smoke',
+          speed: [15, 45],
+          life: [0.35, 0.6],
+          size: [4, 7],
+          colors: ['#a8a29e', '#78716c']
+        });
         if (switches[br][bc]) {
           ArcadeHub.sound.boost();
+          sparks.burst(bx, by, { count: 14, kind: 'star', speed: [50, 150], size: [3, 6], colors: ['#4ade80', '#bbf7d0', '#ffffff'] });
+          sparks.ring(bx, by, { from: 8, to: geo.cell * 0.9, color: '#4ade80' });
         } else {
           ArcadeHub.sound.tile();
         }
@@ -279,12 +307,13 @@
       const mult = difficulty === 'hard' ? 1.6 : 1;
       const gained = Math.round((200 + Math.max(20, 120 - movesCount * 3)) * mult);
       score += gained;
+      lastGained = gained;
       ctx.updateScore(score);
       ArcadeHub.sound.win();
 
       // Gold coins burst
       for (let i = 0; i < 28; i++) {
-        particles.push({
+        coins.push({
           x: W / 2 + (Math.random() - 0.5) * 140,
           y: H / 2,
           vx: (Math.random() - 0.5) * 240,
@@ -317,15 +346,6 @@
           loadLevel(levelIdx + 1);
         }
       }
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.vy += 420 * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
     }
 
     function getBoardGeometry() {
@@ -337,153 +357,429 @@
       return { cell, startX, startY };
     }
 
+    // =========================================================
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    function cellHash(r, c) {
+      const v = Math.sin(r * 127.1 + c * 311.7) * 43758.5453;
+      return v - Math.floor(v);
+    }
+
+    function drawFloor(x, y, cell, r, c) {
+      const h = cellHash(r, c);
+      g.fillStyle = (r + c) % 2 === 0 ? '#4a3f30' : '#433829';
+      g.fillRect(x, y, cell, cell);
+      g.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+      g.lineWidth = 1;
+      g.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+      g.fillStyle = 'rgba(255, 237, 213, 0.05)';
+      g.fillRect(x + 2, y + 2, cell - 4, cell * 0.3);
+      if (h > 0.6) {
+        g.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        g.beginPath();
+        g.moveTo(x + cell * 0.2, y + cell * 0.3);
+        g.lineTo(x + cell * 0.45, y + cell * 0.5);
+        g.lineTo(x + cell * 0.4, y + cell * 0.75);
+        g.stroke();
+      }
+    }
+
+    function drawWall(x, y, cell, r, c) {
+      const depth = Math.round(cell * 0.2);
+      const openBelow = r + 1 < rows && !walls[r + 1][c];
+      const topH = openBelow ? cell - depth : cell;
+      // Top face
+      const tg = g.createLinearGradient(0, y, 0, y + topH);
+      tg.addColorStop(0, '#6b7280');
+      tg.addColorStop(1, '#4b5563');
+      g.fillStyle = tg;
+      g.fillRect(x, y, cell, topH);
+      // Brick mortar on the top face
+      g.strokeStyle = 'rgba(17, 24, 39, 0.55)';
+      g.lineWidth = 1.5;
+      const rowsOfBricks = 3;
+      const bh = topH / rowsOfBricks;
+      g.beginPath();
+      for (let k = 1; k < rowsOfBricks; k++) {
+        g.moveTo(x, y + k * bh);
+        g.lineTo(x + cell, y + k * bh);
+      }
+      for (let k = 0; k < rowsOfBricks; k++) {
+        const off = k % 2 === 0 ? cell * 0.5 : cell * 0.25;
+        g.moveTo(x + off, y + k * bh);
+        g.lineTo(x + off, y + (k + 1) * bh);
+        if (k % 2 === 1) {
+          g.moveTo(x + off + cell * 0.5, y + k * bh);
+          g.lineTo(x + off + cell * 0.5, y + (k + 1) * bh);
+        }
+      }
+      g.stroke();
+      g.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      g.fillRect(x, y, cell, 2);
+      // Front face where the floor is visible below
+      if (openBelow) {
+        g.fillStyle = '#1f2937';
+        g.fillRect(x, y + topH, cell, depth);
+        g.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        g.fillRect(x, y + cell, cell, Math.max(3, depth * 0.4));
+      }
+      // Moss
+      const h = cellHash(r, c);
+      if (h > 0.55) {
+        g.fillStyle = 'rgba(74, 222, 128, 0.45)';
+        g.beginPath();
+        g.ellipse(x + cell * (0.2 + h * 0.5), y + topH - 3, cell * 0.16, cell * 0.06, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+
+    function drawTorch(x, y, cell, seed) {
+      const flick = 0.75 + 0.25 * Math.sin(sceneTime * 13 + seed) * Math.sin(sceneTime * 7.3 + seed * 2);
+      fx.glow(g, x, y - cell * 0.12, cell * 1.6, '#f97316', 0.32 * flick);
+      g.fillStyle = '#78350f';
+      g.fillRect(x - 3, y - cell * 0.05, 6, cell * 0.25);
+      g.fillStyle = '#fb923c';
+      g.beginPath();
+      g.moveTo(x, y - cell * 0.32 * flick);
+      g.quadraticCurveTo(x + 7, y - cell * 0.08, x, y - cell * 0.02);
+      g.quadraticCurveTo(x - 7, y - cell * 0.08, x, y - cell * 0.32 * flick);
+      g.fill();
+      g.fillStyle = '#fef08a';
+      g.beginPath();
+      g.ellipse(x, y - cell * 0.08, 2.5, 5 * flick, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    function drawRuneSwitch(cx, cy, cell, active) {
+      const col = active ? '#4ade80' : '#38bdf8';
+      fx.glow(g, cx, cy, cell * 0.65, col, active ? 0.55 : 0.28);
+      g.save();
+      g.translate(cx, cy);
+      g.strokeStyle = fx.rgba(col, 0.9);
+      g.lineWidth = 2.2;
+      g.beginPath();
+      g.arc(0, 0, cell * 0.34, 0, Math.PI * 2);
+      g.stroke();
+      g.rotate(runeAngle * (active ? 2 : 1));
+      g.strokeStyle = fx.rgba(col, 0.7);
+      g.lineWidth = 2;
+      for (let k = 0; k < 6; k++) {
+        g.rotate(Math.PI / 3);
+        g.beginPath();
+        g.moveTo(cell * 0.2, 0);
+        g.lineTo(cell * 0.28, -cell * 0.05);
+        g.lineTo(cell * 0.28, cell * 0.05);
+        g.closePath();
+        g.stroke();
+      }
+      g.restore();
+    }
+
+    function drawCrystal(cx, cy, cell, onSwitch) {
+      const sz = cell * 0.68;
+      const base = onSwitch ? '#22c55e' : '#f59e0b';
+      fx.contactShadow(g, cx, cy + sz * 0.48, sz * 0.46, sz * 0.12, 0.45);
+      if (onSwitch) fx.glow(g, cx, cy, cell * 0.9, '#4ade80', 0.4 + Math.sin(sceneTime * 4) * 0.1);
+      g.save();
+      g.translate(cx, cy);
+      // Octagonal gem block
+      const k = sz * 0.28;
+      const hs = sz / 2;
+      g.beginPath();
+      g.moveTo(-hs + k, -hs);
+      g.lineTo(hs - k, -hs);
+      g.lineTo(hs, -hs + k);
+      g.lineTo(hs, hs - k);
+      g.lineTo(hs - k, hs);
+      g.lineTo(-hs + k, hs);
+      g.lineTo(-hs, hs - k);
+      g.lineTo(-hs, -hs + k);
+      g.closePath();
+      const gg = g.createLinearGradient(-hs, -hs, hs, hs);
+      gg.addColorStop(0, fx.shade(base, 0.45));
+      gg.addColorStop(0.5, base);
+      gg.addColorStop(1, fx.shade(base, -0.4));
+      g.fillStyle = gg;
+      g.fill();
+      g.strokeStyle = fx.shade(base, -0.55);
+      g.lineWidth = 2;
+      g.stroke();
+      // Facets
+      g.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(-hs + k, -hs);
+      g.lineTo(-sz * 0.18, -sz * 0.18);
+      g.lineTo(sz * 0.18, -sz * 0.18);
+      g.lineTo(hs - k, -hs);
+      g.moveTo(-sz * 0.18, -sz * 0.18);
+      g.lineTo(-sz * 0.18, sz * 0.18);
+      g.lineTo(sz * 0.18, sz * 0.18);
+      g.lineTo(sz * 0.18, -sz * 0.18);
+      g.moveTo(-sz * 0.18, sz * 0.18);
+      g.lineTo(-hs + k, hs);
+      g.moveTo(sz * 0.18, sz * 0.18);
+      g.lineTo(hs - k, hs);
+      g.stroke();
+      g.fillStyle = 'rgba(255, 255, 255, 0.55)';
+      g.beginPath();
+      g.ellipse(-sz * 0.12, -sz * 0.28, sz * 0.12, sz * 0.05, -0.4, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    function drawChest(cx, cy, cell) {
+      const w = cell * 0.7;
+      const h = cell * 0.44;
+      const openT = chestOpened ? Math.min(1, chestOpenAge / 0.4) : 0;
+      if (chestOpened) fx.glow(g, cx, cy - h * 0.3, cell * 1.4, '#facc15', 0.6);
+      fx.contactShadow(g, cx, cy + h * 0.6, w * 0.5, h * 0.18, 0.45);
+      g.save();
+      g.translate(cx, cy);
+      g.strokeStyle = '#3f1d0b';
+      g.lineWidth = 2;
+      // Base
+      const bg = g.createLinearGradient(0, -h * 0.1, 0, h * 0.55);
+      bg.addColorStop(0, '#b45309');
+      bg.addColorStop(1, '#78350f');
+      g.fillStyle = bg;
+      fx.roundRectPath(g, -w / 2, -h * 0.1, w, h * 0.65, 4);
+      g.fill();
+      g.stroke();
+      // Gold bands
+      g.fillStyle = '#facc15';
+      g.fillRect(-w / 2 + w * 0.18, -h * 0.1, w * 0.08, h * 0.65);
+      g.fillRect(w / 2 - w * 0.26, -h * 0.1, w * 0.08, h * 0.65);
+      // Lid (tilts back when opened)
+      g.save();
+      g.translate(0, -h * 0.1);
+      g.scale(1, 1 - openT * 1.5);
+      const lg = g.createLinearGradient(0, -h * 0.5, 0, 0);
+      lg.addColorStop(0, '#d97706');
+      lg.addColorStop(1, '#92400e');
+      g.fillStyle = lg;
+      g.beginPath();
+      g.moveTo(-w / 2, 0);
+      g.lineTo(-w / 2, -h * 0.25);
+      g.quadraticCurveTo(0, -h * 0.62, w / 2, -h * 0.25);
+      g.lineTo(w / 2, 0);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.restore();
+      if (chestOpened) {
+        // Treasure inside
+        g.fillStyle = '#fde047';
+        g.beginPath();
+        g.ellipse(0, -h * 0.1, w * 0.4, h * 0.16, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(-w * 0.12, -h * 0.16, 2, 0, Math.PI * 2);
+        g.arc(w * 0.1, -h * 0.12, 1.6, 0, Math.PI * 2);
+        g.fill();
+      } else {
+        // Padlock
+        g.fillStyle = '#e5e7eb';
+        fx.roundRectPath(g, -w * 0.09, -h * 0.02, w * 0.18, h * 0.24, 3);
+        g.fill();
+        g.stroke();
+        g.strokeStyle = '#e5e7eb';
+        g.lineWidth = 2.4;
+        g.beginPath();
+        g.arc(0, -h * 0.02, w * 0.06, Math.PI, 0);
+        g.stroke();
+        g.fillStyle = '#111827';
+        g.fillRect(-1, h * 0.06, 2, h * 0.08);
+      }
+      g.restore();
+    }
+
+    function drawKnight(px, py, cell) {
+      const moving = Math.abs(player.r - player.visR) + Math.abs(player.c - player.visC) > 0.03;
+      const bob = moving && !reduced ? -Math.abs(Math.sin(sceneTime * 22)) * cell * 0.05 : Math.sin(sceneTime * 2.5) * cell * 0.012;
+      const bumpX = bumpT < 0.15 && !reduced ? Math.sin((bumpT / 0.15) * Math.PI) * bumpDir.c * cell * 0.1 : 0;
+      const bumpY = bumpT < 0.15 && !reduced ? Math.sin((bumpT / 0.15) * Math.PI) * bumpDir.r * cell * 0.1 : 0;
+      const s = cell / 64;
+      fx.contactShadow(g, px, py + cell * 0.36, cell * 0.24, cell * 0.07, 0.45);
+      g.save();
+      g.translate(px + bumpX, py + bob + bumpY);
+      g.scale(player.facing * s, s);
+      g.strokeStyle = '#0b1220';
+      g.lineWidth = 2.4;
+      g.lineJoin = 'round';
+      // Cape
+      const sway = Math.sin(sceneTime * 4) * 2;
+      g.fillStyle = '#dc2626';
+      g.beginPath();
+      g.moveTo(-8, -6);
+      g.lineTo(-20 + sway, 20);
+      g.lineTo(-4, 18);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      // Body armour
+      const ag = g.createLinearGradient(-12, 0, 12, 0);
+      ag.addColorStop(0, '#cbd5e1');
+      ag.addColorStop(1, '#64748b');
+      g.fillStyle = ag;
+      fx.roundRectPath(g, -11, -6, 22, 24, 7);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#facc15';
+      g.fillRect(-11, 6, 22, 3);
+      // Legs
+      g.fillStyle = '#475569';
+      g.fillRect(-9, 17, 7, 7);
+      g.fillRect(2, 17, 7, 7);
+      // Helmet
+      const hg = g.createRadialGradient(-4, -24, 2, 0, -18, 16);
+      hg.addColorStop(0, '#f1f5f9');
+      hg.addColorStop(1, '#94a3b8');
+      g.fillStyle = hg;
+      g.beginPath();
+      g.arc(0, -18, 13, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      // Plume
+      g.fillStyle = '#ef4444';
+      g.beginPath();
+      g.moveTo(-2, -30);
+      g.quadraticCurveTo(-14 + sway, -42, -16 + sway, -26);
+      g.quadraticCurveTo(-8, -32, -2, -30);
+      g.fill();
+      // Visor + eyes
+      g.fillStyle = '#0b1220';
+      fx.roundRectPath(g, -3, -22, 15, 7, 3);
+      g.fill();
+      g.fillStyle = '#fde047';
+      g.fillRect(2, -20, 3, 3);
+      g.fillRect(7, -20, 3, 3);
+      // Shield
+      g.fillStyle = '#2563eb';
+      g.beginPath();
+      g.moveTo(8, -2);
+      g.lineTo(20, -2);
+      g.lineTo(20, 8);
+      g.quadraticCurveTo(14, 18, 14, 18);
+      g.quadraticCurveTo(8, 12, 8, 8);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#facc15';
+      g.fillRect(13, 0, 2, 12);
+      g.fillRect(9.5, 4, 9, 2);
+      g.restore();
+    }
+
+    function updatePresentation(dt) {
+      sceneTime += dt;
+      sparks.update(dt);
+      if (bumpT < 10) bumpT += dt;
+      if (chestOpened) chestOpenAge += dt;
+      else chestOpenAge = 0;
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const p = coins[i];
+        p.vy += 420 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= dt;
+        if (p.life <= 0) coins.splice(i, 1);
+      }
+    }
+
     function render() {
-      g.fillStyle = '#090d16';
+      hidpi.apply();
+      // Dungeon backdrop
+      const bg = g.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W * 0.7);
+      bg.addColorStop(0, '#1c1917');
+      bg.addColorStop(1, '#0a0806');
+      g.fillStyle = bg;
       g.fillRect(0, 0, W, H);
 
       const { cell, startX, startY } = getBoardGeometry();
+      g.save();
+      fx.roundRectPath(g, startX - 10, startY - 10, cols * cell + 20, rows * cell + 20, 14);
+      g.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      g.fill();
+      g.restore();
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const x = startX + c * cell;
           const y = startY + r * cell;
-
-          if (walls[r][c]) {
-            g.fillStyle = '#334155';
-            g.strokeStyle = '#475569';
-            g.lineWidth = 2;
-            g.fillRect(x, y, cell, cell);
-            g.strokeRect(x + 2, y + 2, cell - 4, cell - 4);
-            // Brick line detail
-            g.fillStyle = '#1e293b';
-            g.fillRect(x + 6, y + cell / 2 - 2, cell - 12, 4);
-          } else {
-            g.fillStyle = (r + c) % 2 === 0 ? '#1e293b' : '#172033';
-            g.fillRect(x, y, cell, cell);
-
+          if (!walls[r][c]) {
+            drawFloor(x, y, cell, r, c);
             if (switches[r][c]) {
-              // Glowing rotating magic rune switch
-              g.save();
-              g.translate(x + cell / 2, y + cell / 2);
-              g.rotate(runeAngle);
-              g.strokeStyle = '#38bdf8';
-              g.lineWidth = 2.5;
-              g.setLineDash([6, 4]);
-              g.beginPath();
-              g.arc(0, 0, cell * 0.3, 0, Math.PI * 2);
-              g.stroke();
-              g.setLineDash([]);
-              g.fillStyle = 'rgba(56, 189, 248, 0.28)';
-              g.fill();
-              g.restore();
+              const active = !!findBoxAt(r, c);
+              drawRuneSwitch(x + cell / 2, y + cell / 2, cell, active);
             }
           }
         }
       }
-
-      // Draw Treasure Chest
-      {
-        const cx = startX + chestPos.c * cell + cell / 2;
-        const cy = startY + chestPos.r * cell + cell / 2;
-        g.save();
-        g.translate(cx, cy);
-        g.fillStyle = chestOpened ? '#facc15' : '#b45309';
-        g.strokeStyle = '#fef08a';
-        g.lineWidth = 2.5;
-        g.beginPath();
-        g.roundRect(-cell * 0.34, -cell * 0.26, cell * 0.68, cell * 0.52, 6);
-        g.fill();
-        g.stroke();
-        g.font = `${Math.round(cell * 0.42)}px sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(chestOpened ? '👑' : '🔒', 0, 2);
-        g.restore();
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (walls[r][c]) drawWall(startX + c * cell, startY + r * cell, cell, r, c);
+        }
+      }
+      // Torches on the top wall
+      for (let c = 2; c < cols - 1; c += 3) {
+        drawTorch(startX + c * cell + cell / 2, startY + cell * 0.55, cell, c);
       }
 
-      // Draw Magic Stones (Boxes) with smooth sliding position
+      drawChest(startX + chestPos.c * cell + cell / 2, startY + chestPos.r * cell + cell / 2, cell);
+
       boxes.forEach((b) => {
         const vr = b.visR != null ? b.visR : b.r;
         const vc = b.visC != null ? b.visC : b.c;
-        const x = startX + vc * cell + cell / 2;
-        const y = startY + vr * cell + cell / 2;
-        const onSwitch = switches[b.r][b.c];
-
-        g.save();
-        g.translate(x, y);
-        g.fillStyle = onSwitch ? '#22c55e' : '#f59e0b';
-        g.strokeStyle = onSwitch ? '#bbf7d0' : '#fef08a';
-        g.lineWidth = 3;
-        const sz = cell * 0.72;
-        g.beginPath();
-        g.roundRect(-sz / 2, -sz / 2, sz, sz, 10);
-        g.fill();
-        g.stroke();
-
-        g.font = `${Math.round(cell * 0.42)}px sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(onSwitch ? '✨' : '💎', 0, 2);
-        g.restore();
+        drawCrystal(startX + vc * cell + cell / 2, startY + vr * cell + cell / 2, cell, switches[b.r][b.c]);
       });
 
-      // Draw Hero Knight with smooth sliding position
       {
         const vr = player.visR != null ? player.visR : player.r;
         const vc = player.visC != null ? player.visC : player.c;
-        const px = startX + vc * cell + cell / 2;
-        const py = startY + vr * cell + cell / 2;
-        g.save();
-        g.translate(px, py);
-
-        // Cape
-        g.fillStyle = '#dc2626';
-        g.beginPath();
-        g.arc(-player.facing * 6, 4, cell * 0.28, 0, Math.PI * 2);
-        g.fill();
-
-        // Helmet/Head
-        g.fillStyle = '#38bdf8';
-        g.strokeStyle = '#f8fafc';
-        g.lineWidth = 2.5;
-        g.beginPath();
-        g.arc(0, 0, cell * 0.32, 0, Math.PI * 2);
-        g.fill();
-        g.stroke();
-
-        // Visor eyes
-        g.fillStyle = '#090d16';
-        g.fillRect(-8, -4, 16, 6);
-        g.fillStyle = '#facc15';
-        g.fillRect(-5 + player.facing * 2, -3, 4, 4);
-        g.fillRect(2 + player.facing * 2, -3, 4, 4);
-
-        g.restore();
+        drawKnight(startX + vc * cell + cell / 2, startY + vr * cell + cell / 2, cell);
       }
 
+      sparks.draw(g);
+
       // Gold coins celebration
-      particles.forEach((p) => {
-        g.save();
+      coins.forEach((p) => {
+        const spin = Math.abs(Math.cos(sceneTime * 10 + p.vx));
         g.fillStyle = '#facc15';
-        g.strokeStyle = '#ca8a04';
-        g.lineWidth = 2;
+        g.strokeStyle = '#a16207';
+        g.lineWidth = 1.6;
         g.beginPath();
-        g.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        g.ellipse(p.x, p.y, 7 * Math.max(0.2, spin), 7, 0, 0, Math.PI * 2);
         g.fill();
         g.stroke();
-        g.restore();
       });
 
+      // HUD strip
+      const activeCount = boxes.filter((b) => switches[b.r][b.c]).length;
+      fx.outlinedText(g, `🏛 MÀN ${levelIdx + 1}/${LEVELS[difficulty].length}`, 20, 22, { size: 15, color: '#fde68a', align: 'left' });
+      fx.outlinedText(g, `💎 ${activeCount}/${boxes.length}  •  👣 ${movesCount}`, W - 20, 22, {
+        size: 15,
+        color: activeCount === boxes.length ? '#86efac' : '#e2e8f0',
+        align: 'right'
+      });
+      g.fillStyle = 'rgba(226, 232, 240, 0.55)';
+      g.font = fx.font(12, 600);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('Đẩy đá quý lên các ô phép thuật để mở rương • Z: đi lại', W / 2, H - 16);
+
+      fx.vignette(g, W, H, 0.35);
+
       if (chestOpened) {
-        g.fillStyle = 'rgba(15, 23, 42, 0.78)';
-        g.fillRect(W / 2 - 210, H / 2 - 48, 420, 96);
-        g.strokeStyle = '#facc15';
-        g.lineWidth = 3;
-        g.strokeRect(W / 2 - 210, H / 2 - 48, 420, 96);
-        g.fillStyle = '#facc15';
-        g.font = '900 24px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('🎉 KHO BÁU ĐÃ MỞ! QUA MÀN! 🎉', W / 2, H / 2 + 6);
+        const last = levelIdx === LEVELS[difficulty].length - 1;
+        fx.drawBanner(g, W, H, '🎉 KHO BÁU ĐÃ MỞ!', {
+          t: chestOpenAge,
+          duration: 1.6,
+          accent: '#facc15',
+          sub: last ? `+${lastGained} điểm • Hoàn thành cả ${LEVELS[difficulty].length} màn!` : `+${lastGained} điểm • Sang màn ${levelIdx + 2}`,
+          size: 36
+        });
       }
     }
 
@@ -567,6 +863,7 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       update(dt);
       render();
       animId = requestAnimationFrame(loop);
