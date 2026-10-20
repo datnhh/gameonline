@@ -99,12 +99,31 @@
     };
 
     let drones = [];
-    let particles = [];
     let popups = [];
     let pointerDragging = false;
     let pointerCell = null;
     let dragStepCooldown = 0;
     let celebrationTimer = 0;
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const sparks = fx.createParticles(280);
+    const camShake = fx.createShake(8);
+    const wallLayer = document.createElement('canvas');
+    let wallLayerKey = '';
+    let mazeVersion = 0;
+    let lastClearBonus = 0;
+    let isPaused = false;
+    let sceneTime = 0;
+    let overlayT = 0;
+    let overlayKey = '';
+    let hurtTimer = 0;
+    const fireflies = Array.from({ length: 18 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      a: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.5
+    }));
 
     const shell = document.createElement('div');
     shell.className = 'game-shell';
@@ -121,6 +140,7 @@
           <button type="button" class="pill-btn active" data-diff="easy">🟢 Dễ</button>
           <button type="button" class="pill-btn" data-diff="hard">🔴 Khó (Có Robot tuần tra)</button>
           <button type="button" class="pill-btn" id="mazeHintBtn">💡 Chỉ đường</button>
+          <button type="button" class="pill-btn" id="mazePauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
         </div>
       </div>
 
@@ -149,6 +169,7 @@
     const canvas = shell.querySelector('#mazeCanvas');
     const g2d = canvas.getContext('2d');
     const hintBtn = shell.querySelector('#mazeHintBtn');
+    const pauseBtn = shell.querySelector('#mazePauseBtn');
 
     function getCfg() {
       return DIFFICULTY_MODES[difficulty] || DIFFICULTY_MODES.easy;
@@ -253,6 +274,7 @@
       player.visC = 0;
       player.invincible = 0;
       grid[0][0].crumb = true;
+      mazeVersion += 1;
       showHint = false;
       hintBtn.classList.remove('active');
       computeShortestPath();
@@ -297,8 +319,11 @@
       lives = cfg.maxLives;
       isGameOver = false;
       celebrationTimer = 0;
-      particles = [];
       popups = [];
+      sparks.clear();
+      camShake.reset();
+      hurtTimer = 0;
+      setPaused(false);
       ctx.updateScore(0);
       generateMaze();
     }
@@ -330,19 +355,13 @@
     }
 
     function spawnSparkles(cx, cy, color, count) {
-      for (let i = 0; i < (count || 12); i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const spd = 30 + Math.random() * 90;
-        particles.push({
-          x: cx,
-          y: cy,
-          vx: Math.cos(ang) * spd,
-          vy: Math.sin(ang) * spd,
-          r: 2.5 + Math.random() * 3.5,
-          color: color || '#facc15',
-          life: 0.45 + Math.random() * 0.3
-        });
-      }
+      sparks.burst(cx, cy, {
+        count: count || 12,
+        speed: [30, 120],
+        life: [0.4, 0.75],
+        size: [2.5, 5],
+        colors: [color || '#facc15', '#ffffff']
+      });
     }
 
     function addPopup(x, y, text, color) {
@@ -357,7 +376,7 @@
     }
 
     function tryMovePlayer(dr, dc) {
-      if (isGameOver || celebrationTimer > 0) return false;
+      if (isGameOver || isPaused || celebrationTimer > 0) return false;
       const r = player.r;
       const c = player.c;
       const cell = grid[r][c];
@@ -390,6 +409,8 @@
         ctx.updateScore(score);
         ArcadeHub.sound.move();
         addPopup(px, py - 12, `⭐ +${pts}`, '#facc15');
+        sparks.burst(px, py, { count: 10, kind: 'star', speed: [60, 160], size: [3, 6], colors: ['#fde047', '#facc15', '#fff7cc'] });
+        sparks.ring(px, py, { to: 34, color: '#fde047' });
       }
 
       if (showHint) {
@@ -403,13 +424,19 @@
         score += clearBonus;
         ctx.updateScore(score);
         celebrationTimer = 1.6;
-        spawnSparkles(px, py, '#f43f5e', 32);
-        addPopup(
-          width / 2,
-          height / 2,
-          `🎉 ĐÃ CỨU CÔNG CHÚA! +${clearBonus} ĐIỂM (SANG MÀN ${level + 1})`,
-          '#facc15'
-        );
+        lastClearBonus = clearBonus;
+        spawnSparkles(px, py, '#f43f5e', 24);
+        sparks.burst(px, py, {
+          count: 46,
+          kind: 'confetti',
+          speed: [120, 320],
+          life: [0.9, 1.5],
+          size: [4, 7],
+          gravity: 260,
+          drag: 1.2,
+          colors: ['#f472b6', '#facc15', '#38bdf8', '#4ade80', '#ffffff']
+        });
+        sparks.ring(px, py, { to: cellSize * 2.2, color: '#f472b6' });
         ctx.submitHighScore(
           score,
           `${getHero().name} • Màn ${level} (${getCfg().label})`
@@ -485,6 +512,8 @@
         ) {
           lives -= 1;
           player.invincible = 2.0;
+          hurtTimer = 0.45;
+          camShake.add(0.6);
           ArcadeHub.sound.hit();
           const { cellSize, offsetX, offsetY } = getMazeMetrics();
           addPopup(
@@ -505,14 +534,6 @@
         }
       });
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const pt = particles[i];
-        pt.x += pt.vx * dt;
-        pt.y += pt.vy * dt;
-        pt.life -= dt;
-        if (pt.life <= 0) particles.splice(i, 1);
-      }
-
       for (let i = popups.length - 1; i >= 0; i--) {
         const pp = popups[i];
         pp.y += pp.vy * dt;
@@ -528,7 +549,7 @@
       const r = size * 0.36;
       g2d.save();
       g2d.translate(cx, cy);
-      if (player.invincible > 0 && Math.floor(performance.now() / 90) % 2 === 0) {
+      if (player.invincible > 0 && Math.floor(sceneTime * 11) % 2 === 0) {
         g2d.globalAlpha = 0.5;
       }
 
@@ -543,7 +564,7 @@
 
       // Flowing Cape for Superman & Batman
       if (hero.capeColor) {
-        const wave = Math.sin(performance.now() * 0.008) * 3;
+        const wave = Math.sin(sceneTime * 8) * 3;
         g2d.fillStyle = hero.capeColor;
         g2d.beginPath();
         g2d.moveTo(-r * 0.55, -r * 0.2);
@@ -638,7 +659,7 @@
       g2d.translate(cx, cy);
 
       // Pulsing Pink Rescue Halo
-      const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.12;
+      const pulse = 1 + Math.sin(sceneTime * 6) * 0.12;
       g2d.fillStyle = 'rgba(244, 114, 182, 0.25)';
       g2d.beginPath();
       g2d.arc(0, 0, r * 1.35 * pulse, 0, Math.PI * 2);
@@ -682,82 +703,197 @@
       g2d.restore();
     }
 
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    function drawVectorStar(cx, cy, r, fill) {
+      g2d.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const rr = k % 2 === 0 ? r : r * 0.45;
+        const a = -Math.PI / 2 + (k / 10) * Math.PI * 2;
+        g2d.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      g2d.closePath();
+      g2d.fillStyle = fill;
+      g2d.fill();
+    }
+
+    function drawHudHeart(x, y, s, empty) {
+      g2d.save();
+      g2d.translate(x, y);
+      g2d.scale(s / 20, s / 20);
+      g2d.beginPath();
+      g2d.moveTo(0, 6);
+      g2d.bezierCurveTo(-12, -2, -10, -14, 0, -7);
+      g2d.bezierCurveTo(10, -14, 12, -2, 0, 6);
+      g2d.closePath();
+      g2d.fillStyle = empty ? 'rgba(148, 163, 184, 0.25)' : '#f43f5e';
+      g2d.fill();
+      if (!empty) {
+        g2d.fillStyle = 'rgba(255,255,255,0.65)';
+        g2d.beginPath();
+        g2d.ellipse(-4.5, -6, 2.4, 1.6, -0.6, 0, Math.PI * 2);
+        g2d.fill();
+      }
+      g2d.restore();
+    }
+
+    // Static maze art (floor tiles + hedge walls) is cached in an offscreen canvas and
+    // rebuilt only when the maze or canvas size changes.
+    function rebuildWallLayer(metrics) {
+      const { cellSize, boardW, boardH, offsetX, offsetY } = metrics;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      wallLayer.width = Math.max(1, Math.round(width * dpr));
+      wallLayer.height = Math.max(1, Math.round(height * dpr));
+      const w = wallLayer.getContext('2d');
+      w.setTransform(dpr, 0, 0, dpr, 0, 0);
+      w.clearRect(0, 0, width, height);
+
+      // Soft drop shadow under the whole garden
+      w.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      fx.roundRectPath(w, offsetX - 6, offsetY + 4, boardW + 12, boardH + 12, 14);
+      w.fill();
+
+      // Stone-path floor with subtle checker + speckles
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = offsetX + c * cellSize;
+          const y = offsetY + r * cellSize;
+          w.fillStyle = (r + c) % 2 === 0 ? '#3f3a2e' : '#38342a';
+          w.fillRect(x, y, cellSize, cellSize);
+          w.fillStyle = 'rgba(255, 255, 255, 0.04)';
+          w.fillRect(x + 2, y + 2, cellSize - 4, cellSize * 0.4);
+          const seed = (r * 31 + c * 17) % 7;
+          w.fillStyle = 'rgba(0, 0, 0, 0.18)';
+          w.beginPath();
+          w.arc(x + cellSize * (0.25 + seed * 0.07), y + cellSize * (0.7 - seed * 0.05), cellSize * 0.04, 0, Math.PI * 2);
+          w.fill();
+        }
+      }
+
+      // Hedge walls: shadow pass, side pass, then lit top pass with leaf texture
+      const t = Math.max(6, cellSize * 0.2);
+      const segs = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = grid[r][c];
+          const x = offsetX + c * cellSize;
+          const y = offsetY + r * cellSize;
+          if (cell.top) segs.push([x, y, x + cellSize, y]);
+          if (cell.left) segs.push([x, y, x, y + cellSize]);
+          if (c === cols - 1 && cell.right) segs.push([x + cellSize, y, x + cellSize, y + cellSize]);
+          if (r === rows - 1 && cell.bottom) segs.push([x, y + cellSize, x + cellSize, y + cellSize]);
+        }
+      }
+      function hedgePass(dx, dy, style, extra) {
+        w.strokeStyle = style;
+        w.lineWidth = t + (extra || 0);
+        w.lineCap = 'round';
+        w.beginPath();
+        segs.forEach(([x1, y1, x2, y2]) => {
+          w.moveTo(x1 + dx, y1 + dy);
+          w.lineTo(x2 + dx, y2 + dy);
+        });
+        w.stroke();
+      }
+      hedgePass(t * 0.25, t * 0.55, 'rgba(0, 0, 0, 0.45)', 2);
+      hedgePass(0, t * 0.35, '#14532d', 0);
+      hedgePass(0, 0, '#22c55e', 0);
+      hedgePass(0, -t * 0.12, '#4ade80', -t * 0.45);
+
+      // Leaf speckles along each hedge
+      segs.forEach(([x1, y1, x2, y2], idx) => {
+        const len = Math.hypot(x2 - x1, y2 - y1);
+        const steps = Math.max(2, Math.floor(len / (t * 0.8)));
+        for (let k = 0; k <= steps; k++) {
+          const px = x1 + ((x2 - x1) * k) / steps;
+          const py = y1 + ((y2 - y1) * k) / steps;
+          const jitter = ((idx * 13 + k * 7) % 5) - 2;
+          w.fillStyle = (idx + k) % 3 === 0 ? 'rgba(187, 247, 208, 0.55)' : 'rgba(21, 128, 61, 0.65)';
+          w.beginPath();
+          w.arc(px + jitter * 0.6, py - t * 0.1 + jitter * 0.4, t * 0.16, 0, Math.PI * 2);
+          w.fill();
+        }
+      });
+
+      // Little flowers on random hedge corners
+      for (let r = 0; r <= rows; r += 2) {
+        for (let c = 0; c <= cols; c += 3) {
+          const fxp = offsetX + c * cellSize;
+          const fyp = offsetY + r * cellSize;
+          w.fillStyle = (r + c) % 2 === 0 ? '#f472b6' : '#fde047';
+          w.beginPath();
+          w.arc(fxp, fyp - t * 0.15, t * 0.2, 0, Math.PI * 2);
+          w.fill();
+        }
+      }
+      wallLayerKey = `${mazeVersion}|${width}|${height}|${cellSize}`;
+    }
+
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      sparks.update(dt);
+      camShake.update(dt);
+      if (hurtTimer > 0) hurtTimer = Math.max(0, hurtTimer - dt);
+      fireflies.forEach((f) => {
+        f.a += dt * f.speed;
+      });
+    }
+
     function drawScene() {
       const cfg = getCfg();
       const hero = getHero();
-      const { cellSize, boardW, boardH, offsetX, offsetY } = getMazeMetrics();
+      const metrics = getMazeMetrics();
+      const { cellSize, boardW, boardH, offsetX, offsetY } = metrics;
 
-      // Background
+      // Twilight garden backdrop
       const bgGrad = g2d.createLinearGradient(0, 0, 0, height);
-      bgGrad.addColorStop(0, '#0f172a');
-      bgGrad.addColorStop(1, '#1e1b4b');
+      bgGrad.addColorStop(0, '#1e1b4b');
+      bgGrad.addColorStop(0.6, '#312e81');
+      bgGrad.addColorStop(1, '#14532d');
       g2d.fillStyle = bgGrad;
       g2d.fillRect(0, 0, width, height);
+      fx.glow(g2d, width * 0.85, height * 0.2, Math.min(width, height) * 0.5, '#f472b6', 0.18);
+      fx.glow(g2d, width * 0.1, height * 0.9, Math.min(width, height) * 0.6, '#22c55e', 0.15);
 
-      // Top HUD inside Canvas
       g2d.save();
-      g2d.fillStyle = 'rgba(9, 13, 24, 0.84)';
-      g2d.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-      g2d.lineWidth = 1.8;
-      g2d.beginPath();
-      g2d.roundRect(14, 8, width - 28, 42, 10);
-      g2d.fill();
-      g2d.stroke();
+      camShake.apply(g2d);
 
-      g2d.font = '800 16px "Segoe UI", sans-serif';
-      g2d.textAlign = 'left';
-      const heartsStr = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, cfg.maxLives - lives));
-      g2d.fillText(heartsStr, 26, 35);
+      const key = `${mazeVersion}|${width}|${height}|${cellSize}`;
+      if (key !== wallLayerKey) rebuildWallLayer(metrics);
 
-      g2d.textAlign = 'center';
-      g2d.fillStyle = '#38bdf8';
-      g2d.font = '800 15px "Segoe UI", sans-serif';
-      g2d.fillText(
-        `🏰 MÀN ${level} • ${hero.name.toUpperCase()} GIẢI CỨU CÔNG CHÚA`,
-        width / 2,
-        34
-      );
+      // Cached floor + hedges, then dynamic trail/stars/hint on top
+      g2d.drawImage(wallLayer, 0, 0, width, height);
 
-      g2d.textAlign = 'right';
-      g2d.fillStyle = '#facc15';
-      g2d.font = '900 18px "Segoe UI", sans-serif';
-      g2d.fillText(`🏆 ${score.toLocaleString('vi-VN')} ĐIỂM`, width - 26, 35);
-      g2d.restore();
-
-      // Maze Floor
-      g2d.fillStyle = '#1e293b';
-      g2d.fillRect(offsetX, offsetY, boardW, boardH);
-
-      // Draw Breadcrumbs & Stars
+      // Breadcrumb trail: soft glowing footprints in the hero's colour
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cell = grid[r][c];
           const cx = offsetX + (c + 0.5) * cellSize;
           const cy = offsetY + (r + 0.5) * cellSize;
-
           if (cell.crumb) {
             g2d.fillStyle = hero.trailColor;
             g2d.beginPath();
-            g2d.arc(cx, cy, cellSize * 0.14, 0, Math.PI * 2);
+            g2d.arc(cx, cy, cellSize * 0.12, 0, Math.PI * 2);
             g2d.fill();
           }
-
           if (cell.star) {
-            g2d.fillStyle = '#facc15';
-            g2d.font = `${Math.floor(cellSize * 0.42)}px sans-serif`;
-            g2d.textAlign = 'center';
-            g2d.textBaseline = 'middle';
-            g2d.fillText('⭐', cx, cy);
+            const bob = Math.sin(sceneTime * 3 + r * 1.3 + c) * cellSize * 0.05;
+            fx.glow(g2d, cx, cy + bob, cellSize * 0.5, '#fde047', 0.45);
+            g2d.save();
+            g2d.translate(cx, cy + bob);
+            g2d.rotate(Math.sin(sceneTime * 2 + c) * 0.25);
+            drawVectorStar(0, 0, cellSize * 0.24, '#facc15');
+            drawVectorStar(-cellSize * 0.03, -cellSize * 0.03, cellSize * 0.12, '#fef9c3');
+            g2d.restore();
           }
         }
       }
 
-      // Draw Hint Path if enabled
+      // Hint path: flowing golden light
       if (showHint && hintPath.length > 1) {
         g2d.save();
-        g2d.strokeStyle = 'rgba(250, 204, 21, 0.78)';
-        g2d.lineWidth = Math.max(4, cellSize * 0.14);
-        g2d.setLineDash([8, 6]);
         g2d.lineCap = 'round';
         g2d.lineJoin = 'round';
         g2d.beginPath();
@@ -767,105 +903,167 @@
           if (idx === 0) g2d.moveTo(hx, hy);
           else g2d.lineTo(hx, hy);
         });
+        g2d.strokeStyle = 'rgba(250, 204, 21, 0.25)';
+        g2d.lineWidth = Math.max(8, cellSize * 0.3);
+        g2d.stroke();
+        g2d.strokeStyle = 'rgba(254, 240, 138, 0.95)';
+        g2d.lineWidth = Math.max(3, cellSize * 0.1);
+        g2d.setLineDash([cellSize * 0.18, cellSize * 0.22]);
+        g2d.lineDashOffset = -sceneTime * cellSize * 1.4;
         g2d.stroke();
         g2d.restore();
       }
 
-      // Draw Maze Walls (3D Neon Stone Hedge Style)
-      g2d.strokeStyle = '#38bdf8';
-      g2d.lineWidth = 4;
-      g2d.lineCap = 'round';
-      g2d.beginPath();
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = grid[r][c];
-          const x = offsetX + c * cellSize;
-          const y = offsetY + r * cellSize;
-          if (cell.top) {
-            g2d.moveTo(x, y);
-            g2d.lineTo(x + cellSize, y);
-          }
-          if (cell.right) {
-            g2d.moveTo(x + cellSize, y);
-            g2d.lineTo(x + cellSize, y + cellSize);
-          }
-          if (cell.bottom) {
-            g2d.moveTo(x, y + cellSize);
-            g2d.lineTo(x + cellSize, y + cellSize);
-          }
-          if (cell.left) {
-            g2d.moveTo(x, y);
-            g2d.lineTo(x, y + cellSize);
-          }
-        }
-      }
-      g2d.stroke();
-
-      // Draw Princess at Goal Cell (rows - 1, cols - 1)
+      // Princess at the goal, framed by a glowing garden arch
       const goalX = offsetX + (cols - 0.5) * cellSize;
       const goalY = offsetY + (rows - 0.5) * cellSize;
+      fx.glow(g2d, goalX, goalY, cellSize * 1.4, '#f472b6', 0.5 + Math.sin(sceneTime * 3) * 0.15);
       drawPrincessGoal(goalX, goalY, cellSize);
 
-      // Draw Patrol Drones (Hard Mode)
-      drones.forEach((d) => {
+      // Patrol robots (hard mode): metallic body, scanning eye, danger aura
+      drones.forEach((d, idx) => {
         const dx = offsetX + (d.visC + 0.5) * cellSize;
-        const dy = offsetY + (d.visR + 0.5) * cellSize;
+        const dy = offsetY + (d.visR + 0.5) * cellSize + Math.sin(sceneTime * 4 + idx) * cellSize * 0.04;
+        const rr = cellSize * 0.28;
         g2d.save();
         g2d.translate(dx, dy);
-        g2d.fillStyle = '#ef4444';
-        g2d.strokeStyle = '#090d16';
+        g2d.strokeStyle = `rgba(239, 68, 68, ${0.35 + Math.sin(sceneTime * 6 + idx) * 0.2})`;
         g2d.lineWidth = 2;
         g2d.beginPath();
-        g2d.arc(0, 0, cellSize * 0.28, 0, Math.PI * 2);
+        g2d.arc(0, 0, rr * 1.5, 0, Math.PI * 2);
+        g2d.stroke();
+        fx.contactShadow(g2d, 0, rr * 1.05, rr * 0.8, rr * 0.25, 0.4);
+        const body = g2d.createRadialGradient(-rr * 0.3, -rr * 0.4, 1, 0, 0, rr);
+        body.addColorStop(0, '#f1f5f9');
+        body.addColorStop(0.5, '#94a3b8');
+        body.addColorStop(1, '#334155');
+        g2d.fillStyle = body;
+        g2d.strokeStyle = '#0f172a';
+        g2d.lineWidth = 2;
+        g2d.beginPath();
+        g2d.arc(0, 0, rr, 0, Math.PI * 2);
         g2d.fill();
         g2d.stroke();
-        g2d.fillStyle = '#fef08a';
+        // Antenna
         g2d.beginPath();
-        g2d.arc(0, -2, cellSize * 0.1, 0, Math.PI * 2);
+        g2d.moveTo(0, -rr);
+        g2d.lineTo(0, -rr * 1.45);
+        g2d.stroke();
+        fx.glow(g2d, 0, -rr * 1.5, rr * 0.5, '#ef4444', Math.sin(sceneTime * 8 + idx) > 0 ? 0.9 : 0.3);
+        // Visor + scanning eye
+        g2d.fillStyle = '#0f172a';
+        fx.roundRectPath(g2d, -rr * 0.7, -rr * 0.3, rr * 1.4, rr * 0.5, rr * 0.25);
+        g2d.fill();
+        const eyeX = Math.sin(sceneTime * 3 + idx) * rr * 0.45;
+        fx.glow(g2d, eyeX, -rr * 0.05, rr * 0.6, '#ef4444', 0.8);
+        g2d.fillStyle = '#fecaca';
+        g2d.beginPath();
+        g2d.arc(eyeX, -rr * 0.05, rr * 0.12, 0, Math.PI * 2);
         g2d.fill();
         g2d.restore();
       });
 
-      // Draw Player Superhero
+      // Hero
       const px = offsetX + (player.visC + 0.5) * cellSize;
       const py = offsetY + (player.visR + 0.5) * cellSize;
-      drawSuperhero(px, py, cellSize, hero);
+      const moving = Math.abs(player.r - player.visR) + Math.abs(player.c - player.visC) > 0.02;
+      const hop = moving ? -Math.abs(Math.sin(sceneTime * 18)) * cellSize * 0.06 : 0;
+      fx.glow(g2d, px, py, cellSize * 0.8, hero.particleColor, 0.18);
+      drawSuperhero(px, py + hop, cellSize, hero);
 
-      // Particles & Popups
-      particles.forEach((pt) => {
-        g2d.fillStyle = pt.color;
+      sparks.draw(g2d);
+
+      // Fireflies drifting over the garden
+      g2d.save();
+      g2d.globalCompositeOperation = 'lighter';
+      fireflies.forEach((f) => {
+        const fxp = (f.x * width + Math.sin(f.a) * 30 + width) % width;
+        const fyp = (f.y * height + Math.cos(f.a * 0.7) * 20 + height) % height;
+        const a = 0.35 + Math.sin(f.a * 3) * 0.35;
+        if (a <= 0.05) return;
+        g2d.fillStyle = `rgba(253, 230, 138, ${a})`;
         g2d.beginPath();
-        g2d.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+        g2d.arc(fxp, fyp, 1.8, 0, Math.PI * 2);
+        g2d.fill();
+        g2d.fillStyle = `rgba(253, 230, 138, ${a * 0.25})`;
+        g2d.beginPath();
+        g2d.arc(fxp, fyp, 6, 0, Math.PI * 2);
         g2d.fill();
       });
+      g2d.restore();
 
       popups.forEach((pp) => {
+        const a = Math.max(0, Math.min(1, pp.alpha));
         g2d.save();
-        g2d.globalAlpha = Math.max(0, pp.alpha);
-        g2d.fillStyle = pp.color;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 3;
-        g2d.font = '800 16px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.strokeText(pp.text, pp.x, pp.y);
-        g2d.fillText(pp.text, pp.x, pp.y);
+        g2d.globalAlpha = a;
+        fx.outlinedText(g2d, pp.text, pp.x, pp.y, { size: Math.max(13, Math.min(17, cellSize * 0.32)), color: pp.color });
         g2d.restore();
       });
+      g2d.restore();
 
+      // Top HUD
+      g2d.save();
+      fx.roundRectPath(g2d, 14, 8, width - 28, 42, 12);
+      g2d.fillStyle = 'rgba(15, 23, 42, 0.82)';
+      g2d.fill();
+      g2d.strokeStyle = 'rgba(134, 239, 172, 0.45)';
+      g2d.lineWidth = 1.5;
+      g2d.stroke();
+      for (let i = 0; i < cfg.maxLives; i++) {
+        drawHudHeart(34 + i * 22, 30, 18, i >= lives);
+      }
+      g2d.textAlign = 'center';
+      g2d.textBaseline = 'middle';
+      const title = width < 620 ? `🏰 MÀN ${level}` : `🏰 MÀN ${level} • ${hero.name.toUpperCase()} GIẢI CỨU CÔNG CHÚA`;
+      const ts = fx.fitFontSize(g2d, title, width * 0.5, 15, 10, 800);
+      g2d.font = fx.font(ts, 800);
+      g2d.fillStyle = '#bbf7d0';
+      g2d.fillText(title, width / 2, 30);
+      fx.outlinedText(g2d, `🏆 ${score.toLocaleString('vi-VN')}`, width - 26, 30, {
+        size: 18,
+        color: '#facc15',
+        align: 'right'
+      });
+      g2d.restore();
+
+      if (hurtTimer > 0) {
+        fx.vignette(g2d, width, height, 0, `rgba(239, 68, 68, ${hurtTimer})`);
+      }
+
+      if (celebrationTimer > 0 && !isGameOver) {
+        fx.drawBanner(g2d, width, height, '🎉 ĐÃ CỨU CÔNG CHÚA!', {
+          t: 1.6 - celebrationTimer,
+          duration: 1.6,
+          accent: '#f472b6',
+          sub: `+${lastClearBonus} điểm • Sang màn ${level + 1}`,
+          size: Math.min(38, width * 0.07)
+        });
+      }
+
+      const overlay = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (overlay !== overlayKey) {
+        overlayKey = overlay;
+        overlayT = 0;
+      }
       if (isGameOver) {
-        g2d.fillStyle = 'rgba(7, 11, 20, 0.84)';
-        g2d.fillRect(0, 0, width, height);
-        g2d.fillStyle = '#facc15';
-        g2d.font = '800 28px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText('🦸 SIÊU NHÂN ĐÃ HẾT NĂNG LƯỢNG!', width / 2, height / 2 - 20);
-        g2d.fillStyle = '#38bdf8';
-        g2d.font = '700 18px "Segoe UI", sans-serif';
-        g2d.fillText(
-          `Điểm của bé: ${score.toLocaleString('vi-VN')} (Màn ${level}) — Bấm vào màn hình để chơi lại!`,
-          width / 2,
-          height / 2 + 20
-        );
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '🦸',
+          title: 'HẾT NĂNG LƯỢNG RỒI!',
+          subtitle: `${hero.name} cần nghỉ một chút — cùng thử lại nhé!`,
+          lines: [`Điểm của bé|${score.toLocaleString('vi-VN')}`, `Màn đạt được|${level}`, `Chế độ|${cfg.label}`],
+          hint: 'Bấm vào màn hình để chơi lại',
+          accent: '#22c55e',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để đi tiếp.',
+          accent: '#22c55e',
+          t: overlayT,
+          backdrop: 0.55
+        });
       }
     }
 
@@ -891,6 +1089,7 @@
         startNewRun();
         return;
       }
+      if (isPaused) return;
       pointerDragging = true;
       updatePointerCell(evt);
     });
@@ -947,6 +1146,24 @@
       });
     });
 
+    function setPaused(next) {
+      const value = !!next && !isGameOver;
+      if (value === isPaused) return;
+      isPaused = value;
+      if (isPaused) {
+        pointerDragging = false;
+        pointerCell = null;
+      }
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    pauseBtn.addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      setPaused(!isPaused);
+    });
+
     hintBtn.addEventListener('click', () => {
       showHint = !showHint;
       ArcadeHub.sound.click();
@@ -969,7 +1186,8 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
-      updateGame(dt);
+      updatePresentation(dt);
+      if (!isPaused) updateGame(dt);
       drawScene();
       animId = requestAnimationFrame(loop);
     }
@@ -986,6 +1204,15 @@
     return {
       restart() {
         startNewRun();
+      },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
