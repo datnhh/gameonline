@@ -38,6 +38,7 @@
     let difficulty = 'easy';
     let score = 0;
     let streak = 0;
+    let bestStreak = 0;
     let lives = 5;
     let isGameOver = false;
     let isPaused = false;
@@ -192,6 +193,7 @@
       const cfg = DIFFICULTY_CFG[difficulty];
       score = 0;
       streak = 0;
+      bestStreak = 0;
       lives = cfg.lives;
       isGameOver = false;
       isPaused = false;
@@ -254,8 +256,24 @@
       if (lives <= 0) {
         isGameOver = true;
         ArcadeHub.sound.gameOver();
-        ctx.submitHighScore(score, `Chuỗi ${streak} • ${DIFFICULTY_CFG[difficulty].label}`);
+        ctx.submitHighScore(score, `Chuỗi tốt nhất ${bestStreak} • ${DIFFICULTY_CFG[difficulty].label}`);
       }
+    }
+
+    // Respawn after a wall hit: pick a row whose body cells and the next few cells ahead
+    // hold no apple, so the dragon never lands on (or instantly eats) an apple.
+    const RESPAWN_HEAD_X = 6;
+    const RESPAWN_CLEAR_AHEAD = 4;
+    function findRespawnRow(len) {
+      const minX = RESPAWN_HEAD_X - len + 1;
+      const maxX = RESPAWN_HEAD_X + RESPAWN_CLEAR_AHEAD;
+      const mid = Math.floor(ROWS / 2);
+      for (let k = 0; k < ROWS; k++) {
+        const row = mid + (k % 2 === 0 ? k / 2 : -(k + 1) / 2);
+        if (row < 0 || row >= ROWS) continue;
+        if (!apples.some((ap) => ap.y === row && ap.x >= minX && ap.x <= maxX)) return row;
+      }
+      return mid;
     }
 
     function stepSnake() {
@@ -275,7 +293,8 @@
           loseLife('💥 Đụng tường đá! -1 ❤️');
           if (!isGameOver) {
             const len = Math.min(snake.length, 5);
-            snake = Array.from({ length: len }, (_, idx) => ({ x: 6 - idx, y: 5 }));
+            const row = findRespawnRow(len);
+            snake = Array.from({ length: len }, (_, idx) => ({ x: RESPAWN_HEAD_X - idx, y: row }));
             prevSnake = snake.map((p) => ({ x: p.x, y: p.y }));
             dir = { x: 1, y: 0 };
             nextDir = { x: 1, y: 0 };
@@ -306,6 +325,7 @@
           if (ap.isCorrect) {
             ateCorrect = true;
             streak++;
+            bestStreak = Math.max(bestStreak, streak);
             const gained = Math.round((50 + Math.min(50, streak * 10)) * cfg.scoreMult);
             score += gained;
             ctx.updateScore(score);
