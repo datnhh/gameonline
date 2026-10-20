@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CyberArcade Hub - Cổng Game Web Giải Trí</title>
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="appRoot" class="app-root">
+    <!-- Top Navigation Bar -->
+    <header class="top-navbar">
+      <div class="brand" id="brandHomeBtn" title="Về trang chủ">
+        <div class="brand-logo">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="6" width="32" height="24" rx="8" fill="url(#logoGrad)" stroke="#60a5fa" stroke-width="2"/>
+            <path d="M11 14V22M7 18H15" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="24" cy="15" r="2.2" fill="#f43f5e"/>
+            <circle cx="28" cy="19" r="2.2" fill="#22c55e"/>
+            <circle cx="20" cy="19" r="2.2" fill="#eab308"/>
+            <circle cx="24" cy="23" r="2.2" fill="#38bdf8"/>
+            <defs>
+              <linearGradient id="logoGrad" x1="2" y1="6" x2="34" y2="30" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#2563eb"/>
+                <stop offset="1" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>CYBER<span>ARCADE</span></h1>
+          <p>5-in-1 Classic Web Games</p>
+        </div>
+      </div>
+
+      <div class="navbar-actions">
+        <!-- Player Profile Pill -->
+        <button id="changeNameBtn" class="player-pill" type="button" title="Bấm để đổi tên người chơi">
+          <span class="player-avatar" id="playerAvatar">P</span>
+          <div class="player-info">
+            <span class="player-label">Người chơi</span>
+            <strong class="player-name" id="currentPlayerName">Khách</strong>
+          </div>
+          <span class="edit-icon" aria-hidden="true">✎</span>
+        </button>
+
+        <!-- Sound Toggle -->
+        <button id="soundToggleBtn" class="icon-btn" type="button" title="Bật / Tắt âm thanh" aria-label="Bật hoặc tắt âm thanh">
+          <span id="soundIcon">🔊</span>
+        </button>
+
+        <!-- Fullscreen Toggle -->
+        <button id="globalFullscreenBtn" class="icon-btn fullscreen-btn" type="button" title="Toàn màn hình (Fullscreen)" aria-label="Toàn màn hình">
+          <span id="fullscreenIcon">⛶</span>
+          <span class="btn-label-desktop">Full màn hình</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+      <!-- HOME VIEW: Game Catalog & Top 3 Leaderboards -->
+      <section id="homeView" class="home-view active-view">
+        <div class="hero-banner">
+          <div class="hero-content">
+            <span class="hero-badge">⚡ 60 FPS HTML5 CANVAS • DESKTOP &amp; MOBILE</span>
+            <h2>Chọn Tựa Game Yêu Thích &amp; Chinh Phục Bảng Vàng</h2>
+            <p>Điểm số và kỷ lục Top 3 của mỗi trò chơi được lưu trực tiếp trên thiết bị của bạn. Hỗ trợ điều khiển chuột, bàn phím và cảm ứng mượt mà.</p>
+          </div>
+          <div class="hero-stats" id="heroStats">
+            <div class="stat-box">
+              <span class="stat-num">5</span>
+              <span class="stat-title">Tựa Game</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="totalRecordsCount">0</span>
+              <span class="stat-title">Kỷ Lục Đã Lập</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="topOneCount">0</span>
+              <span class="stat-title">Danh Hiệu Top 1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Games Grid -->
+        <div id="gamesGrid" class="games-grid">
+          <!-- Populated dynamically by js/app.js -->
+        </div>
+      </section>
+
+      <!-- GAME STAGE VIEW -->
+      <section id="gameView" class="game-view" aria-hidden="true">
+        <div id="gameStageWrapper" class="game-stage-wrapper">
+          <!-- In-Game Header Bar -->
+          <div class="game-stage-header">
+            <div class="stage-left">
+              <button id="backToHomeBtn" class="back-btn" type="button">
+                <span>←</span> Trang chủ
+              </button>
+              <div class="stage-title-group">
+                <h2 id="activeGameTitle">Tên Game</h2>
+                <span id="activeGameSubtitle" class="stage-subtitle">Đang chơi</span>
+              </div>
+            </div>
+
+            <div class="stage-center" id="stageStatusBar">
+              <div class="hud-chip">
+                <span class="hud-label">Người chơi:</span>
+                <strong id="hudPlayerName">---</strong>
+              </div>
+              <div class="hud-chip score-chip">
+                <span class="hud-label">Điểm:</span>
+                <strong id="hudCurrentScore">0</strong>
+              </div>
+              <div class="hud-chip best-chip">
+                <span class="hud-label">Top 1:</span>
+                <strong id="hudBestScore">---</strong>
+              </div>
+            </div>
+
+            <div class="stage-right">
+              <button id="restartGameBtn" class="stage-action-btn" type="button" title="Chơi ván mới">
+                ↻ Chơi lại
+              </button>
+              <button id="stageLeaderboardBtn" class="stage-action-btn" type="button" title="Xem Top 3 của game này">
+                🏆 Top 3
+              </button>
+              <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình">
+                ⛶ Full màn hình
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Game Mount Area -->
+          <div id="gameMount" class="game-mount"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- PLAYER NAME MODAL -->
+    <div id="nameModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-badge">👤 HỒ SƠ NGƯỜI CHƠI</div>
+          <h3 id="nameModalTitle">Chào mừng đến với CyberArcade!</h3>
+          <p id="nameModalDesc">Nhập tên của bạn để lưu thành tích vào bảng xếp hạng Top 3 của các trò chơi.</p>
+        </div>
+        <form id="playerNameForm" class="modal-form" autocomplete="off">
+          <label for="playerNameInput" class="input-label">Tên hiển thị (2 - 18 ký tự)</label>
+          <input
+            id="playerNameInput"
+            type="text"
+            class="text-input"
+            maxlength="18"
+            placeholder="VD: Minh Pro, Cao Thủ 99..."
+            required
+          />
+          <p id="nameInputError" class="input-error" hidden>Vui lòng nhập tên hợp lệ (tối thiểu 2 ký tự).</p>
+          <div class="quick-names">
+            <span>Gợi ý nhanh:</span>
+            <button type="button" class="quick-name-chip" data-name="Tay Đua Kiệt Xuất">Tay Đua Kiệt Xuất</button>
+            <button type="button" class="quick-name-chip" data-name="Kỳ Thủ Số 1">Kỳ Thủ Số 1</button>
+            <button type="button" class="quick-name-chip" data-name="Xạ Thủ Bất Bại">Xạ Thủ Bất Bại</button>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="cancelNameModalBtn" class="btn-secondary" hidden>Hủy</button>
+            <button type="submit" class="btn-primary">Lưu Tên &amp; Bắt Đầu Chơi</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TOP 3 LEADERBOARD MODAL (In-Game Quick View & Result Notification) -->
+    <div id="leaderboardModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true">
+      <div class="modal-card leaderboard-modal-card">
+        <div class="modal-header">
+          <div class="modal-badge">🏆 BẢNG VÀNG DANH DỰ</div>
+          <h3 id="lbModalTitle">Top 3 Cao Thủ</h3>
+          <p id="lbModalBanner" class="lb-modal-banner"></p>
+        </div>
+        <div id="lbModalList" class="lb-modal-list"></div>
+        <div class="modal-actions">
+          <button type="button" id="closeLbModalBtn" class="btn-primary">Tiếp tục</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+  </div>
+
+  <!-- Core Modules -->
+  <script defer src="js/core/storage.js"></script>
+  <script defer src="js/core/sound.js"></script>
+  <script defer src="js/core/fullscreen.js"></script>
+
+  <!-- Game Modules -->
+  <script defer src="js/games/caro.js"></script>
+  <script defer src="js/games/sudoku.js"></script>
+  <script defer src="js/games/domino.js"></script>
+  <script defer src="js/games/beachhead.js"></script>
+  <script defer src="js/games/roadrash.js"></script>
+
+  <!-- Main Application Entry -->
+  <script defer src="js/app.js"></script>
+</body>
+</html>
