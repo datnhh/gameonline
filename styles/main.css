@@ -2368,6 +2368,10 @@ kbd {
     0 6px 0 #a9b6c8,
     0 12px 20px rgba(0, 0, 0, 0.55);
   position: relative;
+}
+
+/* Only freshly dealt / drawn tiles animate in (re-renders of the hand stay still) */
+.domino-tile-btn.is-new {
   animation: dealIn 0.42s var(--ease-out-expo) both;
   animation-delay: calc(var(--i, 0) * 40ms);
 }

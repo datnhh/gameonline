@@ -152,6 +152,53 @@
     let hoveredBoneSlot = -1;
     let passButtonRect = null;
 
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(160);
+    let lastPlaced = null; // { side: 'left'|'right'|'center', at, burst }
+    let roundResult = null; // { winner, reason, gained }
+    let roundOverAt = 0;
+    const renderedIds = new Set();
+    let animUntil = 0;
+    let animRaf = null;
+    let lastAnimTick = 0;
+    let feltPattern = null;
+
+    // Redraw continuously only while something is animating, then go idle again
+    function kickAnim(duration) {
+      animUntil = Math.max(animUntil, performance.now() / 1000 + duration);
+      if (animRaf) return;
+      lastAnimTick = performance.now();
+      const step = () => {
+        const t = performance.now();
+        const dt = Math.min(0.05, (t - lastAnimTick) / 1000);
+        lastAnimTick = t;
+        sparks.update(dt);
+        drawCanvas();
+        if (t / 1000 < animUntil || sparks.count > 0) {
+          animRaf = requestAnimationFrame(step);
+        } else {
+          animRaf = null;
+        }
+      };
+      animRaf = requestAnimationFrame(step);
+    }
+
+    function getFeltPattern() {
+      if (feltPattern) return feltPattern;
+      const tile = document.createElement('canvas');
+      tile.width = 96;
+      tile.height = 96;
+      const tg = tile.getContext('2d');
+      for (let i = 0; i < 520; i++) {
+        tg.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.07)';
+        tg.fillRect(Math.random() * 96, Math.random() * 96, 1, 1);
+      }
+      feltPattern = g2d.createPattern(tile, 'repeat');
+      return feltPattern;
+    }
+
     const shell = document.createElement('div');
     shell.className = 'game-shell';
     shell.innerHTML = `
@@ -219,6 +266,10 @@
       consecutivePasses = 0;
       isRoundOver = false;
       hoveredBoneSlot = -1;
+      lastPlaced = null;
+      roundResult = null;
+      renderedIds.clear();
+      sparks.clear();
 
       placeLeftBtn.hidden = true;
       placeRightBtn.hidden = true;
@@ -243,6 +294,8 @@
     }
 
     function playTileOnBoard(tile, side) {
+      lastPlaced = { side: isBoardEmpty() ? 'center' : side, at: performance.now() / 1000, burst: false };
+      kickAnim(0.6);
       if (isBoardEmpty()) {
         centerTile = {
           leftVal: tile.a,
@@ -431,7 +484,12 @@
     });
 
     canvas.addEventListener('pointerdown', (evt) => {
-      if (isRoundOver || turn !== 'player') return;
+      if (isRoundOver) {
+        evt.preventDefault();
+        startNewRound();
+        return;
+      }
+      if (turn !== 'player') return;
       const pos = getCanvasMousePos(evt);
 
       // 1. Kiểm tra xem người chơi có bấm vào quân bài Nọc ở dãy bên phải không
@@ -559,12 +617,14 @@
         const roundBonus = 500 + aiPipBonus;
         sessionScore += roundBonus;
         ctx.updateScore(sessionScore);
+        roundResult = { winner, reason, gained: roundBonus };
 
         statusTextEl.textContent = `🎉 Bạn thắng ván này (${reason})! +${roundBonus} điểm`;
         statusTextEl.style.color = '#fbbf24';
         ctx.submitHighScore(sessionScore, `${roundsWon} ván thắng Domino`);
       } else {
         ArcadeHub.sound.gameOver();
+        roundResult = { winner, reason, gained: 0 };
         statusTextEl.textContent = `💥 ${reason} Bấm "Chơi lại" trên thanh trên để sang ván tiếp.`;
         statusTextEl.style.color = '#f43f5e';
         if (sessionScore > 0) {
@@ -572,6 +632,8 @@
         }
       }
 
+      roundOverAt = performance.now() / 1000;
+      kickAnim(0.7);
       updateUI();
       drawCanvas();
     }
@@ -592,6 +654,7 @@
 
     function renderHand() {
       handListEl.innerHTML = '';
+      let dealIndex = 0;
       playerHand.forEach((tile) => {
         const playability = canTilePlay(tile);
         const playable =
@@ -603,11 +666,18 @@
         btn.title = `Quân cờ ${tile.a} - ${tile.b}`;
         if (playable) btn.classList.add('playable');
         if (tile.id === selectedTileId) btn.classList.add('selected');
+        // Only freshly dealt / drawn tiles play the deal-in animation
+        if (!renderedIds.has(tile.id)) {
+          btn.classList.add('is-new');
+          btn.style.setProperty('--i', String(dealIndex++));
+        }
 
         btn.innerHTML = createHandTileSvg(tile.a, tile.b);
         btn.addEventListener('click', () => handleTileClick(tile));
         handListEl.appendChild(btn);
       });
+      renderedIds.clear();
+      playerHand.forEach((tile) => renderedIds.add(tile.id));
     }
 
     function resizeCanvas() {
@@ -771,11 +841,18 @@
       const span = squareSize * 0.64;
       const pipRadius = Math.max(1.8, squareSize * 0.098);
 
+      const pipColor = PIP_COLORS[val] || '#0f172a';
       offsets.forEach(([ox, oy]) => {
         const px = cx + ox * (span / 2);
         const py = cy + oy * (span / 2);
+        g2d.fillStyle = pipColor;
         g2d.beginPath();
         g2d.arc(px, py, pipRadius, 0, Math.PI * 2);
+        g2d.fill();
+        // Tiny rim highlight makes the pip read as drilled into the tile
+        g2d.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        g2d.beginPath();
+        g2d.arc(px + pipRadius * 0.25, py + pipRadius * 0.35, pipRadius * 0.35, 0, Math.PI * 2);
         g2d.fill();
       });
     }
@@ -795,14 +872,45 @@
 
       g2d.save();
 
+      const newestTag = lastPlaced
+        ? lastPlaced.side === 'left'
+          ? 'leftEnd'
+          : lastPlaced.side === 'right'
+          ? 'rightEnd'
+          : 'both'
+        : null;
+      if (newestTag && item.tag === newestTag) {
+        const t = Math.min(1, (performance.now() / 1000 - lastPlaced.at) / 0.32);
+        if (t < 1 && !reduced) {
+          const k = 1.35 - 0.35 * fx.ease.outCubic(t);
+          const ccx = x + w / 2;
+          const ccy = y + h / 2;
+          g2d.translate(ccx, ccy);
+          g2d.scale(k, k);
+          g2d.translate(-ccx, -ccy);
+          g2d.globalAlpha = Math.min(1, t * 3);
+        }
+        if (t >= 0.9 && !lastPlaced.burst) {
+          lastPlaced.burst = true;
+          sparks.burst(x + w / 2, y + h / 2, {
+            count: 12,
+            kind: 'star',
+            speed: [40, 140],
+            life: [0.35, 0.7],
+            size: [2, 4.5],
+            colors: ['#fde68a', '#ffffff', '#34d399']
+          });
+        }
+      }
+
       g2d.fillStyle = 'rgba(0, 0, 0, 0.42)';
       g2d.beginPath();
       g2d.roundRect(rx + 2, ry + 3.5, rw, rh, cornerRadius);
       g2d.fill();
 
       const faceGrad = g2d.createLinearGradient(rx, ry, rx + rw, ry + rh);
-      faceGrad.addColorStop(0, '#ffffff');
-      faceGrad.addColorStop(1, '#e2e8f0');
+      faceGrad.addColorStop(0, '#fffdf5');
+      faceGrad.addColorStop(1, '#e5dfd0');
       g2d.fillStyle = faceGrad;
 
       if (item.tag === 'leftEnd') {
@@ -823,6 +931,9 @@
       g2d.roundRect(rx, ry, rw, rh, cornerRadius);
       g2d.fill();
       g2d.stroke();
+      // Bevel highlight along the top edge
+      g2d.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      g2d.fillRect(rx + cornerRadius, ry + 1.5, rw - cornerRadius * 2, Math.max(1.2, unitPx * 0.05));
 
       const isHoriz = item.orientation === 'horizontal';
       g2d.strokeStyle = '#334155';
@@ -1078,9 +1189,17 @@
       feltGrad.addColorStop(1, '#062014');
       g2d.fillStyle = feltGrad;
       g2d.fillRect(0, 0, w, h);
+      g2d.fillStyle = getFeltPattern();
+      g2d.fillRect(0, 0, w, h);
 
-      // Đường kẻ trang trí mặt bàn
-      g2d.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      // Viền gỗ quanh mặt bàn
+      const rim = g2d.createLinearGradient(0, 0, 0, h);
+      rim.addColorStop(0, '#8b5a2b');
+      rim.addColorStop(1, '#4a2c12');
+      g2d.strokeStyle = rim;
+      g2d.lineWidth = 8;
+      g2d.strokeRect(4, 4, w - 8, h - 8);
+      g2d.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       g2d.lineWidth = 1.5;
       g2d.strokeRect(10, 10, w - 20, h - 20);
 
@@ -1092,12 +1211,23 @@
       for (let i = 0; i < aiHand.length; i++) {
         const bx = aiStartX + i * (aiBackW + 5);
         const by = 16;
-        g2d.fillStyle = '#1e293b';
+        const backGrad = g2d.createLinearGradient(bx, by, bx + aiBackW, by + aiBackH);
+        backGrad.addColorStop(0, '#334155');
+        backGrad.addColorStop(1, '#0f172a');
+        g2d.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        g2d.beginPath();
+        g2d.roundRect(bx + 1.5, by + 2.5, aiBackW, aiBackH, 4);
+        g2d.fill();
+        g2d.fillStyle = backGrad;
         g2d.strokeStyle = '#94a3b8';
         g2d.lineWidth = 1.2;
         g2d.beginPath();
         g2d.roundRect(bx, by, aiBackW, aiBackH, 4);
         g2d.fill();
+        g2d.stroke();
+        g2d.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+        g2d.beginPath();
+        g2d.roundRect(bx + 3, by + 3, aiBackW - 6, aiBackH - 6, 2);
         g2d.stroke();
       }
 
@@ -1106,13 +1236,11 @@
 
       if (isBoardEmpty()) {
         g2d.fillStyle = 'rgba(248, 250, 252, 0.8)';
-        g2d.font = '600 15px "Segoe UI", sans-serif';
+        const hint = 'Bàn cờ đang trống — Hãy bấm chọn 1 quân cờ bên dưới để đặt ra giữa bàn!';
+        g2d.font = fx.font(fx.fitFontSize(g2d, hint, playAreaW - 40, 15, 10, 600), 600);
         g2d.textAlign = 'center';
-        g2d.fillText(
-          'Bàn cờ đang trống — Hãy bấm chọn 1 quân cờ bên dưới để đặt ra giữa bàn!',
-          playAreaW / 2,
-          h / 2 + 12
-        );
+        g2d.fillText(hint, playAreaW / 2, h / 2 + 12);
+        drawRoundResult(w, h);
         return;
       }
 
@@ -1193,7 +1321,29 @@
         }
       }
 
+      sparks.draw(g2d);
       g2d.restore();
+      drawRoundResult(w, h);
+    }
+
+    function drawRoundResult(w, h) {
+      if (!isRoundOver || !roundResult) return;
+      const won = roundResult.winner === 'player';
+      fx.drawStatePanel(g2d, w, h, {
+        icon: won ? '🏆' : '🎲',
+        title: won ? 'BẠN THẮNG VÁN NÀY!' : 'MÁY THẮNG VÁN NÀY',
+        subtitle: roundResult.reason,
+        lines: [
+          won ? `Điểm ván|+${roundResult.gained.toLocaleString('vi-VN')}` : 'Điểm ván|+0',
+          `Tổng điểm|${sessionScore.toLocaleString('vi-VN')}`,
+          `Ván thắng|${roundsWon}`,
+          `Chấm còn lại (Bạn / Máy)|${sumPips(playerHand)} / ${sumPips(aiHand)}`
+        ],
+        hint: 'Bấm vào bàn cờ để chia ván mới',
+        accent: won ? '#10b981' : '#f43f5e',
+        t: performance.now() / 1000 - roundOverAt,
+        backdrop: 0.6
+      });
     }
 
     const onResize = () => resizeCanvas();
@@ -1206,6 +1356,7 @@
       },
       destroy() {
         if (aiTimer) clearTimeout(aiTimer);
+        if (animRaf) cancelAnimationFrame(animRaf);
         window.removeEventListener('resize', onResize);
       }
     };
