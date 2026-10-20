@@ -171,7 +171,8 @@
       // Perspective width: back row slightly narrower, front row wider
       const rowSpread = width * (0.24 + r * 0.035);
       const x = width * 0.5 + (c - 1) * rowSpread;
-      const scale = 0.86 + r * 0.12;
+      // Shrink holes on narrow screens so neighbours never overlap (no effect on desktop widths)
+      const scale = Math.min(0.86 + r * 0.12, rowSpread / 125);
       return { x, y, scale };
     }
 
