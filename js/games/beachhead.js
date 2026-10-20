@@ -137,6 +137,10 @@
       shellCasings = [];
       floatingTexts = [];
       spawnTimer = 0.5;
+      sparks.clear();
+      flashes.length = 0;
+      waveBanner = null;
+      hitMarker = 0;
       ctx.updateScore(0);
       updateToolbarUI();
     }
@@ -191,6 +195,32 @@
         life: 0.32,
         color: isBig ? '#fde047' : '#38bdf8'
       });
+
+      // Sparks, debris and a light flash (presentation only)
+      sparks.burst(sx, sy, {
+        kind: 'spark',
+        count: isBig ? 24 : 7,
+        speed: [140 * baseScale, 460 * baseScale],
+        life: [0.25, 0.6],
+        size: [1.4, 3],
+        gravity: 320,
+        drag: 1.4,
+        colors: ['#fef3c7', '#fde047', '#fb923c']
+      });
+      if (isBig) {
+        sparks.burst(sx, sy, {
+          kind: 'dot',
+          count: 10,
+          speed: [80 * baseScale, 260 * baseScale],
+          life: [0.5, 0.9],
+          size: [1.6, 3.2],
+          gravity: 520,
+          drag: 0.6,
+          additive: false,
+          colors: ['#1c1917', '#292524', '#44403c']
+        });
+      }
+      addFlash(sx, sy, (isBig ? 120 : 46) * baseScale, isBig ? '#fdba74' : '#7dd3fc', isBig ? 0.22 : 0.1);
 
       // Smoke & Fireballs
       for (let i = 0; i < count; i++) {
@@ -423,6 +453,8 @@
 
         if (dist <= hitRadius) {
           e.hp -= b.damage;
+          e.hitFlash = 0.12;
+          hitMarker = 0.18;
           if (e.hp <= 0) {
             handleEnemyDestroyed(e, i, proj);
           }
@@ -452,12 +484,11 @@
           cannonAmmo += 4;
           bunkerHp = Math.min(maxHp, bunkerHp + 18);
           ArcadeHub.sound.win();
-          addFloatingText(
-            width / 2,
-            height * 0.3,
-            `🌊 CHIẾN THẮNG ĐỢT ${wave - 1}! SANG ĐỢT ${wave} (+4 PHÁO)`,
-            '#38bdf8'
-          );
+          waveBanner = {
+            text: `🌊 CHIẾN THẮNG ĐỢT ${wave - 1}!`,
+            sub: `Sang đợt ${wave} • +4 đại pháo • +18% giáp`,
+            t: 0
+          };
         }
       }
 
@@ -638,419 +669,994 @@
     }
 
     // =========================================================
-    // 3D MILITARY MODELS & ENVIRONMENT RENDERING
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
     // =========================================================
+    const fx = ArcadeHub.fx;
+    const sparks = fx.createParticles(420);
+    const flashes = []; // short-lived additive light bursts { x, y, r, life, maxLife, color }
+    let sceneTime = 0;
+    let hitMarker = 0;
+    let waveBanner = null; // { text, sub, t }
+    let overlayKey = '';
+    let overlayT = 0;
+    const stars = [];
+    const clouds = [];
+
+    (function buildBackdrop() {
+      for (let i = 0; i < 80; i++) {
+        stars.push({
+          x: Math.random(),
+          y: Math.random() * 0.62,
+          r: Math.random() * 1.4 + 0.4,
+          tw: Math.random() * Math.PI * 2
+        });
+      }
+      for (let i = 0; i < 7; i++) {
+        clouds.push({
+          x: Math.random() * 1.3,
+          y: 0.18 + Math.random() * 0.36,
+          w: 110 + Math.random() * 170,
+          h: 12 + Math.random() * 12,
+          speed: 0.004 + Math.random() * 0.007,
+          depth: 0.3 + Math.random() * 0.7
+        });
+      }
+    })();
+
+    function addFlash(x, y, r, color, life) {
+      if (flashes.length > 24) flashes.shift();
+      flashes.push({ x, y, r, color: color || '#fde68a', life: life || 0.16, maxLife: life || 0.16 });
+    }
+
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      sparks.update(dt);
+      if (hitMarker > 0) hitMarker = Math.max(0, hitMarker - dt);
+      for (let i = flashes.length - 1; i >= 0; i--) {
+        flashes[i].life -= dt;
+        if (flashes[i].life <= 0) flashes.splice(i, 1);
+      }
+      enemies.forEach((e) => {
+        if (e.hitFlash > 0) e.hitFlash = Math.max(0, e.hitFlash - dt);
+      });
+      if (waveBanner) {
+        waveBanner.t += dt;
+        if (waveBanner.t > 2.2) waveBanner = null;
+      }
+    }
+
     function draw3DTank(e, proj) {
-      g2d.save();
-      g2d.translate(proj.sx, proj.sy);
-      g2d.scale(proj.scale, proj.scale);
+      const g = g2d;
+      g.save();
+      g.translate(proj.sx, proj.sy);
+      g.scale(proj.scale, proj.scale);
 
-      // Ground shadow
-      g2d.fillStyle = 'rgba(0,0,0,0.55)';
-      g2d.beginPath();
-      g2d.ellipse(0, 14, 38, 10, 0, 0, Math.PI * 2);
-      g2d.fill();
+      fx.contactShadow(g, 0, 15, 42, 9, 0.5);
 
-      // Left & Right Heavy Tracks with Treads
-      g2d.fillStyle = '#1c1917';
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.roundRect(-34, -2, 14, 18, 3);
-      g2d.roundRect(20, -2, 14, 18, 3);
-      g2d.fill();
-      g2d.stroke();
+      // Tracks with animated treads
+      [-34, 20].forEach((tx) => {
+        const trackGrad = g.createLinearGradient(tx, -2, tx + 14, 16);
+        trackGrad.addColorStop(0, '#3f3f46');
+        trackGrad.addColorStop(1, '#0c0a09');
+        g.fillStyle = trackGrad;
+        g.strokeStyle = '#020617';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.roundRect(tx, -2, 14, 18, 4);
+        g.fill();
+        g.stroke();
+        g.strokeStyle = 'rgba(148,163,184,0.35)';
+        g.lineWidth = 1;
+        const phase = (sceneTime * 22) % 4;
+        for (let ty = -1 + phase; ty < 16; ty += 4) {
+          g.beginPath();
+          g.moveTo(tx + 1, ty);
+          g.lineTo(tx + 13, ty);
+          g.stroke();
+        }
+      });
 
-      // Sloped 3D Armored Hull
-      const hullGrad = g2d.createLinearGradient(-30, -14, 30, 12);
-      hullGrad.addColorStop(0, '#4d7c0f');
-      hullGrad.addColorStop(0.5, '#3f6212');
-      hullGrad.addColorStop(1, '#1a2e05');
-      g2d.fillStyle = hullGrad;
-      g2d.beginPath();
-      g2d.moveTo(-26, -12);
-      g2d.lineTo(26, -12);
-      g2d.lineTo(32, 10);
-      g2d.lineTo(-32, 10);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      // Sloped armoured hull with rim light from the sunset
+      const hullGrad = g.createLinearGradient(0, -14, 0, 12);
+      hullGrad.addColorStop(0, '#84cc16');
+      hullGrad.addColorStop(0.25, '#4d7c0f');
+      hullGrad.addColorStop(1, '#14240a');
+      g.fillStyle = hullGrad;
+      g.strokeStyle = '#020617';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-26, -12);
+      g.lineTo(26, -12);
+      g.lineTo(32, 10);
+      g.lineTo(-32, 10);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.strokeStyle = 'rgba(253, 186, 116, 0.55)';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.moveTo(-25, -11);
+      g.lineTo(25, -11);
+      g.stroke();
 
-      // 3D Turret Dome
-      const turGrad = g2d.createLinearGradient(-18, -26, 18, -10);
-      turGrad.addColorStop(0, '#65a30d');
-      turGrad.addColorStop(1, '#365314');
-      g2d.fillStyle = turGrad;
-      g2d.beginPath();
-      g2d.moveTo(-16, -12);
-      g2d.lineTo(-12, -25);
-      g2d.lineTo(12, -25);
-      g2d.lineTo(16, -12);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      // Rivets
+      g.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      for (let rx = -22; rx <= 22; rx += 11) {
+        g.beginPath();
+        g.arc(rx, 4, 1.4, 0, Math.PI * 2);
+        g.fill();
+      }
 
-      // Main Cannon Barrel pointing toward player camera
-      g2d.fillStyle = '#1e293b';
-      g2d.beginPath();
-      g2d.roundRect(-3.5, -20, 7, 18, 2);
-      g2d.fill();
-      g2d.stroke();
+      // Turret
+      const turGrad = g.createLinearGradient(0, -26, 0, -10);
+      turGrad.addColorStop(0, '#a3e635');
+      turGrad.addColorStop(0.35, '#65a30d');
+      turGrad.addColorStop(1, '#283f0c');
+      g.fillStyle = turGrad;
+      g.strokeStyle = '#020617';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-16, -12);
+      g.lineTo(-12, -25);
+      g.lineTo(12, -25);
+      g.lineTo(16, -12);
+      g.closePath();
+      g.fill();
+      g.stroke();
 
-      // Muzzle Bore & Firing Warning Glow
-      g2d.fillStyle = e.chargeWarn ? '#ef4444' : '#090d16';
-      g2d.beginPath();
-      g2d.arc(0, -2, e.chargeWarn ? 5.5 : 3.5, 0, Math.PI * 2);
-      g2d.fill();
+      // Barrel facing the camera
+      const barrelGrad = g.createLinearGradient(-4, 0, 4, 0);
+      barrelGrad.addColorStop(0, '#0f172a');
+      barrelGrad.addColorStop(0.5, '#64748b');
+      barrelGrad.addColorStop(1, '#0f172a');
+      g.fillStyle = barrelGrad;
+      g.beginPath();
+      g.roundRect(-3.5, -20, 7, 18, 2);
+      g.fill();
+      g.stroke();
 
-      g2d.restore();
+      g.fillStyle = '#020617';
+      g.beginPath();
+      g.arc(0, -2, 3.8, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+
+      if (e.chargeWarn) {
+        const pulse = 0.55 + Math.sin(sceneTime * 30) * 0.35;
+        fx.glow(g, proj.sx, proj.sy - 2 * proj.scale, 26 * proj.scale, '#ef4444', pulse);
+        g.fillStyle = '#fecaca';
+        g.beginPath();
+        g.arc(proj.sx, proj.sy - 2 * proj.scale, 3.2 * proj.scale, 0, Math.PI * 2);
+        g.fill();
+      }
     }
 
     function draw3DHeli(e, proj) {
-      g2d.save();
-      g2d.translate(proj.sx, proj.sy);
-      g2d.scale(proj.scale, proj.scale);
-      g2d.rotate(e.vx > 0 ? 0.14 : -0.14);
+      const g = g2d;
+      const dir = e.vx > 0 ? 1 : -1;
+      g.save();
+      g.translate(proj.sx, proj.sy);
+      g.scale(proj.scale, proj.scale);
+      g.rotate(dir * 0.14);
 
-      // Tail boom
-      g2d.strokeStyle = '#1e293b';
-      g2d.lineWidth = 5;
-      g2d.beginPath();
-      g2d.moveTo(0, -4);
-      g2d.lineTo(e.vx > 0 ? -36 : 36, -14);
-      g2d.stroke();
+      // Tail boom + tail rotor blur
+      g.strokeStyle = '#1e293b';
+      g.lineWidth = 5;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(0, -4);
+      g.lineTo(-dir * 38, -14);
+      g.stroke();
+      g.fillStyle = 'rgba(226, 232, 240, 0.28)';
+      g.beginPath();
+      g.arc(-dir * 39, -15, 8, 0, Math.PI * 2);
+      g.fill();
 
-      // Rocket Pods Stub Wings
-      g2d.fillStyle = '#334155';
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2;
-      g2d.fillRect(-30, -4, 60, 6);
-      g2d.strokeRect(-30, -4, 60, 6);
+      // Stub wings with rocket pods
+      g.fillStyle = '#334155';
+      g.strokeStyle = '#020617';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.roundRect(-30, -4, 60, 6, 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#475569';
+      [-27, 22].forEach((px) => {
+        g.beginPath();
+        g.roundRect(px, 1, 6, 8, 2);
+        g.fill();
+      });
 
-      // Fuselage Body
-      const bodyGrad = g2d.createRadialGradient(-4, -6, 3, 0, 0, 26);
-      bodyGrad.addColorStop(0, '#64748b');
-      bodyGrad.addColorStop(1, '#1e293b');
-      g2d.fillStyle = bodyGrad;
-      g2d.beginPath();
-      g2d.ellipse(0, 0, 24, 13, 0, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
+      // Fuselage
+      const bodyGrad = g.createRadialGradient(-4, -8, 2, 0, 0, 27);
+      bodyGrad.addColorStop(0, '#94a3b8');
+      bodyGrad.addColorStop(0.5, '#475569');
+      bodyGrad.addColorStop(1, '#0f172a');
+      g.fillStyle = bodyGrad;
+      g.beginPath();
+      g.ellipse(0, 0, 24, 13, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
 
-      // Armored Glass Cockpit Canopy
-      const glassGrad = g2d.createLinearGradient(-10, -8, 10, 6);
-      glassGrad.addColorStop(0, '#38bdf8');
-      glassGrad.addColorStop(1, '#0284c7');
-      g2d.fillStyle = glassGrad;
-      g2d.beginPath();
-      g2d.ellipse(e.vx > 0 ? 8 : -8, 1, 11, 8, 0, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
+      // Canopy with specular streak
+      const glassGrad = g.createLinearGradient(-10, -8, 10, 6);
+      glassGrad.addColorStop(0, '#7dd3fc');
+      glassGrad.addColorStop(1, '#075985');
+      g.fillStyle = glassGrad;
+      g.beginPath();
+      g.ellipse(dir * 8, 1, 11, 8, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.7)';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(dir * 6, -1, 6, Math.PI * 1.1, Math.PI * 1.5);
+      g.stroke();
 
-      // Spinning 3D Motion-Blurred Main Rotor Disc
-      const rotorW = 48;
-      g2d.fillStyle = 'rgba(226, 232, 240, 0.25)';
-      g2d.beginPath();
-      g2d.ellipse(0, -16, rotorW, 4, 0, 0, Math.PI * 2);
-      g2d.fill();
+      // Rotor mast + motion-blurred disc with two visible blades
+      g.fillStyle = '#0f172a';
+      g.fillRect(-2, -16, 4, 6);
+      g.fillStyle = 'rgba(226, 232, 240, 0.16)';
+      g.beginPath();
+      g.ellipse(0, -16, 52, 5, 0, 0, Math.PI * 2);
+      g.fill();
+      const rot = sceneTime * 38;
+      g.strokeStyle = 'rgba(241, 245, 249, 0.85)';
+      g.lineWidth = 2.4;
+      for (let b = 0; b < 2; b++) {
+        const a = rot + b * Math.PI;
+        g.beginPath();
+        g.moveTo(-Math.cos(a) * 52, -16 - Math.sin(a) * 4);
+        g.lineTo(Math.cos(a) * 52, -16 + Math.sin(a) * 4);
+        g.stroke();
+      }
+      g.restore();
 
-      const bladeSpan = Math.sin(performance.now() * 0.045) * rotorW;
-      g2d.strokeStyle = '#f8fafc';
-      g2d.lineWidth = 2.5;
-      g2d.beginPath();
-      g2d.moveTo(-bladeSpan, -16);
-      g2d.lineTo(bladeSpan, -16);
-      g2d.stroke();
-
-      g2d.restore();
+      // Blinking nav light
+      if (Math.sin(sceneTime * 6 + e.worldX * 10) > 0.6) {
+        fx.glow(g, proj.sx - dir * 36 * proj.scale, proj.sy - 14 * proj.scale, 10 * proj.scale + 4, '#ef4444', 0.9);
+      }
     }
 
     function draw3DJet(e, proj) {
-      g2d.save();
-      g2d.translate(proj.sx, proj.sy);
-      g2d.scale(proj.scale, proj.scale);
+      const g = g2d;
+      // Contrails behind the diving jet
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.strokeStyle = 'rgba(226, 232, 240, 0.18)';
+      g.lineWidth = Math.max(1, 3 * proj.scale);
+      [-38, 38].forEach((wx) => {
+        g.beginPath();
+        g.moveTo(proj.sx + wx * proj.scale, proj.sy + 6 * proj.scale);
+        g.lineTo(proj.sx + wx * proj.scale * 0.7, proj.sy - 60 * proj.scale);
+        g.stroke();
+      });
+      g.restore();
 
-      // Swept Delta Wings
-      g2d.fillStyle = '#475569';
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.moveTo(0, -10);
-      g2d.lineTo(-42, 6);
-      g2d.lineTo(42, 6);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      g.save();
+      g.translate(proj.sx, proj.sy);
+      g.scale(proj.scale, proj.scale);
 
-      // Twin Vertical Stabilizers
-      g2d.beginPath();
-      g2d.moveTo(-12, -2);
-      g2d.lineTo(-18, -18);
-      g2d.lineTo(-6, -2);
-      g2d.moveTo(12, -2);
-      g2d.lineTo(18, -18);
-      g2d.lineTo(6, -2);
-      g2d.fill();
-      g2d.stroke();
+      const wingGrad = g.createLinearGradient(0, -10, 0, 8);
+      wingGrad.addColorStop(0, '#94a3b8');
+      wingGrad.addColorStop(1, '#334155');
+      g.fillStyle = wingGrad;
+      g.strokeStyle = '#020617';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, -10);
+      g.lineTo(-42, 6);
+      g.lineTo(-36, 9);
+      g.lineTo(36, 9);
+      g.lineTo(42, 6);
+      g.closePath();
+      g.fill();
+      g.stroke();
 
-      // Jet Nose Cone & Canopy
-      g2d.fillStyle = '#334155';
-      g2d.beginPath();
-      g2d.ellipse(0, 2, 11, 14, 0, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = '#475569';
+      g.beginPath();
+      g.moveTo(-12, -2);
+      g.lineTo(-18, -19);
+      g.lineTo(-6, -2);
+      g.moveTo(12, -2);
+      g.lineTo(18, -19);
+      g.lineTo(6, -2);
+      g.fill();
+      g.stroke();
 
-      g2d.fillStyle = '#fbbf24';
-      g2d.beginPath();
-      g2d.ellipse(0, -2, 6, 8, 0, 0, Math.PI * 2);
-      g2d.fill();
+      const noseGrad = g.createRadialGradient(-3, -2, 1, 0, 2, 15);
+      noseGrad.addColorStop(0, '#64748b');
+      noseGrad.addColorStop(1, '#1e293b');
+      g.fillStyle = noseGrad;
+      g.beginPath();
+      g.ellipse(0, 2, 11, 14, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
 
-      g2d.restore();
+      const canopyGrad = g.createLinearGradient(0, -10, 0, 6);
+      canopyGrad.addColorStop(0, '#fde68a');
+      canopyGrad.addColorStop(1, '#b45309');
+      g.fillStyle = canopyGrad;
+      g.beginPath();
+      g.ellipse(0, -2, 6, 8, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+
+      // Wingtip strobes
+      const strobe = Math.sin(sceneTime * 9) > 0.3 ? 0.9 : 0.25;
+      fx.glow(g, proj.sx - 42 * proj.scale, proj.sy + 6 * proj.scale, 8 * proj.scale + 3, '#ef4444', strobe);
+      fx.glow(g, proj.sx + 42 * proj.scale, proj.sy + 6 * proj.scale, 8 * proj.scale + 3, '#22c55e', strobe);
     }
 
     function draw3DParaOrSupply(e, proj) {
-      g2d.save();
-      g2d.translate(proj.sx, proj.sy);
-      g2d.scale(proj.scale, proj.scale);
+      const g = g2d;
+      g.save();
+      g.translate(proj.sx, proj.sy);
+      g.scale(proj.scale, proj.scale);
+      const sway = e.landed ? 0 : Math.sin(sceneTime * 2.2 + e.worldX * 7) * 0.08;
+      g.rotate(sway);
 
       if (e.hasChute || e.type === 'supply') {
-        // Suspension cords
-        g2d.strokeStyle = 'rgba(226, 232, 240, 0.7)';
-        g2d.lineWidth = 1.2;
-        [-18, -6, 6, 18].forEach((cx) => {
-          g2d.beginPath();
-          g2d.moveTo(cx, -24);
-          g2d.lineTo(0, -2);
-          g2d.stroke();
+        g.strokeStyle = 'rgba(226, 232, 240, 0.65)';
+        g.lineWidth = 1.1;
+        [-19, -7, 7, 19].forEach((cx) => {
+          g.beginPath();
+          g.moveTo(cx, -25);
+          g.lineTo(0, -3);
+          g.stroke();
         });
 
-        // 3D Ribbed Military Canopy
-        const chuteGrad = g2d.createRadialGradient(-5, -34, 4, 0, -26, 24);
-        if (e.type === 'supply') {
-          chuteGrad.addColorStop(0, '#34d399');
-          chuteGrad.addColorStop(1, '#065f46');
-        } else {
-          chuteGrad.addColorStop(0, '#f8fafc');
-          chuteGrad.addColorStop(1, '#64748b');
+        // Ribbed canopy with alternating panels
+        const isSupply = e.type === 'supply';
+        for (let p = 0; p < 6; p++) {
+          const a0 = Math.PI + (p / 6) * Math.PI;
+          const a1 = Math.PI + ((p + 1) / 6) * Math.PI;
+          g.fillStyle = isSupply
+            ? p % 2 === 0
+              ? '#34d399'
+              : '#059669'
+            : p % 2 === 0
+            ? '#f1f5f9'
+            : '#94a3b8';
+          g.beginPath();
+          g.moveTo(0, -24);
+          g.arc(0, -24, 22, a0, a1);
+          g.closePath();
+          g.fill();
         }
-        g2d.fillStyle = chuteGrad;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 1.8;
-        g2d.beginPath();
-        g2d.arc(0, -24, 21, Math.PI, 0);
-        g2d.closePath();
-        g2d.fill();
-        g2d.stroke();
+        g.strokeStyle = '#020617';
+        g.lineWidth = 1.6;
+        g.beginPath();
+        g.arc(0, -24, 22, Math.PI, 0);
+        g.closePath();
+        g.stroke();
+        // Canopy shading
+        const shadeGrad = g.createLinearGradient(-22, -46, 22, -24);
+        shadeGrad.addColorStop(0, 'rgba(255,255,255,0.25)');
+        shadeGrad.addColorStop(1, 'rgba(0,0,0,0.35)');
+        g.fillStyle = shadeGrad;
+        g.beginPath();
+        g.arc(0, -24, 22, Math.PI, 0);
+        g.closePath();
+        g.fill();
       }
 
       if (e.type === 'supply') {
-        // 3D Military Supply Crate
-        g2d.fillStyle = '#047857';
-        g2d.strokeStyle = '#a7f3d0';
-        g2d.lineWidth = 2;
-        g2d.fillRect(-13, -6, 26, 22);
-        g2d.strokeRect(-13, -6, 26, 22);
-        g2d.fillStyle = '#ffffff';
-        g2d.font = '900 14px sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText('+', 0, 10);
+        // Wooden supply crate with medic cross
+        const crateGrad = g.createLinearGradient(-13, -6, 13, 16);
+        crateGrad.addColorStop(0, '#a16207');
+        crateGrad.addColorStop(1, '#713f12');
+        g.fillStyle = crateGrad;
+        g.strokeStyle = '#1c1917';
+        g.lineWidth = 2;
+        g.fillRect(-13, -6, 26, 22);
+        g.strokeRect(-13, -6, 26, 22);
+        g.strokeStyle = 'rgba(28, 25, 23, 0.6)';
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(-13, 1);
+        g.lineTo(13, 1);
+        g.moveTo(-13, 9);
+        g.lineTo(13, 9);
+        g.stroke();
+        g.fillStyle = '#ffffff';
+        g.fillRect(-2.5, -1, 5, 14);
+        g.fillRect(-7, 3.5, 14, 5);
+        g.fillStyle = '#16a34a';
+        g.fillRect(-1.5, 0, 3, 12);
+        g.fillRect(-6, 4.5, 12, 3);
       } else {
-        // 3D Soldier with Helmet & Rifle
-        g2d.fillStyle = '#3f6212';
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 1.8;
-        g2d.beginPath();
-        g2d.roundRect(-7, -2, 14, 16, 4);
-        g2d.fill();
-        g2d.stroke();
-
-        // Helmet
-        g2d.fillStyle = '#1a2e05';
-        g2d.beginPath();
-        g2d.arc(0, -7, 6.5, 0, Math.PI * 2);
-        g2d.fill();
-        g2d.stroke();
+        // Soldier: body, arms, rifle, helmet
+        g.strokeStyle = '#020617';
+        g.lineWidth = 1.8;
+        g.fillStyle = '#3f6212';
+        g.beginPath();
+        g.roundRect(-7, -2, 14, 16, 4);
+        g.fill();
+        g.stroke();
+        g.strokeStyle = '#365314';
+        g.lineWidth = 3;
+        g.lineCap = 'round';
+        g.beginPath();
+        g.moveTo(-6, 1);
+        g.lineTo(-11, e.hasChute ? -10 : 7);
+        g.moveTo(6, 1);
+        g.lineTo(11, e.hasChute ? -10 : 7);
+        g.stroke();
+        g.strokeStyle = '#1c1917';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(-10, 10);
+        g.lineTo(10, 2);
+        g.stroke();
+        g.fillStyle = '#fcd34d';
+        g.beginPath();
+        g.arc(0, -6, 4.2, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#1a2e05';
+        g.strokeStyle = '#020617';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.arc(0, -8, 6.5, Math.PI, 0);
+        g.closePath();
+        g.fill();
+        g.stroke();
       }
 
-      g2d.restore();
+      g.restore();
     }
 
-    function drawTacticalHudAndTurret() {
-      const cfg = getDiffCfg();
-
-      // 1. 3D Twin-Linked Bofors/Vulcan Turret Barrels with Perspective Aiming
+    function drawTurretAndCockpit() {
+      const g = g2d;
       const leftPivotX = width * 0.16;
       const rightPivotX = width * 0.84;
       const pivotY = height + 18;
 
-      function draw3DGunAssembly(pivotX, recoilVal, isLeft) {
+      function drawGunAssembly(pivotX, recoilVal, isLeft) {
         const ang = Math.atan2(aimY - pivotY, aimX - pivotX);
-        g2d.save();
-        g2d.translate(pivotX, pivotY + recoilVal);
-        g2d.rotate(ang);
+        const firing = muzzleFlashTimer > 0 && ((isLeft && barrelToggle === 0) || (!isLeft && barrelToggle === 1));
+        g.save();
+        g.translate(pivotX, pivotY + recoilVal);
+        g.rotate(ang);
 
-        // Muzzle Flash Glow
-        if (muzzleFlashTimer > 0 && ((isLeft && barrelToggle === 0) || (!isLeft && barrelToggle === 1))) {
-          const flashGrad = g2d.createRadialGradient(98, 0, 2, 98, 0, 36);
-          flashGrad.addColorStop(0, '#ffffff');
-          flashGrad.addColorStop(0.4, '#facc15');
-          flashGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-          g2d.fillStyle = flashGrad;
-          g2d.beginPath();
-          g2d.arc(98, 0, 36, 0, Math.PI * 2);
-          g2d.fill();
+        const barrelGrad = g.createLinearGradient(0, -14, 0, 14);
+        barrelGrad.addColorStop(0, '#0f172a');
+        barrelGrad.addColorStop(0.35, '#cbd5e1');
+        barrelGrad.addColorStop(0.55, '#64748b');
+        barrelGrad.addColorStop(1, '#020617');
+        g.fillStyle = barrelGrad;
+        g.strokeStyle = '#020617';
+        g.lineWidth = 2;
+        g.fillRect(10, -13, 86, 9);
+        g.strokeRect(10, -13, 86, 9);
+        g.fillRect(10, 4, 86, 9);
+        g.strokeRect(10, 4, 86, 9);
+
+        // Cooling jacket with vents
+        const jacketGrad = g.createLinearGradient(0, -15, 0, 15);
+        jacketGrad.addColorStop(0, '#475569');
+        jacketGrad.addColorStop(0.5, '#334155');
+        jacketGrad.addColorStop(1, '#0f172a');
+        g.fillStyle = jacketGrad;
+        g.fillRect(24, -15, 42, 30);
+        g.strokeRect(24, -15, 42, 30);
+        g.fillStyle = '#020617';
+        for (let vx = 30; vx < 62; vx += 8) {
+          g.beginPath();
+          g.arc(vx, -8, 1.8, 0, Math.PI * 2);
+          g.arc(vx, 8, 1.8, 0, Math.PI * 2);
+          g.fill();
         }
 
-        // Twin Barrels with Metallic Cylindrical Shading
-        const barrelGrad = g2d.createLinearGradient(0, -14, 0, 14);
-        barrelGrad.addColorStop(0, '#1e293b');
-        barrelGrad.addColorStop(0.45, '#94a3b8');
-        barrelGrad.addColorStop(1, '#090d16');
+        g.fillStyle = '#475569';
+        g.fillRect(88, -15, 12, 13);
+        g.strokeRect(88, -15, 12, 13);
+        g.fillRect(88, 2, 12, 13);
+        g.strokeRect(88, 2, 12, 13);
 
-        g2d.fillStyle = barrelGrad;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 2;
-        g2d.fillRect(10, -13, 86, 9);
-        g2d.strokeRect(10, -13, 86, 9);
-        g2d.fillRect(10, 4, 86, 9);
-        g2d.strokeRect(10, 4, 86, 9);
+        if (firing) {
+          // Star-shaped muzzle flash
+          g.save();
+          g.globalCompositeOperation = 'lighter';
+          g.translate(106, 0);
+          const len = 30 + Math.random() * 16;
+          const flashGrad = g.createRadialGradient(0, 0, 1, 0, 0, len);
+          flashGrad.addColorStop(0, 'rgba(255,255,255,1)');
+          flashGrad.addColorStop(0.35, 'rgba(250,204,21,0.9)');
+          flashGrad.addColorStop(1, 'rgba(249,115,22,0)');
+          g.fillStyle = flashGrad;
+          g.beginPath();
+          for (let k = 0; k < 10; k++) {
+            const r = k % 2 === 0 ? len : len * 0.32;
+            const a = (k / 10) * Math.PI * 2;
+            g.lineTo(Math.cos(a) * r * (k % 4 === 0 ? 1.4 : 1), Math.sin(a) * r * 0.7);
+          }
+          g.closePath();
+          g.fill();
+          g.restore();
+        }
+        g.restore();
 
-        // Perforated Cooling Jacket & Muzzle Brake
-        g2d.fillStyle = '#334155';
-        g2d.fillRect(24, -15, 42, 30);
-        g2d.strokeRect(24, -15, 42, 30);
-
-        g2d.fillStyle = '#475569';
-        g2d.fillRect(88, -15, 12, 13);
-        g2d.strokeRect(88, -15, 12, 13);
-        g2d.fillRect(88, 2, 12, 13);
-        g2d.strokeRect(88, 2, 12, 13);
-
-        g2d.restore();
+        if (firing) {
+          const tipX = pivotX + Math.cos(ang) * 104;
+          const tipY = pivotY + recoilVal + Math.sin(ang) * 104;
+          fx.glow(g, tipX, tipY, 120, '#f59e0b', 0.28);
+        }
       }
 
-      draw3DGunAssembly(leftPivotX, recoilLeft, true);
-      draw3DGunAssembly(rightPivotX, recoilRight, false);
+      drawGunAssembly(leftPivotX, recoilLeft, true);
+      drawGunAssembly(rightPivotX, recoilRight, false);
 
-      // Ejected Brass Shell Casings
+      // Brass casings with a specular glint
       shellCasings.forEach((sc) => {
-        g2d.save();
-        g2d.translate(sc.x, sc.y);
-        g2d.rotate(sc.rot);
-        g2d.fillStyle = '#facc15';
-        g2d.strokeStyle = '#78350f';
-        g2d.lineWidth = 1;
-        g2d.fillRect(-5, -2, 10, 4);
-        g2d.strokeRect(-5, -2, 10, 4);
-        g2d.restore();
+        g.save();
+        g.translate(sc.x, sc.y);
+        g.rotate(sc.rot);
+        const brass = g.createLinearGradient(0, -2, 0, 2);
+        brass.addColorStop(0, '#fef08a');
+        brass.addColorStop(1, '#a16207');
+        g.fillStyle = brass;
+        g.fillRect(-5, -2, 10, 4);
+        g.fillStyle = '#78350f';
+        g.fillRect(-5, -2, 2, 4);
+        g.restore();
       });
 
-      // 2. Armored 3D Bunker Cockpit Frame & Sandbag Foreground
-      const dashGrad = g2d.createLinearGradient(0, height - 42, 0, height);
+      // Sandbag parapet + armoured dash
+      const dashTop = height - 34;
+      const dashGrad = g.createLinearGradient(0, dashTop, 0, height);
       dashGrad.addColorStop(0, '#1e293b');
-      dashGrad.addColorStop(1, '#090d16');
-      g2d.fillStyle = dashGrad;
-      g2d.strokeStyle = '#38bdf8';
-      g2d.lineWidth = 2.5;
-      g2d.beginPath();
-      g2d.moveTo(0, height);
-      g2d.lineTo(width * 0.22, height - 34);
-      g2d.lineTo(width * 0.78, height - 34);
-      g2d.lineTo(width, height);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      dashGrad.addColorStop(1, '#020617');
+      g.fillStyle = dashGrad;
+      g.beginPath();
+      g.moveTo(0, height);
+      g.lineTo(width * 0.22, dashTop);
+      g.lineTo(width * 0.78, dashTop);
+      g.lineTo(width, height);
+      g.closePath();
+      g.fill();
 
-      // 3. In-Screen Tactical Military HUD (Top-Left: Armor & Cannon, Top-Right: Radar & Wave)
-      g2d.save();
+      const bagW = 34;
+      for (let row = 0; row < 2; row++) {
+        const y = dashTop - 6 + row * 11;
+        const offset = row % 2 === 0 ? 0 : bagW / 2;
+        for (let x = width * 0.22 + offset - bagW; x < width * 0.78 + bagW; x += bagW) {
+          const bagGrad = g.createLinearGradient(0, y - 6, 0, y + 6);
+          bagGrad.addColorStop(0, '#a8a29e');
+          bagGrad.addColorStop(0.5, '#78716c');
+          bagGrad.addColorStop(1, '#44403c');
+          g.fillStyle = bagGrad;
+          g.beginPath();
+          g.ellipse(x, y, bagW / 2 + 1, 6.5, 0, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      g.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, height);
+      g.lineTo(width * 0.22, dashTop + 8);
+      g.moveTo(width * 0.78, dashTop + 8);
+      g.lineTo(width, height);
+      g.stroke();
+    }
 
-      // Top-Left HUD Box
-      g2d.fillStyle = 'rgba(9, 13, 22, 0.82)';
-      g2d.strokeStyle = '#38bdf8';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.roundRect(14, 12, 245, 76, 8);
-      g2d.fill();
-      g2d.stroke();
+    function drawGlassPanel(x, y, w, h, accent) {
+      const g = g2d;
+      g.save();
+      g.beginPath();
+      g.moveTo(x + 10, y);
+      g.lineTo(x + w, y);
+      g.lineTo(x + w, y + h - 10);
+      g.lineTo(x + w - 10, y + h);
+      g.lineTo(x, y + h);
+      g.lineTo(x, y + 10);
+      g.closePath();
+      const bg = g.createLinearGradient(0, y, 0, y + h);
+      bg.addColorStop(0, 'rgba(15, 23, 42, 0.86)');
+      bg.addColorStop(1, 'rgba(2, 6, 23, 0.86)');
+      g.fillStyle = bg;
+      g.fill();
+      g.strokeStyle = fx.rgba(accent, 0.75);
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = accent;
+      g.fillRect(x + 10, y - 1, 30, 3);
+      g.restore();
+    }
 
+    function drawTacticalHud() {
+      const g = g2d;
+      const cfg = getDiffCfg();
+      const compact = width < 560;
+
+      // Armour + cannon panel
+      const pw = compact ? 190 : 250;
+      drawGlassPanel(12, 12, pw, 72, '#38bdf8');
+      g.textAlign = 'left';
+      g.textBaseline = 'alphabetic';
+      g.font = fx.font(11, 800);
+      g.fillStyle = '#94a3b8';
+      g.fillText('GIÁP LÔ CỐT', 24, 30);
       const hpRatio = Math.max(0, Math.min(1, bunkerHp / maxHp));
       const hpCol = bunkerHp > 55 ? '#22c55e' : bunkerHp > 25 ? '#f59e0b' : '#ef4444';
-      g2d.fillStyle = '#ffffff';
-      g2d.font = '800 12px "Segoe UI", sans-serif';
-      g2d.textAlign = 'left';
-      g2d.fillText(`🛡 GIÁP LÔ CỐT: ${Math.round(bunkerHp)}%`, 26, 31);
+      g.textAlign = 'right';
+      g.fillStyle = hpCol;
+      g.font = fx.font(13, 900);
+      g.fillText(`${Math.round(bunkerHp)}%`, 12 + pw - 12, 30);
 
-      g2d.fillStyle = '#1e293b';
-      g2d.fillRect(26, 36, 218, 13);
-      g2d.fillStyle = hpCol;
-      g2d.fillRect(26, 36, 218 * hpRatio, 13);
-      g2d.strokeStyle = '#090d16';
-      g2d.strokeRect(26, 36, 218, 13);
+      const segs = 20;
+      const barX = 24;
+      const barW = pw - 36;
+      const segW = barW / segs;
+      const lit = Math.ceil(hpRatio * segs);
+      const lowPulse = bunkerHp <= 25 ? 0.6 + Math.sin(sceneTime * 10) * 0.4 : 1;
+      for (let i = 0; i < segs; i++) {
+        g.fillStyle = i < lit ? fx.rgba(hpCol, i < lit ? lowPulse : 1) : 'rgba(51, 65, 85, 0.6)';
+        g.fillRect(barX + i * segW, 36, segW - 2, 10);
+      }
 
-      g2d.fillStyle = '#fbbf24';
-      g2d.font = '800 12px "Segoe UI", sans-serif';
-      g2d.fillText(`🚀 ĐẠN ĐẠI PHÁO: ${cannonAmmo} VIÊN`, 26, 70);
-      g2d.fillStyle = '#38bdf8';
-      g2d.textAlign = 'right';
-      g2d.fillText(`[${cfg.label}]`, 246, 70);
+      g.textAlign = 'left';
+      g.font = fx.font(11, 800);
+      g.fillStyle = '#94a3b8';
+      g.fillText('ĐẠI PHÁO', 24, 66);
+      const pips = Math.min(cannonAmmo, compact ? 6 : 10);
+      for (let i = 0; i < pips; i++) {
+        const px = 90 + i * 11;
+        g.fillStyle = cannonCooldown > 0 && i === pips - 1 ? '#78350f' : '#fbbf24';
+        g.beginPath();
+        g.roundRect(px, 57, 7, 11, 2);
+        g.fill();
+      }
+      g.fillStyle = '#fde68a';
+      g.font = fx.font(12, 900);
+      g.fillText(`×${cannonAmmo}`, 90 + pips * 11 + 4, 67);
+      g.textAlign = 'right';
+      g.fillStyle = '#38bdf8';
+      g.font = fx.font(10, 900);
+      g.fillText(cfg.label, 12 + pw - 12, 66);
 
-      // Top-Right Radar & Wave Box
-      const radarX = width - 78;
-      const radarY = 50;
-      const radarR = 36;
-
-      g2d.fillStyle = 'rgba(6, 28, 18, 0.85)';
-      g2d.strokeStyle = '#22c55e';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.arc(radarX, radarY, radarR, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Radar rings
-      g2d.strokeStyle = 'rgba(34, 197, 94, 0.3)';
-      g2d.lineWidth = 1;
-      g2d.beginPath();
-      g2d.arc(radarX, radarY, radarR * 0.55, 0, Math.PI * 2);
-      g2d.moveTo(radarX - radarR, radarY);
-      g2d.lineTo(radarX + radarR, radarY);
-      g2d.moveTo(radarX, radarY - radarR);
-      g2d.lineTo(radarX, radarY + radarR);
-      g2d.stroke();
-
-      // Enemy Blips on Radar
+      // Radar with rotating sweep
+      const radarR = compact ? 28 : 36;
+      const radarX = width - radarR - 16;
+      const radarY = radarR + 14;
+      g.save();
+      g.beginPath();
+      g.arc(radarX, radarY, radarR, 0, Math.PI * 2);
+      const radarBg = g.createRadialGradient(radarX, radarY, 2, radarX, radarY, radarR);
+      radarBg.addColorStop(0, 'rgba(20, 83, 45, 0.9)');
+      radarBg.addColorStop(1, 'rgba(2, 20, 10, 0.92)');
+      g.fillStyle = radarBg;
+      g.fill();
+      g.clip();
+      const sweep = sceneTime * 2.4;
+      g.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < 14; k++) {
+        g.fillStyle = `rgba(74, 222, 128, ${0.16 * (1 - k / 14)})`;
+        g.beginPath();
+        g.moveTo(radarX, radarY);
+        g.arc(radarX, radarY, radarR, sweep - (k + 1) * 0.06, sweep - k * 0.06);
+        g.closePath();
+        g.fill();
+      }
+      g.globalCompositeOperation = 'source-over';
+      g.strokeStyle = 'rgba(74, 222, 128, 0.3)';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.arc(radarX, radarY, radarR * 0.55, 0, Math.PI * 2);
+      g.moveTo(radarX - radarR, radarY);
+      g.lineTo(radarX + radarR, radarY);
+      g.moveTo(radarX, radarY - radarR);
+      g.lineTo(radarX, radarY + radarR);
+      g.stroke();
       enemies.forEach((e) => {
         const bx = radarX + (e.worldX / 1.4) * (radarR - 5);
         const by = radarY + (0.5 - e.z) * (radarR * 1.4);
-        g2d.fillStyle = e.type === 'supply' ? '#38bdf8' : '#ef4444';
-        g2d.beginPath();
-        g2d.arc(bx, by, 3, 0, Math.PI * 2);
-        g2d.fill();
+        g.fillStyle = e.type === 'supply' ? '#38bdf8' : '#f87171';
+        g.beginPath();
+        g.arc(bx, by, 2.6, 0, Math.PI * 2);
+        g.fill();
+      });
+      g.restore();
+      g.strokeStyle = '#22c55e';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(radarX, radarY, radarR, 0, Math.PI * 2);
+      g.stroke();
+
+      // Score, wave and wave progress
+      const tx = radarX - radarR - 14;
+      fx.outlinedText(g, `🏆 ${score.toLocaleString('vi-VN')}`, tx, 28, {
+        size: compact ? 15 : 19,
+        color: '#facc15',
+        align: 'right',
+        glow: 'rgba(250, 204, 21, 0.6)'
+      });
+      fx.outlinedText(g, `ĐỢT ${wave}`, tx, 52, { size: 12, color: '#e2e8f0', align: 'right', weight: 800 });
+      const progW = compact ? 70 : 110;
+      g.fillStyle = 'rgba(30, 41, 59, 0.85)';
+      g.fillRect(tx - progW, 62, progW, 5);
+      g.fillStyle = '#38bdf8';
+      g.fillRect(tx - progW, 62, progW * Math.min(1, killsInWave / waveTargetKills), 5);
+    }
+
+    function drawSky(horizonY, camPanX) {
+      const g = g2d;
+      const sky = g.createLinearGradient(0, 0, 0, horizonY);
+      sky.addColorStop(0, '#040714');
+      sky.addColorStop(0.38, '#1e1b4b');
+      sky.addColorStop(0.72, '#7c2d12');
+      sky.addColorStop(0.92, '#ea580c');
+      sky.addColorStop(1, '#fdba74');
+      g.fillStyle = sky;
+      g.fillRect(0, 0, width, horizonY);
+
+      g.fillStyle = '#ffffff';
+      stars.forEach((s) => {
+        const a = (1 - s.y / 0.62) * (0.45 + 0.45 * Math.sin(sceneTime * 1.7 + s.tw));
+        if (a <= 0.05) return;
+        g.globalAlpha = a;
+        g.fillRect(s.x * width + camPanX * 0.12, s.y * horizonY, s.r, s.r);
+      });
+      g.globalAlpha = 1;
+
+      const sunX = width * 0.5 + camPanX * 0.4;
+      fx.glow(g, sunX, horizonY, Math.min(320, width * 0.4), '#fb923c', 0.5);
+
+      // God rays fanning out of the sun
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      for (let r = 0; r < 7; r++) {
+        const a = Math.PI + 0.25 + (r / 6) * (Math.PI - 0.5) + Math.sin(sceneTime * 0.15 + r) * 0.04;
+        const spread = 0.05 + (r % 3) * 0.02;
+        const len = horizonY * 1.4;
+        g.fillStyle = 'rgba(253, 186, 116, 0.035)';
+        g.beginPath();
+        g.moveTo(sunX, horizonY);
+        g.lineTo(sunX + Math.cos(a - spread) * len, horizonY + Math.sin(a - spread) * len);
+        g.lineTo(sunX + Math.cos(a + spread) * len, horizonY + Math.sin(a + spread) * len);
+        g.closePath();
+        g.fill();
+      }
+      g.restore();
+
+      // Sun disc (lower half is hidden by the sea drawn afterwards)
+      const disc = g.createRadialGradient(sunX, horizonY - 4, 2, sunX, horizonY, 38);
+      disc.addColorStop(0, '#fffbeb');
+      disc.addColorStop(0.6, '#fde68a');
+      disc.addColorStop(1, '#fb923c');
+      g.fillStyle = disc;
+      g.beginPath();
+      g.arc(sunX, horizonY, 36, 0, Math.PI * 2);
+      g.fill();
+
+      // Drifting cloud banks lit from below
+      clouds.forEach((c) => {
+        const cx = (((c.x + sceneTime * c.speed) % 1.3) - 0.15) * width + camPanX * c.depth * 0.5;
+        const cy = c.y * horizonY;
+        const cg = g.createLinearGradient(0, cy - c.h, 0, cy + c.h);
+        cg.addColorStop(0, 'rgba(30, 27, 75, 0.85)');
+        cg.addColorStop(1, 'rgba(234, 88, 12, 0.5)');
+        g.fillStyle = cg;
+        g.beginPath();
+        g.ellipse(cx, cy, c.w * 0.5, c.h, 0, 0, Math.PI * 2);
+        g.ellipse(cx - c.w * 0.25, cy + 3, c.w * 0.32, c.h * 0.75, 0, 0, Math.PI * 2);
+        g.ellipse(cx + c.w * 0.28, cy + 2, c.w * 0.3, c.h * 0.8, 0, 0, Math.PI * 2);
+        g.fill();
       });
 
-      // Score & Wave Display next to Radar
-      g2d.textAlign = 'right';
-      g2d.fillStyle = '#facc15';
-      g2d.font = '900 18px "Segoe UI", sans-serif';
-      g2d.fillText(`🏆 ${score.toLocaleString('vi-VN')}`, radarX - radarR - 14, 34);
-      g2d.fillStyle = '#f8fafc';
-      g2d.font = '700 13px "Segoe UI", sans-serif';
-      g2d.fillText(
-        `🌊 Đợt ${wave} (${killsInWave}/${waveTargetKills})`,
-        radarX - radarR - 14,
-        56
-      );
+      // Distant warships with deck lights and funnel smoke
+      [-220, 210].forEach((offsetX, idx) => {
+        const wx = sunX + offsetX;
+        g.fillStyle = '#0b1020';
+        g.beginPath();
+        g.moveTo(wx - 40, horizonY);
+        g.lineTo(wx - 33, horizonY - 7);
+        g.lineTo(wx + 34, horizonY - 7);
+        g.lineTo(wx + 40, horizonY);
+        g.closePath();
+        g.fill();
+        g.fillRect(wx - 12, horizonY - 15, 20, 8);
+        g.fillRect(wx - 2, horizonY - 22, 4, 7);
+        g.fillStyle = Math.sin(sceneTime * 3 + idx) > 0 ? '#fde68a' : '#f97316';
+        g.fillRect(wx + 18, horizonY - 5, 2, 2);
+        g.fillRect(wx - 24, horizonY - 5, 2, 2);
+        g.fillStyle = 'rgba(30, 41, 59, 0.35)';
+        for (let s = 0; s < 4; s++) {
+          const sy = horizonY - 24 - s * 7;
+          const sx = wx + s * 6 + Math.sin(sceneTime + s) * 2;
+          g.beginPath();
+          g.arc(sx, sy, 3 + s * 1.6, 0, Math.PI * 2);
+          g.fill();
+        }
+      });
+    }
 
-      g2d.restore();
+    function drawSea(horizonY, beachY, camPanX) {
+      const g = g2d;
+      const seaGrad = g.createLinearGradient(0, horizonY, 0, beachY);
+      seaGrad.addColorStop(0, '#0c4a6e');
+      seaGrad.addColorStop(0.5, '#075985');
+      seaGrad.addColorStop(1, '#0284c7');
+      g.fillStyle = seaGrad;
+      g.fillRect(0, horizonY, width, beachY - horizonY);
+
+      // Horizon haze
+      const haze = g.createLinearGradient(0, horizonY, 0, horizonY + 18);
+      haze.addColorStop(0, 'rgba(253, 186, 116, 0.55)');
+      haze.addColorStop(1, 'rgba(253, 186, 116, 0)');
+      g.fillStyle = haze;
+      g.fillRect(0, horizonY, width, 18);
+
+      // Shimmering sun reflection column
+      const sunX = width * 0.5 + camPanX * 0.4;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      const rows = 16;
+      for (let i = 0; i < rows; i++) {
+        const p = i / rows;
+        const y = horizonY + Math.pow(p, 1.5) * (beachY - horizonY);
+        const w = (12 + p * 110) * (0.6 + 0.4 * Math.sin(sceneTime * 2.6 + i * 1.7));
+        g.fillStyle = `rgba(253, 186, 116, ${0.4 * (1 - p)})`;
+        g.fillRect(sunX - w / 2 + Math.sin(sceneTime * 1.3 + i) * 6, y, w, 1.5 + p * 3);
+      }
+      g.restore();
+
+      // Rolling wave crests (curved, perspective-scaled)
+      const waveAnim = (sceneTime * 0.12) % 1;
+      for (let i = 0; i < 7; i++) {
+        const p = (i + waveAnim) / 7;
+        const wy = horizonY + Math.pow(p, 1.7) * (beachY - horizonY);
+        const amp = 1 + p * 4;
+        g.strokeStyle = `rgba(186, 230, 253, ${0.12 + p * 0.3})`;
+        g.lineWidth = 0.8 + p * 2;
+        g.beginPath();
+        for (let x = 0; x <= width; x += 24) {
+          const y = wy + Math.sin(x * 0.02 + sceneTime * 1.4 + i) * amp;
+          if (x === 0) g.moveTo(x, y);
+          else g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+
+      // Foam where the surf meets the sand
+      g.strokeStyle = `rgba(255, 255, 255, ${0.55 + Math.sin(sceneTime * 1.8) * 0.2})`;
+      g.lineWidth = 3;
+      g.beginPath();
+      for (let x = 0; x <= width; x += 16) {
+        const y = beachY - 2 + Math.sin(x * 0.035 + sceneTime * 1.8) * 2.5;
+        if (x === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+
+    function drawBeach(beachY, camPanX) {
+      const g = g2d;
+      const sandGrad = g.createLinearGradient(0, beachY, 0, height);
+      sandGrad.addColorStop(0, '#78350f');
+      sandGrad.addColorStop(0.08, '#b45309');
+      sandGrad.addColorStop(0.35, '#92400e');
+      sandGrad.addColorStop(0.75, '#451a03');
+      sandGrad.addColorStop(1, '#1c1917');
+      g.fillStyle = sandGrad;
+      g.fillRect(0, beachY, width, height - beachY);
+
+      // Sunset rim on the wet sand
+      const rim = g.createLinearGradient(0, beachY, 0, beachY + 24);
+      rim.addColorStop(0, 'rgba(253, 186, 116, 0.35)');
+      rim.addColorStop(1, 'rgba(253, 186, 116, 0)');
+      g.fillStyle = rim;
+      g.fillRect(0, beachY, width, 24);
+
+      const sunX = width * 0.5 + camPanX * 0.4;
+      g.strokeStyle = 'rgba(0, 0, 0, 0.18)';
+      g.lineWidth = 1.5;
+      for (let gx = -3; gx <= 3; gx++) {
+        g.beginPath();
+        g.moveTo(sunX + gx * 65, beachY);
+        g.lineTo(sunX + gx * 320, height);
+        g.stroke();
+      }
+
+      // Czech hedgehogs with shading and shadows
+      [-0.78, -0.35, 0.38, 0.82].forEach((ox) => {
+        const p = project3D(ox, 0.25, 0.42);
+        g.save();
+        g.translate(p.sx, p.sy);
+        g.scale(p.scale, p.scale);
+        fx.contactShadow(g, 4, 10, 16, 4, 0.4);
+        g.lineCap = 'round';
+        g.strokeStyle = '#0c0a09';
+        g.lineWidth = 5;
+        g.beginPath();
+        g.moveTo(-12, 8);
+        g.lineTo(12, -12);
+        g.moveTo(12, 8);
+        g.lineTo(-12, -12);
+        g.moveTo(0, -15);
+        g.lineTo(0, 10);
+        g.stroke();
+        g.strokeStyle = 'rgba(253, 186, 116, 0.45)';
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(-11, 6);
+        g.lineTo(11, -12);
+        g.moveTo(-1, -14);
+        g.lineTo(-1, 9);
+        g.stroke();
+        g.restore();
+      });
+    }
+
+    function drawReticle() {
+      const g = g2d;
+      const firing = isFiringMG || autoFire;
+      const col = firing ? '#fb7185' : '#4ade80';
+      const spin = sceneTime * (firing ? 4 : 1.2);
+      const r = 20 + (firing ? Math.sin(sceneTime * 40) * 1.5 : 0);
+      g.save();
+      g.translate(aimX, aimY);
+      g.strokeStyle = col;
+      g.lineWidth = 2;
+      g.shadowColor = col;
+      g.shadowBlur = 8;
+      g.beginPath();
+      g.arc(0, 0, 2, 0, Math.PI * 2);
+      g.stroke();
+      g.rotate(spin);
+      for (let k = 0; k < 4; k++) {
+        g.beginPath();
+        g.arc(0, 0, r, k * (Math.PI / 2) + 0.25, (k + 1) * (Math.PI / 2) - 0.25);
+        g.stroke();
+      }
+      g.rotate(-spin);
+      g.beginPath();
+      g.moveTo(-30, 0);
+      g.lineTo(-10, 0);
+      g.moveTo(10, 0);
+      g.lineTo(30, 0);
+      g.moveTo(0, -30);
+      g.lineTo(0, -10);
+      g.moveTo(0, 10);
+      g.lineTo(0, 30);
+      g.stroke();
+
+      // Cannon readiness arc
+      const ready = cannonAmmo > 0 ? 1 - Math.max(0, cannonCooldown) / 0.6 : 0;
+      g.shadowBlur = 0;
+      g.strokeStyle = cannonAmmo > 0 ? 'rgba(251, 191, 36, 0.85)' : 'rgba(148, 163, 184, 0.4)';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.arc(0, 0, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ready);
+      g.stroke();
+
+      // Hit marker
+      if (hitMarker > 0) {
+        const s = 8 + (0.18 - hitMarker) * 40;
+        g.strokeStyle = `rgba(255, 255, 255, ${hitMarker / 0.18})`;
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.moveTo(-s, -s);
+        g.lineTo(-s + 6, -s + 6);
+        g.moveTo(s, -s);
+        g.lineTo(s - 6, -s + 6);
+        g.moveTo(-s, s);
+        g.lineTo(-s + 6, s - 6);
+        g.moveTo(s, s);
+        g.lineTo(s - 6, s - 6);
+        g.stroke();
+      }
+      g.restore();
     }
 
     function drawScene() {
-      g2d.save();
-      if (screenShake > 0) {
-        g2d.translate(
-          (Math.random() - 0.5) * screenShake,
-          (Math.random() - 0.5) * screenShake
-        );
+      const g = g2d;
+      g.save();
+      if (screenShake > 0 && !fx.isReducedMotion()) {
+        g.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
       }
 
       const camPanX = ((aimX - width * 0.5) / width) * -45;
@@ -1058,99 +1664,11 @@
       const horizonY = height * 0.44 + camPanY;
       const beachY = height * 0.64 + camPanY * 1.2;
 
-      // 1. Realistic 3D Atmospheric Sky
-      const skyGrad = g2d.createLinearGradient(0, 0, 0, horizonY);
-      skyGrad.addColorStop(0, '#070b19');
-      skyGrad.addColorStop(0.45, '#1e1b4b');
-      skyGrad.addColorStop(0.82, '#9a3412');
-      skyGrad.addColorStop(1, '#fb923c');
-      g2d.fillStyle = skyGrad;
-      g2d.fillRect(0, 0, width, horizonY);
+      drawSky(horizonY, camPanX);
+      drawSea(horizonY, beachY, camPanX);
+      drawBeach(beachY, camPanX);
 
-      // Volumetric Sunset Glow
-      const sunX = width * 0.5 + camPanX * 0.4;
-      const sunGrad = g2d.createRadialGradient(sunX, horizonY, 6, sunX, horizonY, 110);
-      sunGrad.addColorStop(0, 'rgba(254, 240, 138, 0.92)');
-      sunGrad.addColorStop(0.45, 'rgba(249, 115, 22, 0.4)');
-      sunGrad.addColorStop(1, 'rgba(249, 115, 22, 0)');
-      g2d.fillStyle = sunGrad;
-      g2d.beginPath();
-      g2d.arc(sunX, horizonY, 110, Math.PI, 0);
-      g2d.fill();
-
-      // Distant Naval Warships on Horizon
-      [-220, 210].forEach((offsetX) => {
-        const wx = sunX + offsetX;
-        g2d.fillStyle = '#0f172a';
-        g2d.beginPath();
-        g2d.moveTo(wx - 38, horizonY);
-        g2d.lineTo(wx - 32, horizonY - 7);
-        g2d.lineTo(wx + 32, horizonY - 7);
-        g2d.lineTo(wx + 38, horizonY);
-        g2d.closePath();
-        g2d.fill();
-        g2d.fillRect(wx - 10, horizonY - 15, 18, 8);
-      });
-
-      // 2. 3D Perspective Ocean with Animated Wave Lines
-      const seaGrad = g2d.createLinearGradient(0, horizonY, 0, beachY);
-      seaGrad.addColorStop(0, '#082f49');
-      seaGrad.addColorStop(0.6, '#0369a1');
-      seaGrad.addColorStop(1, '#0ea5e9');
-      g2d.fillStyle = seaGrad;
-      g2d.fillRect(0, horizonY, width, beachY - horizonY);
-
-      const waveAnim = (performance.now() * 0.0004) % 1;
-      g2d.strokeStyle = 'rgba(186, 230, 253, 0.35)';
-      for (let i = 0; i < 6; i++) {
-        const p = (i + waveAnim) / 6;
-        const wy = horizonY + Math.pow(p, 1.7) * (beachY - horizonY);
-        g2d.lineWidth = 0.8 + p * 2.2;
-        g2d.beginPath();
-        g2d.moveTo(0, wy);
-        g2d.lineTo(width, wy);
-        g2d.stroke();
-      }
-
-      // 3. 3D Fortified Sandy Beach & Czech Hedgehog Tank Traps
-      const sandGrad = g2d.createLinearGradient(0, beachY, 0, height);
-      sandGrad.addColorStop(0, '#92400e');
-      sandGrad.addColorStop(0.25, '#78350f');
-      sandGrad.addColorStop(0.7, '#451a03');
-      sandGrad.addColorStop(1, '#1c1917');
-      g2d.fillStyle = sandGrad;
-      g2d.fillRect(0, beachY, width, height - beachY);
-
-      // Perspective grid lines on beach for 3D depth cue
-      g2d.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-      g2d.lineWidth = 1.5;
-      for (let gx = -3; gx <= 3; gx++) {
-        g2d.beginPath();
-        g2d.moveTo(sunX + gx * 65, beachY);
-        g2d.lineTo(sunX + gx * 320, height);
-        g2d.stroke();
-      }
-
-      // Steel Tank Obstacles (Czech Hedgehogs) on Beach
-      [-0.78, -0.35, 0.38, 0.82].forEach((ox) => {
-        const p = project3D(ox, 0.25, 0.42);
-        g2d.save();
-        g2d.translate(p.sx, p.sy);
-        g2d.scale(p.scale, p.scale);
-        g2d.strokeStyle = '#1c1917';
-        g2d.lineWidth = 4;
-        g2d.beginPath();
-        g2d.moveTo(-12, 8);
-        g2d.lineTo(12, -12);
-        g2d.moveTo(12, 8);
-        g2d.lineTo(-12, -12);
-        g2d.moveTo(0, -15);
-        g2d.lineTo(0, 10);
-        g2d.stroke();
-        g2d.restore();
-      });
-
-      // 4. Sort and Draw 3D Enemies from Far (large z) to Near (small z)
+      // Enemies far -> near, with hit flash and health bars
       const sortedEnemies = enemies.slice().sort((a, b) => b.z - a.z);
       sortedEnemies.forEach((e) => {
         const proj = project3D(e.worldX, e.worldY, e.z);
@@ -1159,138 +1677,182 @@
         else if (e.type === 'jet') draw3DJet(e, proj);
         else draw3DParaOrSupply(e, proj);
 
-        // 3D Scaled Health Bar above damaged enemies
+        if (e.hitFlash > 0) {
+          fx.glow(g, proj.sx, proj.sy - 4 * proj.scale, (e.baseRadius + 10) * proj.scale, '#ffffff', e.hitFlash * 4);
+        }
+
         if (e.hp < e.maxHp && e.type !== 'supply') {
-          const bw = 38 * proj.scale;
+          const bw = 40 * proj.scale;
           const bh = Math.max(3, 4.5 * proj.scale);
           const bx = proj.sx - bw / 2;
-          const by = proj.sy - (e.baseRadius + 14) * proj.scale;
-          g2d.fillStyle = 'rgba(0,0,0,0.7)';
-          g2d.fillRect(bx, by, bw, bh);
-          g2d.fillStyle = '#ef4444';
-          g2d.fillRect(bx, by, bw * Math.max(0, e.hp / e.maxHp), bh);
+          const by = proj.sy - (e.baseRadius + 16) * proj.scale;
+          const ratio = Math.max(0, e.hp / e.maxHp);
+          g.fillStyle = 'rgba(2, 6, 23, 0.8)';
+          g.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+          g.fillStyle = ratio > 0.5 ? '#facc15' : '#ef4444';
+          g.fillRect(bx, by, bw * ratio, bh);
         }
       });
 
-      // 5. Enemy Incoming Shells (3D growing spheres)
+      // Incoming enemy shells: glowing orbs with a short trail
       enemyProjectiles.forEach((p) => {
         const cx = p.x + (p.tx - p.x) * p.progress;
         const cy = p.y + (p.ty - p.y) * p.progress;
+        const tp = Math.max(0, p.progress - 0.08);
+        const tx = p.x + (p.tx - p.x) * tp;
+        const ty = p.y + (p.ty - p.y) * tp;
         const r = 3 + p.progress * 7;
-        g2d.fillStyle = '#fef08a';
-        g2d.beginPath();
-        g2d.arc(cx, cy, r, 0, Math.PI * 2);
-        g2d.fill();
-        g2d.strokeStyle = '#ef4444';
-        g2d.lineWidth = 2;
-        g2d.stroke();
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        g.strokeStyle = 'rgba(248, 113, 113, 0.45)';
+        g.lineWidth = r;
+        g.lineCap = 'round';
+        g.beginPath();
+        g.moveTo(tx, ty);
+        g.lineTo(cx, cy);
+        g.stroke();
+        g.restore();
+        fx.glow(g, cx, cy, r * 3.2, '#f97316', 0.55);
+        g.fillStyle = '#fff7ed';
+        g.beginPath();
+        g.arc(cx, cy, r * 0.6, 0, Math.PI * 2);
+        g.fill();
       });
 
-      // 6. Player 3D Perspective Tracer Bullets
+      // Player tracers (additive core + halo, no shadowBlur)
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
       bullets.forEach((b) => {
         const cx = b.x + (b.targetX - b.x) * b.progress;
         const cy = b.y + (b.targetY - b.y) * b.progress;
-        const tailP = Math.max(0, b.progress - 0.16);
+        const tailP = Math.max(0, b.progress - (b.type === 'cannon' ? 0.22 : 0.16));
         const tx = b.x + (b.targetX - b.x) * tailP;
         const ty = b.y + (b.targetY - b.y) * tailP;
-
-        g2d.save();
-        g2d.strokeStyle = b.type === 'cannon' ? '#facc15' : '#38bdf8';
-        g2d.shadowColor = b.type === 'cannon' ? '#f97316' : '#38bdf8';
-        g2d.shadowBlur = 10;
-        g2d.lineWidth = (b.type === 'cannon' ? 6 : 3) * (1 - b.progress * 0.45);
-        g2d.lineCap = 'round';
-        g2d.beginPath();
-        g2d.moveTo(tx, ty);
-        g2d.lineTo(cx, cy);
-        g2d.stroke();
-        g2d.restore();
+        const w = (b.type === 'cannon' ? 7 : 3.2) * (1 - b.progress * 0.45);
+        g.strokeStyle = b.type === 'cannon' ? 'rgba(249, 115, 22, 0.45)' : 'rgba(56, 189, 248, 0.4)';
+        g.lineWidth = w * 3;
+        g.beginPath();
+        g.moveTo(tx, ty);
+        g.lineTo(cx, cy);
+        g.stroke();
+        g.strokeStyle = b.type === 'cannon' ? '#fef3c7' : '#e0f2fe';
+        g.lineWidth = w;
+        g.beginPath();
+        g.moveTo(tx, ty);
+        g.lineTo(cx, cy);
+        g.stroke();
       });
+      g.restore();
 
-      // 7. Volumetric Explosions & Smoke Particles
+      // Explosion particles: additive fireballs, soft smoke, glowing rings
       particles.forEach((pt) => {
-        g2d.save();
-        g2d.globalAlpha = Math.max(0, pt.alpha);
+        const a = Math.max(0, Math.min(1, pt.alpha));
+        if (a <= 0) return;
         if (pt.kind === 'ring') {
-          g2d.strokeStyle = pt.color;
-          g2d.lineWidth = 3;
-          g2d.beginPath();
-          g2d.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
-          g2d.stroke();
+          g.save();
+          g.globalCompositeOperation = 'lighter';
+          g.globalAlpha = a;
+          g.strokeStyle = pt.color;
+          g.lineWidth = 4 * a + 1;
+          g.beginPath();
+          g.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+          g.stroke();
+          g.restore();
+        } else if (pt.kind === 'smoke') {
+          g.globalAlpha = a * 0.55;
+          g.fillStyle = '#1e293b';
+          g.beginPath();
+          g.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = 1;
         } else {
-          g2d.fillStyle = pt.color;
-          g2d.beginPath();
-          g2d.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
-          g2d.fill();
+          g.save();
+          g.globalCompositeOperation = 'lighter';
+          g.globalAlpha = a * 0.35;
+          g.fillStyle = pt.color;
+          g.beginPath();
+          g.arc(pt.x, pt.y, pt.radius * 2, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = a;
+          g.beginPath();
+          g.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2);
+          g.fill();
+          g.restore();
         }
-        g2d.restore();
       });
+      flashes.forEach((f) => {
+        fx.glow(g, f.x, f.y, f.r, f.color, 0.75 * (f.life / f.maxLife));
+      });
+      sparks.draw(g);
 
-      // Floating Score Popups
+      // Floating score popups with a pop-in scale
       floatingTexts.forEach((ft) => {
-        g2d.save();
-        g2d.globalAlpha = Math.max(0, ft.alpha);
-        g2d.fillStyle = ft.color;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 3;
-        g2d.font = '800 15px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.strokeText(ft.text, ft.x, ft.y);
-        g2d.fillText(ft.text, ft.x, ft.y);
-        g2d.restore();
+        const a = Math.max(0, Math.min(1, ft.alpha));
+        const pop = Math.min(1, (1 - ft.alpha) * 6);
+        g.save();
+        g.globalAlpha = a;
+        g.translate(ft.x, ft.y);
+        g.scale(0.7 + fx.ease.outBack(pop) * 0.3, 0.7 + fx.ease.outBack(pop) * 0.3);
+        fx.outlinedText(g, ft.text, 0, 0, { size: 15, color: ft.color });
+        g.restore();
       });
 
-      // 8. Foreground 3D Gun Turret, Radar & HUD
-      drawTacticalHudAndTurret();
+      drawTurretAndCockpit();
+      drawTacticalHud();
+      drawReticle();
 
-      // 9. Illuminated Military Optical Sight Reticle
-      g2d.save();
-      g2d.strokeStyle = isFiringMG || autoFire ? '#f43f5e' : '#4ade80';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.arc(aimX, aimY, 20, 0, Math.PI * 2);
-      g2d.arc(aimX, aimY, 2, 0, Math.PI * 2);
-      g2d.moveTo(aimX - 28, aimY);
-      g2d.lineTo(aimX - 9, aimY);
-      g2d.moveTo(aimX + 9, aimY);
-      g2d.lineTo(aimX + 28, aimY);
-      g2d.moveTo(aimX, aimY - 28);
-      g2d.lineTo(aimX, aimY - 9);
-      g2d.moveTo(aimX, aimY + 9);
-      g2d.lineTo(aimX, aimY + 28);
-      g2d.stroke();
-      g2d.restore();
-
-      // Red Damage Flash
-      if (damageVignette > 0) {
-        g2d.fillStyle = `rgba(239, 68, 68, ${damageVignette * 0.32})`;
-        g2d.fillRect(0, 0, width, height);
+      // Damage: red edge vignette, pulsing when armour is critical
+      const critical = !isGameOver && bunkerHp <= 25 ? 0.25 + Math.sin(sceneTime * 6) * 0.12 : 0;
+      const dmg = Math.max(damageVignette * 0.6, critical);
+      if (dmg > 0.01) {
+        fx.vignette(g, width, height, 0, `rgba(239, 68, 68, ${dmg})`);
       }
 
-      // Game Over / Pause Overlay
-      if (isGameOver || isPaused) {
-        g2d.fillStyle = 'rgba(7, 11, 20, 0.82)';
-        g2d.fillRect(0, 0, width, height);
-        g2d.fillStyle = '#facc15';
-        g2d.font = '800 30px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText(
-          isGameOver ? '💥 LÔ CỐT PHÒNG THỦ THẤT THỦ!' : '⏸ ĐANG TẠM DỪNG',
-          width / 2,
-          height / 2 - 20
-        );
-        g2d.fillStyle = '#38bdf8';
-        g2d.font = '600 18px "Segoe UI", sans-serif';
-        g2d.fillText(
-          isGameOver
-            ? `Chế độ ${getDiffCfg().label} • Điểm: ${score.toLocaleString('vi-VN')} (Đợt ${wave}) — Bấm vào màn hình để chơi lại`
-            : 'Bấm nút Tiếp tục để quay lại trận chiến',
-          width / 2,
-          height / 2 + 20
-        );
+      if (waveBanner && !isGameOver) {
+        fx.drawBanner(g, width, height, waveBanner.text, {
+          t: waveBanner.t,
+          duration: 2.2,
+          accent: '#38bdf8',
+          sub: waveBanner.sub,
+          size: Math.min(40, width * 0.07),
+          y: height * 0.3
+        });
       }
+      g.restore();
 
-      g2d.restore();
+      // State panels are drawn outside the camera shake
+      const key = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (key !== overlayKey) {
+        overlayKey = key;
+        overlayT = 0;
+      }
+      if (key) {
+        if (isGameOver) {
+          fx.drawStatePanel(g, width, height, {
+            icon: '💥',
+            title: 'LÔ CỐT THẤT THỦ!',
+            subtitle: 'Đợt tấn công đã chọc thủng tuyến phòng thủ bờ biển.',
+            lines: [
+              `Điểm|${score.toLocaleString('vi-VN')}`,
+              `Đợt đã trụ|${wave}`,
+              `Chế độ|${getDiffCfg().label}`
+            ],
+            hint: 'Bấm vào màn hình để chơi lại',
+            accent: '#f97316',
+            t: overlayT
+          });
+        } else {
+          fx.drawStatePanel(g, width, height, {
+            icon: '⏸',
+            title: 'TẠM DỪNG',
+            subtitle: 'Nhấn Esc hoặc nút Tiếp tục để quay lại trận chiến.',
+            accent: '#38bdf8',
+            t: overlayT,
+            backdrop: 0.55
+          });
+        }
+      }
     }
 
     function updateAimFromPointer(evt) {
@@ -1377,6 +1939,7 @@
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
       updateGame(dt);
+      updatePresentation(dt);
       drawScene();
       animId = requestAnimationFrame(loop);
     }
@@ -1393,6 +1956,20 @@
     return {
       restart() {
         resetGame();
+      },
+      pause() {
+        if (isGameOver || isPaused) return;
+        isPaused = true;
+        isFiringMG = false;
+        updateToolbarUI();
+      },
+      resume() {
+        if (!isPaused) return;
+        isPaused = false;
+        updateToolbarUI();
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
