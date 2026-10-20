@@ -72,6 +72,20 @@
     let bossShake = 0;
     let heroShake = 0;
     let breathPhase = 0;
+    let isPaused = false;
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(320);
+    const camShake = fx.createShake(6);
+    let sceneTime = 0;
+    let overlayT = 0;
+    let overlayKey = '';
+    let bannerT = 10;
+    let bannerBonus = 0;
+    let heroHpGhost = 100;
+    let bossHpGhost = 180;
 
     container.innerHTML = `
       <div class="game-shell">
@@ -83,6 +97,7 @@
           </div>
           <div class="toolbar-group">
             <button type="button" class="pill-btn" id="mbPeekBtn">👁️ Soi Thẻ (1 Lần/Màn)</button>
+            <button type="button" class="pill-btn" id="mbPauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
             <span id="mbStatusBadge" style="font-size:0.84rem;color:#facc15;font-weight:800;">Boss 1 • Lật 2 thẻ giống nhau để tung chưởng!</span>
           </div>
         </div>
@@ -93,9 +108,11 @@
     `;
 
     const canvas = container.querySelector('#memoryBattleCanvas');
-    const g = canvas.getContext('2d');
+    const hidpi = fx.setupHiDPICanvas(canvas, W, H);
+    const g = hidpi.g;
     const statusBadge = container.querySelector('#mbStatusBadge');
     const peekBtn = container.querySelector('#mbPeekBtn');
+    const pauseBtn = container.querySelector('#mbPauseBtn');
     const diffBtns = container.querySelectorAll('[data-diff]');
     let peekUsed = false;
 
@@ -138,6 +155,7 @@
       currentBoss = template;
       bossMaxHp = Math.round(template.maxHp + (lvl - 1) * 35);
       bossHp = bossMaxHp;
+      bossHpGhost = bossHp;
       buildDeck();
       updateBadge();
     }
@@ -149,11 +167,31 @@
       bossLevel = 1;
       heroMaxHp = 100;
       heroHp = 100;
+      heroHpGhost = 100;
       isGameOver = false;
+      isPaused = false;
+      syncPauseBtn();
       projectiles = [];
       floatingTexts = [];
+      sparks.clear();
+      camShake.reset();
+      bannerT = 10;
       ctx.updateScore(0);
       setupBoss(1);
+    }
+
+    function syncPauseBtn() {
+      if (!pauseBtn) return;
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    function setPaused(next) {
+      const value = !!next && !isGameOver;
+      if (value === isPaused) return;
+      isPaused = value;
+      syncPauseBtn();
     }
 
     function updateBadge() {
@@ -226,6 +264,8 @@
       const cfg = DIFFICULTY_CFG[difficulty];
       heroHp = Math.max(0, heroHp - cfg.bossAtkDmg);
       heroShake = 0.35;
+      camShake.add(0.5);
+      sparks.burst(110, 60, { count: 16, speed: [60, 200], colors: ['#f43f5e', '#fecaca'] });
       ArcadeHub.sound.hit();
       floatingTexts.push({
         x: 155,
@@ -249,7 +289,7 @@
     }
 
     function onCardClick(idx) {
-      if (isGameOver || previewTimer > 0 || lockTimer > 0) return;
+      if (isGameOver || isPaused || previewTimer > 0 || lockTimer > 0) return;
       const card = cards[idx];
       if (!card || card.flipped || card.matched) return;
 
@@ -264,6 +304,19 @@
         if (c1.info.id === c2.info.id) {
           c1.matched = true;
           c2.matched = true;
+          const rects = getCardRects();
+          flippedIndices.forEach((fi) => {
+            const rc = rects[fi];
+            if (!rc) return;
+            sparks.burst(rc.x + rc.w / 2, rc.y + rc.h / 2, {
+              count: 12,
+              kind: 'star',
+              speed: [60, 180],
+              size: [3, 6],
+              colors: [c1.info.color, '#ffffff', '#fde047']
+            });
+            sparks.ring(rc.x + rc.w / 2, rc.y + rc.h / 2, { from: 10, to: rc.w * 0.7, color: c1.info.color });
+          });
           flippedIndices = [];
           triggerHeroAttack(c1.info);
         } else {
@@ -281,7 +334,7 @@
     }
 
     function update(dt) {
-      if (isGameOver) return;
+      if (isGameOver || isPaused) return;
 
       if (previewTimer > 0) {
         previewTimer -= dt;
@@ -319,6 +372,9 @@
         if (pr.progress >= 1) {
           bossHp = Math.max(0, bossHp - pr.dmg);
           bossShake = 0.35;
+          camShake.add(0.3);
+          sparks.burst(pr.tx, pr.ty, { count: 18, speed: [80, 260], size: [3, 6], colors: [pr.color, '#ffffff', '#fde047'] });
+          sparks.ring(pr.tx, pr.ty, { from: 10, to: 70, color: pr.color });
           ArcadeHub.sound.explosion();
           floatingTexts.push({
             x: W - 165,
@@ -334,12 +390,17 @@
             score += bonus;
             ctx.updateScore(score);
             ArcadeHub.sound.win();
-            floatingTexts.push({
-              x: W / 2,
-              y: 80,
-              text: `🎉 HẠ GỤC BOSS +${bonus} ĐIỂM!`,
-              color: '#4ade80',
-              life: 1.5
+            bannerT = 0;
+            bannerBonus = bonus;
+            sparks.burst(W - 110, 60, {
+              count: 50,
+              kind: 'confetti',
+              speed: [120, 340],
+              life: [0.9, 1.6],
+              size: [4, 7],
+              gravity: 320,
+              drag: 1.1,
+              colors: ['#4ade80', '#facc15', '#38bdf8', '#f472b6', '#ffffff']
             });
             bossLevel++;
             heroHp = Math.min(heroMaxHp, heroHp + 30);
@@ -358,162 +419,397 @@
       }
     }
 
-    function drawHpBar(x, y, w, h, hp, maxHp, fillHex, label) {
-      g.fillStyle = '#0f172a';
-      g.strokeStyle = '#475569';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.roundRect(x, y, w, h, 8);
-      g.fill();
-      g.stroke();
+    // =========================================================
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    // Card faces/backs are pre-rendered once per size so a 16-card board costs 16 drawImage calls.
+    const cardSpriteCache = new Map();
+    function getCardSprite(kind, info, w, h) {
+      const key = `${kind}|${info ? info.id : ''}|${w}|${h}`;
+      let sp = cardSpriteCache.get(key);
+      if (sp) return sp;
+      const dpr = hidpi.dpr;
+      const pad = 6;
+      const cv = document.createElement('canvas');
+      cv.width = Math.round((w + pad * 2) * dpr);
+      cv.height = Math.round((h + pad * 2) * dpr);
+      const c = cv.getContext('2d');
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.translate(pad, pad);
+      // Drop shadow
+      c.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      fx.roundRectPath(c, 2, 4, w, h, 12);
+      c.fill();
+      if (kind === 'face') {
+        const fg = c.createLinearGradient(0, 0, 0, h);
+        fg.addColorStop(0, '#1e293b');
+        fg.addColorStop(1, '#0f172a');
+        fx.roundRectPath(c, 0, 0, w, h, 12);
+        c.fillStyle = fg;
+        c.fill();
+        // Coloured glow behind the icon
+        const rg = c.createRadialGradient(w / 2, h / 2 - 8, 2, w / 2, h / 2 - 8, h * 0.6);
+        rg.addColorStop(0, fx.rgba(info.color, 0.55));
+        rg.addColorStop(1, fx.rgba(info.color, 0));
+        c.fillStyle = rg;
+        c.fillRect(0, 0, w, h);
+        fx.roundRectPath(c, 1.5, 1.5, w - 3, h - 3, 11);
+        c.strokeStyle = info.color;
+        c.lineWidth = 3;
+        c.stroke();
+        fx.roundRectPath(c, 6, 6, w - 12, h - 12, 8);
+        c.strokeStyle = fx.rgba(info.color, 0.35);
+        c.lineWidth = 1;
+        c.stroke();
+        c.font = `${Math.round(Math.min(38, h * 0.4))}px ${fx.FONT_STACK}`;
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillStyle = '#ffffff';
+        c.fillText(info.icon, w / 2, h / 2 - 9);
+        // Name ribbon
+        fx.roundRectPath(c, 8, h - 25, w - 16, 18, 9);
+        c.fillStyle = fx.rgba(info.color, 0.3);
+        c.fill();
+        c.fillStyle = '#f8fafc';
+        const ns = fx.fitFontSize(c, info.name, w - 22, 12, 9, 800);
+        c.font = fx.font(ns, 800);
+        c.fillText(info.name, w / 2, h - 16);
+        if (info.heal) {
+          c.fillStyle = '#4ade80';
+          c.font = fx.font(10, 900);
+          c.textAlign = 'right';
+          c.fillText(`+${info.heal}HP`, w - 9, 14);
+        }
+      } else {
+        const bg = c.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, '#1d4ed8');
+        bg.addColorStop(1, '#6d28d9');
+        fx.roundRectPath(c, 0, 0, w, h, 12);
+        c.fillStyle = bg;
+        c.fill();
+        // Diamond lattice
+        c.save();
+        fx.roundRectPath(c, 0, 0, w, h, 12);
+        c.clip();
+        c.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        c.lineWidth = 1;
+        for (let k = -h; k < w + h; k += 14) {
+          c.beginPath();
+          c.moveTo(k, 0);
+          c.lineTo(k + h, h);
+          c.moveTo(k + h, 0);
+          c.lineTo(k, h);
+          c.stroke();
+        }
+        c.restore();
+        fx.roundRectPath(c, 1.5, 1.5, w - 3, h - 3, 11);
+        c.strokeStyle = '#93c5fd';
+        c.lineWidth = 2.5;
+        c.stroke();
+        // Emblem
+        c.fillStyle = 'rgba(15, 23, 42, 0.45)';
+        c.beginPath();
+        c.arc(w / 2, h / 2, Math.min(w, h) * 0.26, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = '#facc15';
+        c.lineWidth = 2;
+        c.stroke();
+        c.fillStyle = '#facc15';
+        c.beginPath();
+        const r = Math.min(w, h) * 0.16;
+        for (let k = 0; k < 10; k++) {
+          const rr = k % 2 === 0 ? r : r * 0.45;
+          const a = -Math.PI / 2 + (k / 10) * Math.PI * 2;
+          c.lineTo(w / 2 + Math.cos(a) * rr, h / 2 + Math.sin(a) * rr);
+        }
+        c.closePath();
+        c.fill();
+      }
+      sp = { cv, pad };
+      cardSpriteCache.set(key, sp);
+      return sp;
+    }
 
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      sparks.update(dt);
+      camShake.update(dt);
+      if (bannerT < 10) bannerT += dt;
+      // HP bars: the bright bar snaps, the ghost bar drains slowly behind it
+      heroHpGhost = heroHpGhost > heroHp ? Math.max(heroHp, heroHpGhost - dt * 60) : heroHp;
+      bossHpGhost = bossHpGhost > bossHp ? Math.max(bossHp, bossHpGhost - dt * 80) : bossHp;
+      projectiles.forEach((pr) => {
+        if (Math.random() < 0.7) {
+          const cx = pr.x + (pr.tx - pr.x) * pr.progress;
+          const cy = pr.y + Math.sin(pr.progress * Math.PI) * -28;
+          sparks.spawn({
+            kind: 'dot',
+            x: cx,
+            y: cy,
+            vx: -60 + Math.random() * 30,
+            vy: (Math.random() - 0.5) * 40,
+            life: 0.35,
+            size: 5,
+            endSize: 0.5,
+            color: pr.color
+          });
+        }
+      });
+    }
+
+    function drawHpBar(x, y, w, h, hp, ghost, maxHp, fillHex, label, alignRight) {
+      fx.roundRectPath(g, x, y, w, h, 8);
+      g.fillStyle = '#0b1220';
+      g.fill();
+      g.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+      g.lineWidth = 1.5;
+      g.stroke();
       const ratio = Math.max(0, Math.min(1, hp / maxHp));
-      if (ratio > 0) {
-        g.fillStyle = fillHex;
-        g.beginPath();
-        g.roundRect(x + 2, y + 2, (w - 4) * ratio, h - 4, 6);
+      const ghostRatio = Math.max(0, Math.min(1, ghost / maxHp));
+      const innerW = w - 4;
+      const gx = alignRight ? x + 2 + innerW * (1 - ghostRatio) : x + 2;
+      const fxStart = alignRight ? x + 2 + innerW * (1 - ratio) : x + 2;
+      if (ghostRatio > 0) {
+        fx.roundRectPath(g, gx, y + 2, innerW * ghostRatio, h - 4, 6);
+        g.fillStyle = 'rgba(254, 240, 138, 0.7)';
         g.fill();
       }
-
+      if (ratio > 0) {
+        const bg = g.createLinearGradient(0, y, 0, y + h);
+        bg.addColorStop(0, fx.shade(fillHex, 0.3));
+        bg.addColorStop(1, fx.shade(fillHex, -0.2));
+        fx.roundRectPath(g, fxStart, y + 2, innerW * ratio, h - 4, 6);
+        g.fillStyle = bg;
+        g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.3)';
+        g.fillRect(fxStart + 4, y + 4, Math.max(0, innerW * ratio - 8), 2);
+      }
       g.fillStyle = '#ffffff';
-      g.font = '800 12px sans-serif';
+      const ls = fx.fitFontSize(g, `${label}: ${hp}/${maxHp}`, w - 12, 12, 9, 800);
+      g.font = fx.font(ls, 800);
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       g.fillText(`${label}: ${hp}/${maxHp}`, x + w / 2, y + h / 2 + 1);
     }
 
-    function render() {
-      const bg = g.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, '#090d16');
-      bg.addColorStop(1, '#1e1b4b');
-      g.fillStyle = bg;
-      g.fillRect(0, 0, W, H);
-
-      // Top RPG Battle Arena Banner
-      g.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      g.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-      g.lineWidth = 2;
+    function drawFighter(cx, cy, icon, size, color, shake, flip) {
+      const sx = shake > 0 && !reduced ? Math.sin(shake * 50) * 7 : 0;
+      // Pedestal
+      g.save();
+      g.translate(cx, cy + size * 0.55);
+      g.scale(1, 0.3);
+      const pg = g.createRadialGradient(0, 0, 4, 0, 0, size * 0.85);
+      pg.addColorStop(0, fx.rgba(color, 0.7));
+      pg.addColorStop(1, fx.rgba(color, 0));
+      g.fillStyle = pg;
       g.beginPath();
-      g.roundRect(24, 14, W - 48, 126, 14);
+      g.arc(0, 0, size * 0.85, 0, Math.PI * 2);
       g.fill();
-      g.stroke();
-
-      // Left: Superhero Squad
-      const hx = 95 + (heroShake > 0 ? Math.sin(heroShake * 50) * 6 : 0);
-      g.font = '44px sans-serif';
+      g.restore();
+      fx.glow(g, cx + sx, cy, size * 1.1, color, 0.35);
+      g.save();
+      g.translate(cx + sx, cy);
+      if (flip) g.scale(-1, 1);
+      g.font = `${size}px ${fx.FONT_STACK}`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText('🦸‍♂️', hx, 62);
-      drawHpBar(38, 102, 220, 22, heroHp, heroMaxHp, '#22c55e', 'ĐỘI SIÊU NHÂN');
+      g.fillStyle = '#ffffff';
+      g.fillText(icon, 0, 0);
+      g.restore();
+      if (shake > 0) {
+        // Hit flash
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        g.globalAlpha = Math.min(1, shake * 2);
+        fx.glow(g, cx + sx, cy, size * 0.8, '#ffffff', 0.6);
+        g.restore();
+      }
+    }
 
-      // Center VS badge
-      g.fillStyle = '#facc15';
-      g.font = '900 22px sans-serif';
-      g.fillText('⚡ VS ⚡', W / 2, 62);
+    function render() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      hidpi.apply();
+
+      // Arena backdrop with perspective floor grid
+      const bg = g.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#0b0820');
+      bg.addColorStop(0.45, '#1e1b4b');
+      bg.addColorStop(1, '#0b1020');
+      g.fillStyle = bg;
+      g.fillRect(0, 0, W, H);
+      fx.glow(g, 120, 70, 200, '#22c55e', 0.14);
+      fx.glow(g, W - 120, 70, 220, currentBoss.color, 0.2 + Math.sin(sceneTime * 2) * 0.04);
+      g.save();
+      g.strokeStyle = 'rgba(129, 140, 248, 0.12)';
+      g.lineWidth = 1;
+      const horizon = 150;
+      for (let k = -10; k <= 10; k++) {
+        g.beginPath();
+        g.moveTo(W / 2 + k * 18, horizon);
+        g.lineTo(W / 2 + k * 120, H);
+        g.stroke();
+      }
+      for (let k = 0; k < 8; k++) {
+        const yy = horizon + Math.pow(k / 8, 1.8) * (H - horizon) + ((sceneTime * 12) % 12) * (k / 8);
+        g.beginPath();
+        g.moveTo(0, yy);
+        g.lineTo(W, yy);
+        g.stroke();
+      }
+      g.restore();
+
+      g.save();
+      camShake.apply(g);
+
+      // Battle banner
+      fx.roundRectPath(g, 24, 14, W - 48, 126, 16);
+      const bb = g.createLinearGradient(0, 14, 0, 140);
+      bb.addColorStop(0, 'rgba(15, 23, 42, 0.92)');
+      bb.addColorStop(1, 'rgba(30, 27, 75, 0.92)');
+      g.fillStyle = bb;
+      g.fill();
+      g.strokeStyle = 'rgba(129, 140, 248, 0.45)';
+      g.lineWidth = 1.5;
+      g.stroke();
+
+      drawFighter(110, 58 + Math.sin(sceneTime * 2.6) * 2, '🦸', 46, '#22c55e', heroShake, false);
+      drawHpBar(38, 102, 220, 22, heroHp, heroHpGhost, heroMaxHp, '#22c55e', 'ĐỘI SIÊU NHÂN', false);
+
+      fx.outlinedText(g, 'VS', W / 2, 52, { size: 30, color: '#facc15', glow: '#f97316', glowBlur: 16 });
+      g.fillStyle = '#cbd5e1';
+      g.font = fx.font(12, 700);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(`Boss cấp ${bossLevel} • Combo x${combo}`, W / 2, 82);
+      // Miss pips: how many wrong flips until the boss strikes back
+      const pipN = cfg.missesPerBossAtk;
+      for (let k = 0; k < pipN; k++) {
+        const filled = k < missCounter;
+        const px = W / 2 - ((pipN - 1) * 22) / 2 + k * 22;
+        g.fillStyle = filled ? '#f43f5e' : 'rgba(148, 163, 184, 0.3)';
+        g.beginPath();
+        g.arc(px, 106, 7, 0, Math.PI * 2);
+        g.fill();
+        if (filled) fx.glow(g, px, 106, 14, '#f43f5e', 0.5);
+      }
       g.fillStyle = '#94a3b8';
-      g.font = '700 13px sans-serif';
-      const remMiss = DIFFICULTY_CFG[difficulty].missesPerBossAtk - missCounter;
-      g.fillText(`Boss phản đòn sau ${remMiss} lần lật sai`, W / 2, 108);
+      g.font = fx.font(11, 700);
+      g.fillText('Boss phản đòn khi đầy vạch đỏ', W / 2, 126);
 
-      // Right: Space Boss
-      const bx = W - 95 + (bossShake > 0 ? Math.sin(bossShake * 50) * 7 : 0);
-      const by = 60 + Math.sin(breathPhase) * 3.5;
-      g.font = '50px sans-serif';
-      g.fillText(currentBoss.icon, bx, by);
-      drawHpBar(W - 258, 102, 220, 22, bossHp, bossMaxHp, '#ef4444', currentBoss.name.toUpperCase());
+      drawFighter(W - 110, 56 + Math.sin(breathPhase) * 3.5, currentBoss.icon, 54, currentBoss.color, bossShake, false);
+      drawHpBar(W - 258, 102, 220, 22, bossHp, bossHpGhost, bossMaxHp, '#ef4444', currentBoss.name.toUpperCase(), true);
 
-      // Projectiles
+      // Projectiles: glowing orbs carrying the hero icon
       projectiles.forEach((pr) => {
         const cx = pr.x + (pr.tx - pr.x) * pr.progress;
         const cy = pr.y + Math.sin(pr.progress * Math.PI) * -28;
-        g.save();
+        fx.glow(g, cx, cy, 36, pr.color, 0.7);
         g.fillStyle = pr.color;
         g.beginPath();
-        g.arc(cx, cy, 18, 0, Math.PI * 2);
+        g.arc(cx, cy, 16, 0, Math.PI * 2);
         g.fill();
-        g.font = '22px sans-serif';
+        g.font = `20px ${fx.FONT_STACK}`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
-        g.fillText(pr.icon, cx, cy);
-        g.restore();
+        g.fillStyle = '#ffffff';
+        g.fillText(pr.icon, cx, cy + 1);
       });
 
-      // Cards Grid with 3D Flip Animation
+      // Cards with 3D flip
       const rects = getCardRects();
-      rects.forEach(({ x, y, w, h, card }) => {
-        g.save();
-        if (card.matched) {
-          g.globalAlpha = 0.42;
-        }
-
+      const mismatch = lockTimer > 0 ? flippedIndices : [];
+      rects.forEach(({ x, y, w, h, card }, i) => {
         const anim = card.flipAnim != null ? card.flipAnim : card.flipped ? 1 : 0;
         const scaleX = Math.max(0.06, Math.abs(Math.cos(anim * Math.PI)));
-        g.translate(x + w / 2, y + h / 2);
+        const isMiss = mismatch.includes(i);
+        const shakeX = isMiss && !reduced ? Math.sin(lockTimer * 60) * 4 * Math.min(1, lockTimer * 3) : 0;
+        const lift = !card.matched && anim > 0.02 && anim < 0.98 ? -6 * Math.sin(anim * Math.PI) : 0;
+        g.save();
+        if (card.matched) g.globalAlpha = 0.45;
+        g.translate(x + w / 2 + shakeX, y + h / 2 + lift);
         g.scale(scaleX, 1);
-        g.translate(-(x + w / 2), -(y + h / 2));
-
-        if (anim >= 0.5) {
-          g.fillStyle = '#1e293b';
-          g.strokeStyle = card.info.color;
-          g.lineWidth = 3;
-          g.beginPath();
-          g.roundRect(x, y, w, h, 12);
+        const sp = getCardSprite(anim >= 0.5 ? 'face' : 'back', anim >= 0.5 ? card.info : null, w, h);
+        g.drawImage(sp.cv, -w / 2 - sp.pad, -h / 2 - sp.pad, w + sp.pad * 2, h + sp.pad * 2);
+        if (isMiss && anim >= 0.5) {
+          fx.roundRectPath(g, -w / 2, -h / 2, w, h, 12);
+          g.fillStyle = 'rgba(244, 63, 94, 0.25)';
           g.fill();
-          g.stroke();
-
-          g.font = '34px sans-serif';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText(card.info.icon, x + w / 2, y + h / 2 - 10);
-
-          g.fillStyle = '#f8fafc';
-          g.font = '800 12px sans-serif';
-          g.fillText(card.info.name, x + w / 2, y + h - 16);
-        } else {
-          const backGrad = g.createLinearGradient(x, y, x + w, y + h);
-          backGrad.addColorStop(0, '#1d4ed8');
-          backGrad.addColorStop(1, '#4f46e5');
-          g.fillStyle = backGrad;
-          g.strokeStyle = '#60a5fa';
-          g.lineWidth = 2.5;
-          g.beginPath();
-          g.roundRect(x, y, w, h, 12);
-          g.fill();
-          g.stroke();
-
-          g.fillStyle = 'rgba(255,255,255,0.85)';
-          g.font = '900 26px sans-serif';
-          g.textAlign = 'center';
-          g.textBaseline = 'middle';
-          g.fillText('⭐', x + w / 2, y + h / 2);
         }
         g.restore();
+        if (card.matched) {
+          // Soft shimmer border on matched pairs
+          g.save();
+          g.globalAlpha = 0.5 + Math.sin(sceneTime * 3 + i) * 0.2;
+          fx.roundRectPath(g, x + 1, y + 1, w - 2, h - 2, 12);
+          g.strokeStyle = card.info.color;
+          g.lineWidth = 2;
+          g.stroke();
+          g.restore();
+        }
       });
 
-      // Floating texts
+      sparks.draw(g);
+
       floatingTexts.forEach((ft) => {
         g.save();
-        g.globalAlpha = Math.min(1, ft.life);
-        g.font = '900 18px sans-serif';
-        g.fillStyle = ft.color;
-        g.textAlign = 'center';
-        g.fillText(ft.text, ft.x, ft.y);
+        g.globalAlpha = Math.max(0, Math.min(1, ft.life));
+        fx.outlinedText(g, ft.text, ft.x, ft.y, { size: 18, color: ft.color });
         g.restore();
       });
+      g.restore();
 
+      // Memorise phase cue
+      if (previewTimer > 0 && !isGameOver) {
+        const total = peekUsed && previewTimer <= 1.4 ? 1.4 : cfg.previewTime;
+        const frac = Math.max(0, Math.min(1, previewTimer / total));
+        g.save();
+        fx.roundRectPath(g, W / 2 - 110, 148, 220, 30, 15);
+        g.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        g.fill();
+        fx.roundRectPath(g, W / 2 - 110, 148, 220 * frac, 30, 15);
+        g.fillStyle = 'rgba(250, 204, 21, 0.35)';
+        g.fill();
+        fx.outlinedText(g, '👁️ GHI NHỚ VỊ TRÍ THẺ!', W / 2, 163, { size: 14, color: '#fde047' });
+        g.restore();
+      }
+
+      if (bannerT < 1.9 && !isGameOver) {
+        fx.drawBanner(g, W, H, '🎉 HẠ GỤC BOSS!', {
+          t: bannerT,
+          duration: 1.9,
+          accent: '#4ade80',
+          sub: `+${bannerBonus} điểm • Boss mới: ${currentBoss.name}`,
+          size: 38,
+          y: H * 0.55
+        });
+      }
+
+      const overlay = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (overlay !== overlayKey) {
+        overlayKey = overlay;
+        overlayT = 0;
+      }
       if (isGameOver) {
-        g.fillStyle = 'rgba(9, 13, 22, 0.85)';
-        g.fillRect(0, 0, W, H);
-        g.fillStyle = '#f43f5e';
-        g.font = '900 32px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('ĐỘI SIÊU NHÂN ĐÃ HẾT NĂNG LƯỢNG!', W / 2, H / 2 - 26);
-        g.fillStyle = '#f8fafc';
-        g.font = '700 20px sans-serif';
-        g.fillText(`Điểm số: ${score} • Đạt tới Boss Cấp ${bossLevel}`, W / 2, H / 2 + 14);
-        g.fillStyle = '#facc15';
-        g.font = '700 16px sans-serif';
-        g.fillText('Bấm vào màn hình để tái đấu ngay!', W / 2, H / 2 + 52);
+        fx.drawStatePanel(g, W, H, {
+          icon: '🦸',
+          title: 'ĐỘI SIÊU NHÂN HẾT NĂNG LƯỢNG!',
+          subtitle: 'Nghỉ một chút rồi tái đấu nhé!',
+          lines: [`Điểm số|${score.toLocaleString('vi-VN')}`, `Đạt tới|Boss cấp ${bossLevel}`, `Chế độ|${cfg.label}`],
+          hint: 'Bấm vào màn hình để tái đấu ngay!',
+          accent: '#a855f7',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g, W, H, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để chiến đấu tiếp.',
+          accent: '#a855f7',
+          t: overlayT,
+          backdrop: 0.92
+        });
       }
     }
 
@@ -523,6 +819,7 @@
         startNewGame();
         return;
       }
+      if (isPaused) return;
       const rect = canvas.getBoundingClientRect();
       const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
       const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
@@ -543,7 +840,7 @@
     canvas.addEventListener('touchstart', onPointerDown, { passive: false });
 
     peekBtn.addEventListener('click', () => {
-      if (peekUsed || isGameOver || previewTimer > 0) return;
+      if (peekUsed || isGameOver || isPaused || previewTimer > 0) return;
       peekUsed = true;
       peekBtn.disabled = true;
       flippedIndices = [];
@@ -553,6 +850,14 @@
       previewTimer = 1.4;
       ArcadeHub.sound.boost();
     });
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        if (isGameOver) return;
+        ArcadeHub.sound.click();
+        setPaused(!isPaused);
+      });
+    }
 
     diffBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -568,6 +873,7 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       update(dt);
       render();
       animId = requestAnimationFrame(loop);
@@ -579,6 +885,15 @@
     return {
       restart() {
         startNewGame();
+      },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
