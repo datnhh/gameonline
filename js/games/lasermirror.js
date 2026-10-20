@@ -55,7 +55,14 @@
     let robotCharged = false;
     let winTimer = 0;
     let laserPulsePhase = 0;
-    let particles = [];
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(260);
+    let sceneTime = 0;
+    let hintCell = null;
+    let hintFlashT = 10;
 
     container.innerHTML = `
       <div class="game-shell">
@@ -78,7 +85,8 @@
     `;
 
     const canvas = container.querySelector('#laserMirrorCanvas');
-    const g = canvas.getContext('2d');
+    const hidpi = fx.setupHiDPICanvas(canvas, W, H);
+    const g = hidpi.g;
     const statusBadge = container.querySelector('#lmStatusBadge');
     const hintBtn = container.querySelector('#lmHintBtn');
     const newPuzzleBtn = container.querySelector('#lmNewPuzzleBtn');
@@ -286,18 +294,18 @@
         const geom = getBoardGeometry();
         const rx = geom.startX + robot.c * geom.cell + geom.cell / 2;
         const ry = geom.startY + robot.r * geom.cell + geom.cell / 2;
-        for (let i = 0; i < 24; i++) {
-          const ang = Math.random() * Math.PI * 2;
-          const spd = 60 + Math.random() * 180;
-          particles.push({
-            x: rx,
-            y: ry,
-            vx: Math.cos(ang) * spd,
-            vy: Math.sin(ang) * spd,
-            color: i % 2 === 0 ? '#4ade80' : '#facc15',
-            life: 1.2
-          });
-        }
+        sparks.burst(rx, ry, { count: 24, kind: 'star', speed: [60, 240], life: [0.6, 1.1], size: [3, 6], colors: ['#4ade80', '#facc15', '#ffffff'] });
+        sparks.burst(rx, ry, {
+          count: 36,
+          kind: 'confetti',
+          speed: [120, 300],
+          life: [0.9, 1.5],
+          size: [4, 7],
+          gravity: 300,
+          drag: 1.2,
+          colors: ['#4ade80', '#facc15', '#38bdf8', '#f472b6']
+        });
+        sparks.ring(rx, ry, { from: 10, to: geom.cell * 2, color: '#4ade80', life: 0.5 });
 
         if (level % 3 === 0) {
           ctx.submitHighScore(score, `Màn ${level} (${cfg.label})`);
@@ -334,178 +342,407 @@
           generateGuaranteedPuzzle();
         }
       }
+    }
 
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt;
-        if (p.life <= 0) particles.splice(i, 1);
+    // =========================================================
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    function drawStarShape(cx, cy, r, fill) {
+      g.beginPath();
+      for (let k = 0; k < 10; k++) {
+        const rr = k % 2 === 0 ? r : r * 0.45;
+        const a = -Math.PI / 2 + (k / 10) * Math.PI * 2;
+        g.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      g.closePath();
+      g.fillStyle = fill;
+      g.fill();
+    }
+
+    function updatePresentation(dt) {
+      sceneTime += dt;
+      sparks.update(dt);
+      if (hintFlashT < 10) hintFlashT += dt;
+      // Impact sparks where the beam stops (wall or board edge)
+      if (!robotCharged && laserPath.length > 1 && Math.random() < 0.5) {
+        const geo = getBoardGeometry();
+        const end = laserPath[laserPath.length - 1];
+        const px = geo.startX + end.c * geo.cell + geo.cell / 2;
+        const py = geo.startY + end.r * geo.cell + geo.cell / 2;
+        sparks.spawn({
+          kind: 'spark',
+          x: px,
+          y: py,
+          vx: (Math.random() - 0.5) * 180,
+          vy: (Math.random() - 0.5) * 180,
+          life: 0.25,
+          size: 2,
+          endSize: 0.5,
+          color: Math.random() < 0.5 ? '#fda4af' : '#fef08a'
+        });
       }
     }
 
-    function render() {
-      g.fillStyle = '#090d16';
+    function drawBackdrop() {
+      const bg = g.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#0b1324');
+      bg.addColorStop(1, '#060a14');
+      g.fillStyle = bg;
       g.fillRect(0, 0, W, H);
+      // Circuit traces
+      g.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+      g.lineWidth = 2;
+      for (let k = 0; k < 14; k++) {
+        const y = 20 + k * 36;
+        const x0 = (k * 97) % 200;
+        g.beginPath();
+        g.moveTo(x0, y);
+        g.lineTo(x0 + 120, y);
+        g.lineTo(x0 + 140, y + 20);
+        g.lineTo(x0 + 260, y + 20);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(W - x0, y + 10);
+        g.lineTo(W - x0 - 100, y + 10);
+        g.lineTo(W - x0 - 120, y - 10);
+        g.stroke();
+      }
+      // Data pulses travelling along a few traces
+      g.fillStyle = 'rgba(125, 211, 252, 0.5)';
+      for (let k = 0; k < 4; k++) {
+        const y = 20 + (k * 3 + 1) * 36;
+        const x0 = (((k * 3 + 1) * 97) % 200);
+        const px = x0 + ((sceneTime * 60 + k * 50) % 120);
+        g.fillRect(px - 3, y - 1.5, 6, 3);
+      }
+      fx.glow(g, W / 2, H / 2, W * 0.45, '#1d4ed8', 0.12);
+    }
+
+    function drawTile(x, y, cell, r, c) {
+      const tg = g.createLinearGradient(x, y, x + cell, y + cell);
+      tg.addColorStop(0, (r + c) % 2 === 0 ? '#1e293b' : '#1a2335');
+      tg.addColorStop(1, '#111827');
+      g.fillStyle = tg;
+      g.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+      g.strokeStyle = 'rgba(148, 163, 184, 0.14)';
+      g.lineWidth = 1;
+      g.strokeRect(x + 1.5, y + 1.5, cell - 3, cell - 3);
+      // Corner screws
+      g.fillStyle = 'rgba(148, 163, 184, 0.22)';
+      [
+        [x + 5, y + 5],
+        [x + cell - 5, y + 5],
+        [x + 5, y + cell - 5],
+        [x + cell - 5, y + cell - 5]
+      ].forEach(([sx, sy]) => {
+        g.beginPath();
+        g.arc(sx, sy, 1.4, 0, Math.PI * 2);
+        g.fill();
+      });
+    }
+
+    function drawWallBlock(x, y, cell) {
+      const pad = 4;
+      fx.roundRectPath(g, x + pad, y + pad, cell - pad * 2, cell - pad * 2, 7);
+      const wg = g.createLinearGradient(0, y, 0, y + cell);
+      wg.addColorStop(0, '#475569');
+      wg.addColorStop(1, '#1e293b');
+      g.fillStyle = wg;
+      g.fill();
+      g.save();
+      g.clip();
+      // Hazard stripes
+      g.strokeStyle = 'rgba(250, 204, 21, 0.55)';
+      g.lineWidth = 5;
+      for (let k = -cell; k < cell * 2; k += 14) {
+        g.beginPath();
+        g.moveTo(x + k, y + cell - pad - 8);
+        g.lineTo(x + k + 8, y + cell - pad);
+        g.stroke();
+      }
+      g.restore();
+      fx.roundRectPath(g, x + pad, y + pad, cell - pad * 2, cell - pad * 2, 7);
+      g.strokeStyle = '#94a3b8';
+      g.lineWidth = 1.5;
+      g.stroke();
+      g.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      g.fillRect(x + pad + 4, y + pad + 3, cell - pad * 2 - 8, 3);
+    }
+
+    function drawEmitter(cx, cy, cell) {
+      g.save();
+      g.translate(cx, cy);
+      const bw = cell * 0.74;
+      const bh = cell * 0.52;
+      const eg = g.createLinearGradient(0, -bh / 2, 0, bh / 2);
+      eg.addColorStop(0, '#f87171');
+      eg.addColorStop(1, '#7f1d1d');
+      fx.roundRectPath(g, -bw / 2, -bh / 2, bw, bh, 8);
+      g.fillStyle = eg;
+      g.fill();
+      g.strokeStyle = '#0b1220';
+      g.lineWidth = 2;
+      g.stroke();
+      // Cooling fins
+      g.strokeStyle = 'rgba(15, 23, 42, 0.6)';
+      g.lineWidth = 2;
+      for (let k = 0; k < 3; k++) {
+        g.beginPath();
+        g.moveTo(-bw / 2 + 6 + k * 7, -bh / 2 + 5);
+        g.lineTo(-bw / 2 + 6 + k * 7, bh / 2 - 5);
+        g.stroke();
+      }
+      // Lens
+      const lensX = bw / 2 - 2;
+      fx.glow(g, lensX, 0, cell * 0.5, '#f43f5e', 0.6 + Math.sin(sceneTime * 8) * 0.15);
+      g.fillStyle = '#fecdd3';
+      g.beginPath();
+      g.arc(lensX, 0, cell * 0.11, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    function drawRobot(cx, cy, cell) {
+      const charged = robotCharged;
+      const hop = charged && !reduced ? -Math.abs(Math.sin(sceneTime * 9)) * cell * 0.1 : Math.sin(sceneTime * 2) * 1.5;
+      const s = cell / 66;
+      if (charged) fx.glow(g, cx, cy, cell, '#4ade80', 0.55);
+      fx.contactShadow(g, cx, cy + cell * 0.36, cell * 0.24, cell * 0.06, 0.4);
+      g.save();
+      g.translate(cx, cy + hop);
+      g.scale(s, s);
+      g.strokeStyle = '#0b1220';
+      g.lineWidth = 2.4;
+      // Antenna
+      g.beginPath();
+      g.moveTo(0, -22);
+      g.lineTo(0, -30);
+      g.stroke();
+      g.fillStyle = charged ? '#4ade80' : Math.sin(sceneTime * 4) > 0 ? '#f43f5e' : '#7f1d1d';
+      g.beginPath();
+      g.arc(0, -32, 4, 0, Math.PI * 2);
+      g.fill();
+      // Head
+      const hg = g.createLinearGradient(0, -22, 0, 4);
+      hg.addColorStop(0, '#e2e8f0');
+      hg.addColorStop(1, '#94a3b8');
+      fx.roundRectPath(g, -18, -22, 36, 24, 8);
+      g.fillStyle = hg;
+      g.fill();
+      g.stroke();
+      // Face screen
+      fx.roundRectPath(g, -13, -17, 26, 14, 5);
+      g.fillStyle = '#0b1220';
+      g.fill();
+      g.strokeStyle = charged ? '#4ade80' : '#7dd3fc';
+      g.lineWidth = 2;
+      if (charged) {
+        // Happy ^^ eyes
+        g.beginPath();
+        g.moveTo(-8, -9);
+        g.lineTo(-5, -12);
+        g.lineTo(-2, -9);
+        g.moveTo(2, -9);
+        g.lineTo(5, -12);
+        g.lineTo(8, -9);
+        g.stroke();
+      } else {
+        g.fillStyle = '#7dd3fc';
+        g.fillRect(-8, -12, 4, 4);
+        g.fillRect(4, -12, 4, 4);
+      }
+      // Body with battery meter
+      g.strokeStyle = '#0b1220';
+      g.lineWidth = 2.4;
+      fx.roundRectPath(g, -15, 4, 30, 20, 6);
+      g.fillStyle = '#64748b';
+      g.fill();
+      g.stroke();
+      fx.roundRectPath(g, -10, 8, 20, 11, 2);
+      g.fillStyle = '#0b1220';
+      g.fill();
+      const charge = charged ? 1 : 0.15 + 0.1 * Math.sin(sceneTime * 3);
+      g.fillStyle = charged ? '#4ade80' : '#f43f5e';
+      g.fillRect(-8, 10, 16 * charge, 7);
+      g.fillStyle = '#0b1220';
+      g.fillRect(10, 11, 2, 5);
+      g.restore();
+    }
+
+    function drawMirror(cx, cy, cell, item, isHint) {
+      // Rotating base disc (shows it is clickable)
+      const pulse = 0.5 + 0.5 * Math.sin(sceneTime * 3 + cx * 0.05);
+      g.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      g.beginPath();
+      g.arc(cx, cy, cell * 0.38, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = isHint ? `rgba(250, 204, 21, ${0.6 + pulse * 0.4})` : `rgba(56, 189, 248, ${0.35 + pulse * 0.2})`;
+      g.lineWidth = isHint ? 2.5 : 1.5;
+      g.beginPath();
+      g.arc(cx, cy, cell * 0.38, 0, Math.PI * 2);
+      g.stroke();
+      g.save();
+      g.translate(cx, cy);
+      const ang = item.visAngle != null ? item.visAngle : item.state === 0 ? -Math.PI / 4 : Math.PI / 4;
+      g.rotate(ang);
+      const len = cell * 0.36;
+      // Frame
+      fx.roundRectPath(g, -len - 2, -5, len * 2 + 4, 10, 4);
+      g.fillStyle = '#334155';
+      g.fill();
+      // Reflective slab
+      const mg = g.createLinearGradient(0, -4, 0, 4);
+      mg.addColorStop(0, '#f0f9ff');
+      mg.addColorStop(0.5, '#7dd3fc');
+      mg.addColorStop(1, '#0369a1');
+      fx.roundRectPath(g, -len, -3.5, len * 2, 7, 3);
+      g.fillStyle = mg;
+      g.fill();
+      // Moving glint
+      const gx = ((sceneTime * 0.8 + cx * 0.01) % 1) * len * 2 - len;
+      g.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      g.fillRect(gx, -3, 4, 6);
+      // Pivot bolt
+      g.fillStyle = '#e2e8f0';
+      g.beginPath();
+      g.arc(0, 0, 2.5, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
+
+    function drawLaser(cell, startX, startY) {
+      if (laserPath.length < 2) return;
+      const col = robotCharged ? '#4ade80' : '#f43f5e';
+      const pts = laserPath.map((pt) => [startX + pt.c * cell + cell / 2, startY + pt.r * cell + cell / 2]);
+      // Start at the lens rather than the emitter centre
+      pts[0] = [pts[0][0] + cell * 0.35, pts[0][1]];
+      const tracePath = () => {
+        g.beginPath();
+        pts.forEach(([px, py], idx) => (idx === 0 ? g.moveTo(px, py) : g.lineTo(px, py)));
+      };
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      const flicker = reduced ? 1 : 0.85 + Math.sin(sceneTime * 30) * 0.15;
+      [
+        [18, 0.12],
+        [10, 0.28],
+        [5, 0.7]
+      ].forEach(([lw, a]) => {
+        tracePath();
+        g.strokeStyle = fx.rgba(col, a * flicker);
+        g.lineWidth = lw;
+        g.stroke();
+      });
+      tracePath();
+      g.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      g.lineWidth = 2;
+      g.stroke();
+      // Energy flowing along the beam
+      if (!reduced) {
+        tracePath();
+        g.setLineDash([6, 18]);
+        g.lineDashOffset = -sceneTime * 120;
+        g.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        g.lineWidth = 3.5;
+        g.stroke();
+        g.setLineDash([]);
+      }
+      g.restore();
+      // Flares where the beam bounces off a mirror
+      laserPath.forEach((pt, idx) => {
+        if (idx > 0 && idx < laserPath.length - 1 && grid[pt.r][pt.c].type === 'mirror') {
+          const px = startX + pt.c * cell + cell / 2;
+          const py = startY + pt.r * cell + cell / 2;
+          fx.glow(g, px, py, 22 + Math.sin(laserPulsePhase + idx) * 4, '#fef08a', 0.8);
+        }
+      });
+    }
+
+    function render() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      hidpi.apply();
+      drawBackdrop();
 
       const { cell, startX, startY } = getBoardGeometry();
+      // Board chassis
+      fx.roundRectPath(g, startX - 10, startY - 10, cols * cell + 20, rows * cell + 20, 14);
+      g.fillStyle = '#0f172a';
+      g.fill();
+      g.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      g.lineWidth = 2;
+      g.stroke();
 
-      // Grid cells
+      const onBeam = new Set(laserPath.map((p) => `${p.r},${p.c}`));
+      const hintKey = hintCell && hintFlashT < 1.2 ? `${hintCell.r},${hintCell.c}` : '';
+
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const x = startX + c * cell;
           const y = startY + r * cell;
-          const item = grid[r][c];
-
-          g.fillStyle = (r + c) % 2 === 0 ? '#111827' : '#1e293b';
-          g.strokeStyle = 'rgba(148, 163, 184, 0.16)';
-          g.lineWidth = 1;
-          g.fillRect(x, y, cell, cell);
-          g.strokeRect(x, y, cell, cell);
-
-          if (item.type === 'wall') {
-            g.fillStyle = '#334155';
-            g.strokeStyle = '#64748b';
-            g.lineWidth = 2;
-            g.beginPath();
-            g.roundRect(x + 5, y + 5, cell - 10, cell - 10, 8);
-            g.fill();
-            g.stroke();
-          } else if (item.type === 'mirror') {
-            // Mirror base circle so kids know it is clickable
-            g.fillStyle = 'rgba(56, 189, 248, 0.14)';
-            g.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-            g.lineWidth = 1.5;
-            g.beginPath();
-            g.arc(x + cell / 2, y + cell / 2, cell * 0.38, 0, Math.PI * 2);
-            g.fill();
-            g.stroke();
-          }
+          drawTile(x, y, cell, r, c);
+          if (grid[r][c].type === 'wall') drawWallBlock(x, y, cell);
         }
       }
 
-      // Draw Laser Beam behind icons
-      if (laserPath.length > 1) {
-        g.save();
-        g.strokeStyle = robotCharged ? '#4ade80' : '#f43f5e';
-        g.shadowColor = robotCharged ? '#4ade80' : '#f43f5e';
-        g.shadowBlur = 14;
-        g.lineWidth = 6;
-        g.lineCap = 'round';
-        g.lineJoin = 'round';
-        g.beginPath();
-        laserPath.forEach((pt, idx) => {
-          const px = startX + pt.c * cell + cell / 2;
-          const py = startY + pt.r * cell + cell / 2;
-          if (idx === 0) g.moveTo(px, py);
-          else g.lineTo(px, py);
-        });
-        g.stroke();
+      drawLaser(cell, startX, startY);
 
-        // Inner bright core
-        g.strokeStyle = '#ffffff';
-        g.lineWidth = 2.2;
-        g.stroke();
-
-        // Glowing reflection nodes at mirrors along the beam
-        laserPath.forEach((pt, idx) => {
-          if (idx > 0 && idx < laserPath.length - 1 && grid[pt.r][pt.c].type === 'mirror') {
-            const px = startX + pt.c * cell + cell / 2;
-            const py = startY + pt.r * cell + cell / 2;
-            g.fillStyle = '#fef08a';
-            g.beginPath();
-            g.arc(px, py, 5 + Math.sin(laserPulsePhase + idx) * 1.8, 0, Math.PI * 2);
-            g.fill();
-          }
-        });
-        g.restore();
-      }
-
-      // Draw Objects on top
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cx = startX + c * cell + cell / 2;
           const cy = startY + r * cell + cell / 2;
           const item = grid[r][c];
-
           if (item.type === 'emitter') {
-            g.save();
-            g.translate(cx, cy);
-            g.fillStyle = '#dc2626';
-            g.strokeStyle = '#fca5a5';
-            g.lineWidth = 2.5;
-            g.beginPath();
-            g.roundRect(-cell * 0.36, -cell * 0.28, cell * 0.72, cell * 0.56, 8);
-            g.fill();
-            g.stroke();
-            g.font = `${Math.round(cell * 0.4)}px sans-serif`;
-            g.textAlign = 'center';
-            g.textBaseline = 'middle';
-            g.fillText('⚡', 0, 1);
-            g.restore();
+            drawEmitter(cx, cy, cell);
           } else if (item.type === 'robot') {
-            g.save();
-            g.translate(cx, cy);
-            g.fillStyle = robotCharged ? '#16a34a' : '#1d4ed8';
-            g.strokeStyle = robotCharged ? '#bbf7d0' : '#93c5fd';
-            g.lineWidth = 3;
-            g.beginPath();
-            g.arc(0, 0, cell * 0.38, 0, Math.PI * 2);
-            g.fill();
-            g.stroke();
-            g.font = `${Math.round(cell * 0.48)}px sans-serif`;
-            g.textAlign = 'center';
-            g.textBaseline = 'middle';
-            g.fillText('🤖', 0, 2);
-            g.restore();
+            drawRobot(cx, cy, cell);
           } else if (item.type === 'star') {
-            g.font = `${Math.round(cell * 0.45)}px sans-serif`;
-            g.textAlign = 'center';
-            g.textBaseline = 'middle';
-            g.fillText('⭐', cx, cy + 2);
+            const lit = onBeam.has(`${r},${c}`);
+            if (lit) {
+              fx.glow(g, cx, cy, cell * 0.7, '#facc15', 0.7);
+              g.save();
+              g.translate(cx, cy);
+              g.rotate(reduced ? 0 : sceneTime * 1.5);
+              drawStarShape(0, 0, cell * 0.24, '#facc15');
+              drawStarShape(0, 0, cell * 0.12, '#fffbeb');
+              g.restore();
+            } else {
+              drawStarShape(cx, cy, cell * 0.22, 'rgba(148, 163, 184, 0.35)');
+              g.strokeStyle = 'rgba(203, 213, 225, 0.45)';
+              g.lineWidth = 1.2;
+              g.stroke();
+            }
           } else if (item.type === 'mirror') {
-            g.save();
-            g.translate(cx, cy);
-            const ang = item.visAngle != null ? item.visAngle : item.state === 0 ? -Math.PI / 4 : Math.PI / 4;
-            g.rotate(ang);
-            const len = cell * 0.36;
-            g.strokeStyle = '#38bdf8';
-            g.lineWidth = 7;
-            g.lineCap = 'round';
-            g.beginPath();
-            g.moveTo(-len, 0);
-            g.lineTo(len, 0);
-            g.stroke();
-
-            g.strokeStyle = '#e0f2fe';
-            g.lineWidth = 2.5;
-            g.stroke();
-            g.restore();
+            drawMirror(cx, cy, cell, item, `${r},${c}` === hintKey);
           }
         }
       }
 
-      // Particles
-      particles.forEach((p) => {
-        g.save();
-        g.globalAlpha = Math.min(1, p.life);
-        g.fillStyle = p.color;
-        g.beginPath();
-        g.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
-        g.fill();
-        g.restore();
-      });
+      sparks.draw(g);
+
+      // HUD
+      fx.outlinedText(g, `🔬 MÀN ${level}`, 22, 20, { size: 15, color: '#7dd3fc', align: 'left' });
+      g.save();
+      for (let k = 0; k < totalStars; k++) {
+        drawStarShape(W / 2 - ((totalStars - 1) * 22) / 2 + k * 22, 20, 8, k < litStars ? '#facc15' : 'rgba(148, 163, 184, 0.35)');
+      }
+      g.restore();
+      fx.outlinedText(g, `↻ ${moves} lần xoay`, W - 22, 20, { size: 14, color: '#e2e8f0', align: 'right' });
+      g.fillStyle = 'rgba(203, 213, 225, 0.6)';
+      g.font = fx.font(12, 600);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(`Bấm vào gương để xoay • Dẫn tia laser tới robot (${cfg.label})`, W / 2, H - 14);
 
       if (robotCharged) {
-        g.fillStyle = 'rgba(15, 23, 42, 0.85)';
-        g.fillRect(W / 2 - 220, H / 2 - 44, 440, 88);
-        g.strokeStyle = '#4ade80';
-        g.lineWidth = 3;
-        g.strokeRect(W / 2 - 220, H / 2 - 44, 440, 88);
-        g.fillStyle = '#4ade80';
-        g.font = '900 22px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('⚡ ROBOT ĐÃ ĐƯỢC SẠC ĐẦY PIN! QUA MÀN! 🤖', W / 2, H / 2 + 5);
+        fx.drawBanner(g, W, H, '⚡ ROBOT ĐÃ SẠC ĐẦY PIN!', {
+          t: 1.65 - winTimer,
+          duration: 1.65,
+          accent: '#4ade80',
+          sub: `Sao sáng ${litStars}/${totalStars} • Qua màn ${level}`,
+          size: 34
+        });
       }
     }
 
@@ -528,6 +765,7 @@
           item.state = 1 - item.state;
           moves++;
           ArcadeHub.sound.click();
+          sparks.ring(startX + c * cell + cell / 2, startY + r * cell + cell / 2, { from: cell * 0.2, to: cell * 0.55, color: '#7dd3fc', life: 0.3 });
           recalculateLaser();
         }
       }
@@ -544,6 +782,8 @@
           if (item.type === 'mirror' && item.solutionState != null && item.state !== item.solutionState) {
             item.state = item.solutionState;
             ArcadeHub.sound.boost();
+            hintCell = { r, c };
+            hintFlashT = 0;
             recalculateLaser();
             return;
           }
@@ -573,6 +813,7 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       update(dt);
       render();
       animId = requestAnimationFrame(loop);
