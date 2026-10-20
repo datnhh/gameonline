@@ -15,6 +15,11 @@
     const SEGMENT_LENGTH = 180;
     let segments = [];
     let skylineBuildings = [];
+    // The skyline (about 1,000 lit windows) is painted once into a repeating strip and blitted
+    let skylineLayer = null;
+    let canvasDpr = 1;
+    const SKYLINE_SPAN = 1400;
+    const SKYLINE_STRIP_H = 200; // tallest building (170) + spire (24) + stroke
 
     let trackPos = 0;
     let playerX = 0; // -1.35 to +1.35 (mặt đường chính từ -1 đến +1)
@@ -164,6 +169,50 @@
       }
     }
 
+    // Paint every building once into a strip that tiles every SKYLINE_SPAN px; the extra 120px
+    // holds buildings that spill past the end (the strip is drawn twice, see drawScene).
+    function buildSkylineLayer() {
+      const stripW = SKYLINE_SPAN + 120;
+      const layer = document.createElement('canvas');
+      layer.width = Math.ceil(stripW * canvasDpr);
+      layer.height = Math.ceil(SKYLINE_STRIP_H * canvasDpr);
+      const lg = layer.getContext('2d');
+      lg.scale(canvasDpr, canvasDpr);
+      const baseY = SKYLINE_STRIP_H;
+      skylineBuildings.forEach((b) => {
+        const bx = ((b.x % SKYLINE_SPAN) + SKYLINE_SPAN) % SKYLINE_SPAN;
+        const by = baseY - b.h;
+        const bGrad = lg.createLinearGradient(0, by, 0, baseY);
+        bGrad.addColorStop(0, b.tint);
+        bGrad.addColorStop(1, '#0a0418');
+        lg.fillStyle = bGrad;
+        lg.strokeStyle = '#090d16';
+        lg.lineWidth = 2;
+        lg.fillRect(bx, by, b.w, b.h);
+        lg.strokeRect(bx, by, b.w, b.h);
+        if (b.spire) {
+          lg.fillStyle = b.tint;
+          lg.beginPath();
+          lg.moveTo(bx + b.w * 0.5, by - 24);
+          lg.lineTo(bx + b.w * 0.3, by);
+          lg.lineTo(bx + b.w * 0.7, by);
+          lg.closePath();
+          lg.fill();
+          lg.stroke();
+        }
+        // Window grid: same deterministic pattern as before (offsets are exact integers here)
+        for (let oy = 8; oy < b.h - 8; oy += 11) {
+          for (let ox = 6; ox < b.w - 6; ox += 9) {
+            const hsh = (ox * 7 + oy * 13 + b.seed) % 11;
+            if (hsh > 3) continue;
+            lg.fillStyle = hsh === 0 ? 'rgba(56, 189, 248, 0.75)' : 'rgba(253, 224, 71, 0.6)';
+            lg.fillRect(bx + ox, by + oy, 4, 5);
+          }
+        }
+      });
+      skylineLayer = { canvas: layer, w: stripW, dpr: canvasDpr };
+    }
+
     function buildTrack() {
       segments = [];
       const buildingPalettes = [
@@ -236,6 +285,7 @@
       maxSpeed = cfg.maxSpeed;
       nitroMaxSpeed = cfg.nitroMaxSpeed;
       buildSkyline();
+      skylineLayer = null;
       buildTrack();
       trackPos = 0;
       playerX = 0;
@@ -304,6 +354,7 @@
       width = Math.max(320, Math.floor(maxW));
       height = Math.floor(maxH);
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvasDpr = dpr;
       canvas.style.width = width + 'px';
       canvas.style.height = height + 'px';
       canvas.width = width * dpr;
@@ -658,7 +709,7 @@
           const wy = frontY + 12 * scale + r * (winH + gapY);
           g2d.fillStyle = (r + c) % 2 === 0 ? '#fef08a' : '#38bdf8';
           g2d.fillRect(wx, wy, winW, winH);
-          g2d.strokeRect(wx, wy, winW, winH);
+          if (winW >= 5) g2d.strokeRect(wx, wy, winW, winH);
         }
       }
 
@@ -1326,45 +1377,23 @@
       g2d.fill();
       g2d.stroke();
 
-      // Parallax city skyline: continuous wrap (no jump) with lit windows
-      const skylineSpan = 1400;
+      // Parallax city skyline: pre-painted strip tiled every SKYLINE_SPAN px (continuous wrap)
+      if (!skylineLayer || skylineLayer.dpr !== canvasDpr) buildSkylineLayer();
       const parallaxOffset = trackPos * 0.04 + curveDrift * 4;
+      const tileX = ((((-parallaxOffset) % SKYLINE_SPAN) + SKYLINE_SPAN) % SKYLINE_SPAN) - 120;
+      const stripY = horizonY - SKYLINE_STRIP_H;
+      [tileX, tileX - SKYLINE_SPAN].forEach((x0) => {
+        if (x0 > width || x0 + skylineLayer.w < 0) return;
+        // Snap to device pixels so the small windows stay crisp
+        const sx = Math.round(x0 * canvasDpr) / canvasDpr;
+        g2d.drawImage(skylineLayer.canvas, sx, stripY, skylineLayer.w, SKYLINE_STRIP_H);
+      });
+      // Blinking spire lights stay live
       skylineBuildings.forEach((b) => {
-        const bx = ((((b.x - parallaxOffset) % skylineSpan) + skylineSpan) % skylineSpan) - 120;
+        if (!b.spire || Math.sin(sceneTime * 3 + b.seed) <= 0.2) return;
+        const bx = ((((b.x - parallaxOffset) % SKYLINE_SPAN) + SKYLINE_SPAN) % SKYLINE_SPAN) - 120;
         if (bx > width + 20 || bx + b.w < -20) return;
-        const by = horizonY - b.h;
-        const bGrad = g2d.createLinearGradient(0, by, 0, horizonY);
-        bGrad.addColorStop(0, b.tint);
-        bGrad.addColorStop(1, '#0a0418');
-        g2d.fillStyle = bGrad;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 2;
-        g2d.fillRect(bx, by, b.w, b.h);
-        g2d.strokeRect(bx, by, b.w, b.h);
-
-        if (b.spire) {
-          g2d.fillStyle = b.tint;
-          g2d.beginPath();
-          g2d.moveTo(bx + b.w * 0.5, by - 24);
-          g2d.lineTo(bx + b.w * 0.3, by);
-          g2d.lineTo(bx + b.w * 0.7, by);
-          g2d.closePath();
-          g2d.fill();
-          g2d.stroke();
-          if (Math.sin(sceneTime * 3 + b.seed) > 0.2) {
-            fx.glow(g2d, bx + b.w * 0.5, by - 24, 8, '#ef4444', 0.9);
-          }
-        }
-
-        // Window grid: a deterministic pattern per building
-        for (let wy = by + 8; wy < horizonY - 8; wy += 11) {
-          for (let wx = bx + 6; wx < bx + b.w - 6; wx += 9) {
-            const h = (Math.floor(wx - bx) * 7 + Math.floor(wy - by) * 13 + b.seed) % 11;
-            if (h > 3) continue;
-            g2d.fillStyle = h === 0 ? 'rgba(56, 189, 248, 0.75)' : 'rgba(253, 224, 71, 0.6)';
-            g2d.fillRect(wx, wy, 4, 5);
-          }
-        }
+        fx.glow(g2d, bx + b.w * 0.5, horizonY - b.h - 24, 8, '#ef4444', 0.9);
       });
 
       // Horizon haze line
