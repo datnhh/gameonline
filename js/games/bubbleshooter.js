@@ -68,9 +68,24 @@
     let nextColor = 1;
     let activeShot = null; // { x, y, vx, vy, color }
     let fallingBubbles = []; // { x, y, vx, vy, color }
-    let particles = [];
-    let shockwaves = []; // { x, y, r, maxR, color, alpha }
     let floatingTexts = [];
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(360);
+    const camShake = fx.createShake(6);
+    let sceneTime = 0;
+    let overlayT = 0;
+    let overlayKey = '';
+    let levelBannerT = 10;
+    let levelBannerBonus = 0;
+    const bgStars = Array.from({ length: 40 }, () => ({
+      x: Math.random() * 820,
+      y: Math.random() * 260,
+      r: Math.random() < 0.2 ? 2 : 1,
+      tw: Math.random() * 6
+    }));
     let keys = { left: false, right: false };
 
     // DOM Setup
@@ -84,7 +99,7 @@
           </div>
           <div class="toolbar-group">
             <button type="button" class="pill-btn" id="bsSwapBtn" title="Đổi trứng đang cầm với trứng dự bị (Phím Space)">🔄 Đổi Trứng (Space)</button>
-            <button type="button" class="pill-btn" id="bsPauseBtn">⏸ Tạm dừng</button>
+            <button type="button" class="pill-btn" id="bsPauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
             <span id="bsInfoBadge" style="font-size:0.82rem;color:#38bdf8;font-weight:700;">Màn 1 • Ghép 3 trứng cùng màu!</span>
           </div>
         </div>
@@ -105,7 +120,8 @@
     `;
 
     const canvas = container.querySelector('#bubbleCanvas');
-    const g = canvas.getContext('2d');
+    const hidpi = fx.setupHiDPICanvas(canvas, W, H);
+    const g = hidpi.g;
     const infoBadge = container.querySelector('#bsInfoBadge');
     const swapBtn = container.querySelector('#bsSwapBtn');
     const pauseBtn = container.querySelector('#bsPauseBtn');
@@ -156,12 +172,15 @@
       }
       isGameOver = false;
       isPaused = false;
-      if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
+      syncPauseBtn();
       activeShot = null;
       fallingBubbles = [];
-      particles = [];
-      shockwaves = [];
       floatingTexts = [];
+      if (resetScore) {
+        sparks.clear();
+        camShake.reset();
+        levelBannerT = 10;
+      }
       rowParityOffset = 0;
       shotsUntilDrop = cfg.shotsPerDrop;
 
@@ -190,8 +209,26 @@
       }
     }
 
+    function syncPauseBtn() {
+      if (!pauseBtn) return;
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    function setPaused(next) {
+      const value = !!next && !isGameOver;
+      if (value === isPaused) return;
+      isPaused = value;
+      if (isPaused) {
+        keys.left = false;
+        keys.right = false;
+      }
+      syncPauseBtn();
+    }
+
     function swapBubbles() {
-      if (isGameOver || activeShot) return;
+      if (isGameOver || isPaused || activeShot) return;
       const tmp = currentColor;
       currentColor = nextColor;
       nextColor = tmp;
@@ -248,31 +285,6 @@
         }
       }
       return list;
-    }
-
-    function spawnBurst(x, y, hexColor, count) {
-      shockwaves.push({
-        x,
-        y,
-        r: RADIUS * 0.4,
-        maxR: RADIUS * 2.4,
-        color: hexColor,
-        alpha: 0.85
-      });
-      for (let i = 0; i < count; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const spd = 60 + Math.random() * 180;
-        particles.push({
-          x,
-          y,
-          vx: Math.cos(ang) * spd,
-          vy: Math.sin(ang) * spd,
-          color: hexColor,
-          life: 0.45 + Math.random() * 0.25,
-          maxLife: 0.7,
-          r: 3 + Math.random() * 4
-        });
-      }
     }
 
     function findMatchingCluster(startR, startC, targetColor) {
@@ -388,16 +400,21 @@
         const bonus = Math.round(300 * DIFFICULTY_CFG[difficulty].scoreMult);
         score += bonus;
         ctx.updateScore(score);
-        floatingTexts.push({
-          x: LAUNCHER_X,
-          y: H / 2,
-          text: `🎉 QUA MÀN +${bonus}!`,
-          color: '#facc15',
-          life: 1.4
-        });
         ArcadeHub.sound.win();
         level++;
         initLevel(false);
+        levelBannerT = 0;
+        levelBannerBonus = bonus;
+        sparks.burst(LAUNCHER_X, H * 0.4, {
+          count: 50,
+          kind: 'confetti',
+          speed: [140, 360],
+          life: [0.9, 1.6],
+          size: [4, 7],
+          gravity: 300,
+          drag: 1.2,
+          colors: ['#f43f5e', '#38bdf8', '#22c55e', '#facc15', '#a855f7', '#ffffff']
+        });
       }
     }
 
@@ -436,6 +453,7 @@
         });
 
         const dropped = dropFloatingClusters();
+        camShake.add(Math.min(0.55, 0.12 + cluster.length * 0.04 + dropped * 0.05));
         const gained = Math.round((cluster.length * 25 + dropped * 45) * cfg.scoreMult);
         score += gained;
         ctx.updateScore(score);
@@ -532,23 +550,6 @@
         }
       }
 
-      // Particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt;
-        if (p.life <= 0) particles.splice(i, 1);
-      }
-
-      // Shockwaves
-      for (let i = shockwaves.length - 1; i >= 0; i--) {
-        const sw = shockwaves[i];
-        sw.r += (sw.maxR - sw.r) * 9 * dt;
-        sw.alpha -= 2.2 * dt;
-        if (sw.alpha <= 0) shockwaves.splice(i, 1);
-      }
-
       // Floating texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
         const ft = floatingTexts[i];
@@ -558,39 +559,157 @@
       }
     }
 
-    function drawEggBubble(x, y, colorIdx, scale) {
-      const cObj = BUBBLE_COLORS[colorIdx] || BUBBLE_COLORS[0];
-      const r = RADIUS * (scale || 1);
+    // =========================================================
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    // Each colour also has its own vector symbol so colour-blind players can still match.
+    function drawEggSymbol(gx, id, r) {
+      gx.save();
+      gx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      gx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+      gx.lineWidth = Math.max(1, r * 0.06);
+      gx.beginPath();
+      const s = r * 0.42;
+      if (id === 'red') {
+        // Flame
+        gx.moveTo(0, -s);
+        gx.quadraticCurveTo(s * 0.9, -s * 0.1, s * 0.55, s * 0.6);
+        gx.quadraticCurveTo(0, s * 1.05, -s * 0.55, s * 0.6);
+        gx.quadraticCurveTo(-s * 0.9, -s * 0.1, 0, -s);
+      } else if (id === 'blue') {
+        // Water drop
+        gx.moveTo(0, -s);
+        gx.quadraticCurveTo(s * 0.8, s * 0.1, s * 0.6, s * 0.5);
+        gx.arc(0, s * 0.42, s * 0.6, 0.15, Math.PI - 0.15);
+        gx.quadraticCurveTo(-s * 0.8, s * 0.1, 0, -s);
+      } else if (id === 'green') {
+        // Leaf
+        gx.moveTo(-s * 0.8, s * 0.8);
+        gx.quadraticCurveTo(-s, -s * 0.6, s * 0.8, -s * 0.8);
+        gx.quadraticCurveTo(s * 0.7, s * 0.9, -s * 0.8, s * 0.8);
+      } else if (id === 'yellow') {
+        // Star
+        for (let k = 0; k < 10; k++) {
+          const rr = k % 2 === 0 ? s : s * 0.45;
+          const a = -Math.PI / 2 + (k / 10) * Math.PI * 2;
+          gx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        gx.closePath();
+      } else if (id === 'purple') {
+        // Crystal
+        gx.moveTo(0, -s);
+        gx.lineTo(s * 0.7, -s * 0.2);
+        gx.lineTo(0, s);
+        gx.lineTo(-s * 0.7, -s * 0.2);
+        gx.closePath();
+      } else {
+        // Sun
+        gx.arc(0, 0, s * 0.5, 0, Math.PI * 2);
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          gx.moveTo(Math.cos(a) * s * 0.68, Math.sin(a) * s * 0.68);
+          gx.arc(Math.cos(a) * s * 0.82, Math.sin(a) * s * 0.82, s * 0.14, 0, Math.PI * 2);
+        }
+      }
+      gx.fill();
+      gx.stroke();
+      gx.restore();
+    }
 
-      g.save();
-      g.translate(x, y);
-
-      const grad = g.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.15, 0, 0, r);
+    // Pre-rendered egg sprites (one per colour) — far cheaper than gradients + text per bubble per frame
+    const eggSprites = BUBBLE_COLORS.map((cObj) => {
+      const pad = 4;
+      const size = RADIUS * 2 + pad * 2;
+      const dpr = hidpi.dpr;
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(size * dpr);
+      cv.height = Math.round(size * dpr);
+      const gx = cv.getContext('2d');
+      gx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      gx.translate(size / 2, size / 2);
+      const r = RADIUS;
+      // Soft drop shadow
+      gx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+      gx.beginPath();
+      gx.ellipse(1.5, 3, r - 1, r - 2, 0, 0, Math.PI * 2);
+      gx.fill();
+      const grad = gx.createRadialGradient(-r * 0.3, -r * 0.38, r * 0.12, 0, 0, r);
       grad.addColorStop(0, cObj.light);
       grad.addColorStop(0.55, cObj.hex);
       grad.addColorStop(1, cObj.dark);
-
-      g.beginPath();
-      g.arc(0, 0, r - 1, 0, Math.PI * 2);
-      g.fillStyle = grad;
-      g.fill();
-      g.lineWidth = 2;
-      g.strokeStyle = 'rgba(255,255,255,0.45)';
-      g.stroke();
-
+      gx.fillStyle = grad;
+      gx.beginPath();
+      gx.arc(0, 0, r - 1, 0, Math.PI * 2);
+      gx.fill();
+      // Rim light
+      gx.lineWidth = 2;
+      gx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      gx.stroke();
+      // Speckles like a dino egg
+      gx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      [
+        [0.35, 0.3, 0.09],
+        [-0.15, 0.55, 0.07],
+        [0.55, -0.1, 0.06]
+      ].forEach(([sx, sy, sr]) => {
+        gx.beginPath();
+        gx.arc(sx * r, sy * r, sr * r, 0, Math.PI * 2);
+        gx.fill();
+      });
+      drawEggSymbol(gx, cObj.id, r);
       // Glossy highlight
-      g.beginPath();
-      g.ellipse(-r * 0.32, -r * 0.32, r * 0.28, r * 0.16, -Math.PI / 4, 0, Math.PI * 2);
-      g.fillStyle = 'rgba(255,255,255,0.65)';
-      g.fill();
+      gx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      gx.beginPath();
+      gx.ellipse(-r * 0.36, -r * 0.4, r * 0.26, r * 0.14, -Math.PI / 4, 0, Math.PI * 2);
+      gx.fill();
+      return { cv, size };
+    });
 
-      // Cute icon inside egg
-      g.font = `${Math.round(r * 0.85)}px sans-serif`;
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(cObj.symbol, 0, 1);
+    function drawEggBubble(x, y, colorIdx, scale) {
+      const sp = eggSprites[colorIdx] || eggSprites[0];
+      const s = sp.size * (scale || 1);
+      g.drawImage(sp.cv, x - s / 2, y - s / 2, s, s);
+    }
 
-      g.restore();
+    function spawnBurst(x, y, hexColor, count) {
+      sparks.ring(x, y, { from: RADIUS * 0.4, to: RADIUS * 2.4, color: hexColor, life: 0.4 });
+      sparks.burst(x, y, {
+        count,
+        speed: [60, 240],
+        life: [0.4, 0.75],
+        size: [2.5, 5],
+        colors: [hexColor, '#ffffff']
+      });
+      // Eggshell fragments
+      sparks.burst(x, y, {
+        count: Math.max(2, Math.round(count * 0.4)),
+        kind: 'confetti',
+        speed: [80, 200],
+        life: [0.6, 1],
+        size: [4, 7],
+        gravity: 520,
+        drag: 0.8,
+        colors: ['#fef3c7', hexColor]
+      });
+    }
+
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      sparks.update(dt);
+      camShake.update(dt);
+      if (levelBannerT < 10) levelBannerT += dt;
+    }
+
+    function getLowestBubbleY() {
+      let lowest = PLAY_TOP;
+      for (let r = MAX_ROWS - 1; r >= 0; r--) {
+        for (let c = 0; c < getColCount(r); c++) {
+          if (grid[r][c] != null) return gridToPixel(r, c).y + RADIUS;
+        }
+      }
+      return lowest;
     }
 
     function drawAimLaser() {
@@ -607,6 +726,9 @@
 
       g.save();
       const cObj = BUBBLE_COLORS[currentColor] || BUBBLE_COLORS[0];
+      let endX = simX;
+      let endY = simY;
+      let ended = false;
       for (let i = 1; i <= maxSteps; i++) {
         simX += dx * stepSize;
         simY += dy * stepSize;
@@ -619,9 +741,11 @@
           dx = -Math.abs(dx);
         }
 
-        if (simY - RADIUS <= PLAY_TOP) break;
+        if (simY - RADIUS <= PLAY_TOP) {
+          ended = true;
+          break;
+        }
 
-        // Stop laser if hitting existing bubble
         let hitGrid = false;
         for (let r = 0; r < MAX_ROWS; r++) {
           for (let c = 0; c < getColCount(r); c++) {
@@ -636,32 +760,61 @@
         }
 
         if (i % 2 === 0) {
+          // Dots fade out along the path and gently march forward
+          const fade = 1 - i / (maxSteps + 8);
+          const pulse = 0.75 + 0.25 * Math.sin(sceneTime * 10 - i * 0.6);
+          g.globalAlpha = Math.max(0.15, fade) * pulse;
           g.beginPath();
-          g.arc(simX, simY, 3.2, 0, Math.PI * 2);
-          g.fillStyle = cObj.hex;
+          g.arc(simX, simY, 3.4, 0, Math.PI * 2);
+          g.fillStyle = cObj.light;
           g.fill();
         }
-        if (hitGrid) break;
+        endX = simX;
+        endY = simY;
+        if (hitGrid) {
+          ended = true;
+          break;
+        }
+      }
+      // Ghost egg where the shot will stop (only when the full guide is shown)
+      if (ended && cfg.showFullLaser) {
+        g.globalAlpha = 0.5 + Math.sin(sceneTime * 6) * 0.15;
+        g.strokeStyle = cObj.light;
+        g.lineWidth = 2;
+        g.setLineDash([4, 4]);
+        g.beginPath();
+        g.arc(endX, endY, RADIUS - 2, 0, Math.PI * 2);
+        g.stroke();
+        g.setLineDash([]);
       }
       g.restore();
     }
 
     function drawCuteDino() {
       g.save();
-      g.translate(LAUNCHER_X - 68, LAUNCHER_Y - 8);
+      g.translate(LAUNCHER_X - 70, LAUNCHER_Y - 6);
+      const breathe = 1 + Math.sin(sceneTime * 2.4) * 0.025;
+      const recoil = activeShot ? 1 : 0;
+      g.scale(1, breathe);
+      fx.contactShadow(g, 0, 28, 26, 6, 0.35);
 
-      // Dino tail
-      g.fillStyle = '#22c55e';
-      g.beginPath();
-      g.moveTo(-18, 12);
-      g.quadraticCurveTo(-38, 4, -34, -8);
-      g.quadraticCurveTo(-22, 2, -12, 4);
-      g.fill();
-
-      // Dino body
-      g.fillStyle = '#4ade80';
+      // Tail
+      g.fillStyle = '#16a34a';
       g.strokeStyle = '#14532d';
       g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(-16, 14);
+      g.quadraticCurveTo(-42, 10 + Math.sin(sceneTime * 3) * 3, -40, -6);
+      g.quadraticCurveTo(-24, 4, -12, 2);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // Body
+      const bodyGrad = g.createRadialGradient(-6, -6, 4, 0, 4, 28);
+      bodyGrad.addColorStop(0, '#86efac');
+      bodyGrad.addColorStop(1, '#22c55e');
+      g.fillStyle = bodyGrad;
       g.beginPath();
       g.ellipse(0, 4, 20, 24, 0, 0, Math.PI * 2);
       g.fill();
@@ -670,27 +823,53 @@
       // Belly
       g.fillStyle = '#fef08a';
       g.beginPath();
-      g.ellipse(4, 6, 11, 16, 0, 0, Math.PI * 2);
+      g.ellipse(4, 7, 11, 16, 0, 0, Math.PI * 2);
       g.fill();
+      g.strokeStyle = 'rgba(161, 98, 7, 0.35)';
+      g.lineWidth = 1.2;
+      for (let k = 0; k < 3; k++) {
+        g.beginPath();
+        g.moveTo(-4, k * 8 - 4);
+        g.lineTo(12, k * 8 - 4);
+        g.stroke();
+      }
 
-      // Head
+      // Head (looks toward the aim direction)
+      const look = Math.cos(Math.max(-Math.PI + 0.18, Math.min(-0.18, aimAngle))) * 3;
       g.fillStyle = '#4ade80';
+      g.strokeStyle = '#14532d';
+      g.lineWidth = 2.5;
       g.beginPath();
-      g.arc(4, -22, 16, 0, Math.PI * 2);
+      g.arc(4 + look, -22 - recoil * 2, 16, 0, Math.PI * 2);
       g.fill();
       g.stroke();
 
-      // Eye
+      // Eye with blink
+      const blink = Math.sin(sceneTime * 1.3) > 0.97;
       g.fillStyle = '#0f172a';
+      if (blink) {
+        g.fillRect(6 + look, -26, 9, 2);
+      } else {
+        g.beginPath();
+        g.arc(10 + look, -25, 3.8, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(11.2 + look, -26.6, 1.4, 0, Math.PI * 2);
+        g.fill();
+      }
+      // Cheek + smile
+      g.fillStyle = 'rgba(244, 114, 182, 0.5)';
       g.beginPath();
-      g.arc(10, -25, 3.5, 0, Math.PI * 2);
+      g.ellipse(14 + look, -17, 3.5, 2.2, 0, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = '#ffffff';
+      g.strokeStyle = '#14532d';
+      g.lineWidth = 1.6;
       g.beginPath();
-      g.arc(11, -26.5, 1.3, 0, Math.PI * 2);
-      g.fill();
+      g.arc(10 + look, -18, 4, 0.3, 1.4);
+      g.stroke();
 
-      // Cute spikes
+      // Spikes
       g.fillStyle = '#f97316';
       [-34, -24, -14].forEach((sy) => {
         g.beginPath();
@@ -704,168 +883,291 @@
       g.restore();
     }
 
-    function render() {
-      // Background
+    function drawSideCard(x, y, w, h, title, accent) {
+      fx.roundRectPath(g, x, y, w, h, 14);
+      g.fillStyle = 'rgba(15, 23, 42, 0.72)';
+      g.fill();
+      g.strokeStyle = fx.rgba(accent, 0.5);
+      g.lineWidth = 1.5;
+      g.stroke();
+      if (title) {
+        g.fillStyle = accent;
+        g.font = fx.font(12, 800);
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillText(title, x + w / 2, y + 18);
+      }
+    }
+
+    function drawBackdrop() {
+      // Twilight prehistoric valley
       const bgGrad = g.createLinearGradient(0, 0, 0, H);
-      bgGrad.addColorStop(0, '#0f172a');
-      bgGrad.addColorStop(1, '#1e1b4b');
+      bgGrad.addColorStop(0, '#1e1b4b');
+      bgGrad.addColorStop(0.55, '#4c1d95');
+      bgGrad.addColorStop(1, '#0f766e');
       g.fillStyle = bgGrad;
       g.fillRect(0, 0, W, H);
 
-      // Side panels decoration
-      g.fillStyle = 'rgba(30, 41, 59, 0.7)';
-      g.fillRect(0, 0, PLAY_LEFT, H);
-      g.fillRect(PLAY_RIGHT, 0, W - PLAY_RIGHT, H);
+      g.fillStyle = '#ffffff';
+      bgStars.forEach((st) => {
+        g.globalAlpha = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(sceneTime * 1.5 + st.tw));
+        g.fillRect(st.x, st.y, st.r, st.r);
+      });
+      g.globalAlpha = 1;
 
-      // Playfield frame
-      g.fillStyle = 'rgba(15, 23, 42, 0.92)';
-      g.fillRect(PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP);
-      g.strokeStyle = '#38bdf8';
+      // Volcanoes peeking from both sides, with a lava glow
+      [
+        [70, 1],
+        [W - 70, -1]
+      ].forEach(([vx, dir]) => {
+        fx.glow(g, vx, H - 215, 70, '#f97316', 0.35 + Math.sin(sceneTime * 2 + vx) * 0.08);
+        g.fillStyle = '#1e1336';
+        g.beginPath();
+        g.moveTo(vx - 110, H);
+        g.lineTo(vx - 22, H - 210);
+        g.lineTo(vx + 22, H - 210);
+        g.lineTo(vx + 110, H);
+        g.closePath();
+        g.fill();
+        g.fillStyle = '#f97316';
+        g.beginPath();
+        g.moveTo(vx - 20, H - 208);
+        g.lineTo(vx + 20, H - 208);
+        g.lineTo(vx + 8 * dir, H - 180);
+        g.closePath();
+        g.fill();
+      });
+
+      // Ferns along the bottom
+      g.strokeStyle = 'rgba(20, 83, 45, 0.9)';
       g.lineWidth = 3;
-      g.strokeRect(PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP);
+      g.lineCap = 'round';
+      for (let i = 0; i < 16; i++) {
+        const fxp = (i / 15) * W;
+        const sway = Math.sin(sceneTime * 1.4 + i) * 3;
+        g.beginPath();
+        g.moveTo(fxp, H);
+        g.quadraticCurveTo(fxp + 6 + sway, H - 24, fxp + 18 + sway, H - 34 - (i % 3) * 6);
+        g.moveTo(fxp, H);
+        g.quadraticCurveTo(fxp - 6 + sway, H - 20, fxp - 16 + sway, H - 28 - (i % 2) * 6);
+        g.stroke();
+      }
+    }
 
-      // Danger line
+    function render() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      hidpi.apply();
+      drawBackdrop();
+
+      // Side cards
+      drawSideCard(14, 18, PLAY_LEFT - 28, 92, 'MÀN CHƠI', '#facc15');
+      fx.outlinedText(g, String(level), PLAY_LEFT / 2, 70, { size: 36, color: '#facc15' });
+
+      drawSideCard(14, 124, PLAY_LEFT - 28, 150, 'TRỨNG TIẾP', '#7dd3fc');
+      // Nest
+      g.fillStyle = '#92400e';
+      g.beginPath();
+      g.ellipse(PLAY_LEFT / 2, 222, 34, 12, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#d97706';
+      g.lineWidth = 2;
+      for (let k = 0; k < 5; k++) {
+        g.beginPath();
+        g.arc(PLAY_LEFT / 2, 226 - k, 30 - k * 2, Math.PI * 0.1, Math.PI * 0.9);
+        g.stroke();
+      }
+      drawEggBubble(PLAY_LEFT / 2, 200 + Math.sin(sceneTime * 2.4) * 2, nextColor, 1.05);
+      g.fillStyle = '#94a3b8';
+      g.font = fx.font(11, 600);
+      g.textAlign = 'center';
+      g.fillText('SPACE / 🔄 để đổi', PLAY_LEFT / 2, 256);
+
+      // Ceiling drop countdown as pips
+      drawSideCard(14, 288, PLAY_LEFT - 28, 82, 'HẠ TRẦN SAU', '#fb7185');
+      const pipCount = cfg.shotsPerDrop;
+      const pipW = Math.min(12, (PLAY_LEFT - 56) / pipCount - 3);
+      const pipsTotal = pipCount * (pipW + 3) - 3;
+      for (let k = 0; k < pipCount; k++) {
+        const on = k < shotsUntilDrop;
+        fx.roundRectPath(g, PLAY_LEFT / 2 - pipsTotal / 2 + k * (pipW + 3), 320, pipW, 14, 3);
+        g.fillStyle = on ? (shotsUntilDrop <= 2 ? '#fb7185' : '#4ade80') : 'rgba(148, 163, 184, 0.25)';
+        g.fill();
+      }
+      g.fillStyle = '#e2e8f0';
+      g.font = fx.font(12, 700);
+      g.fillText(`${shotsUntilDrop} phát`, PLAY_LEFT / 2, 352);
+
+      const rightX = PLAY_RIGHT + 14;
+      const rightW = W - PLAY_RIGHT - 28;
+      const rightCenter = PLAY_RIGHT + (W - PLAY_RIGHT) / 2;
+      drawSideCard(rightX, 18, rightW, 152, 'HƯỚNG DẪN', '#38bdf8');
+      g.fillStyle = '#cbd5e1';
+      g.font = fx.font(12, 600);
+      g.textAlign = 'center';
+      g.fillText('• Rê chuột ngắm', rightCenter, 54);
+      g.fillText('• Bấm chuột bắn', rightCenter, 78);
+      g.fillText('• Ghép ≥ 3 trứng', rightCenter, 102);
+      g.fillText('cùng màu để nổ!', rightCenter, 122);
+      g.fillText('• Rơi chùm: thưởng!', rightCenter, 146);
+
+      drawSideCard(rightX, 184, rightW, 30 + Math.ceil(cfg.colorCount / 3) * 40, 'MÀU TRỨNG', '#c084fc');
+      for (let k = 0; k < cfg.colorCount; k++) {
+        const ex = rightCenter + ((k % 3) - 1) * 36;
+        const ey = 230 + Math.floor(k / 3) * 40;
+        drawEggBubble(ex, ey, k, 0.7);
+      }
+
+      g.save();
+      camShake.apply(g);
+
+      // Glass playfield
+      fx.roundRectPath(g, PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP, 16);
+      const fieldGrad = g.createLinearGradient(0, PLAY_TOP, 0, PLAY_BOTTOM);
+      fieldGrad.addColorStop(0, 'rgba(15, 23, 42, 0.94)');
+      fieldGrad.addColorStop(1, 'rgba(30, 27, 75, 0.9)');
+      g.fillStyle = fieldGrad;
+      g.fill();
+      const frameGrad = g.createLinearGradient(PLAY_LEFT, 0, PLAY_RIGHT, 0);
+      frameGrad.addColorStop(0, '#38bdf8');
+      frameGrad.addColorStop(0.5, '#a855f7');
+      frameGrad.addColorStop(1, '#22c55e');
+      g.strokeStyle = frameGrad;
+      g.lineWidth = 3;
+      g.stroke();
+
+      // Danger zone: red band that heats up as the eggs get closer
+      const lowY = getLowestBubbleY();
+      const heat = Math.max(0, Math.min(1, (lowY - (DANGER_Y - ROW_HEIGHT * 4)) / (ROW_HEIGHT * 4)));
+      const dz = g.createLinearGradient(0, DANGER_Y - 40, 0, DANGER_Y + 4);
+      dz.addColorStop(0, 'rgba(244, 63, 94, 0)');
+      dz.addColorStop(1, `rgba(244, 63, 94, ${0.08 + heat * (0.3 + Math.sin(sceneTime * 8) * 0.1)})`);
+      g.fillStyle = dz;
+      g.fillRect(PLAY_LEFT + 2, DANGER_Y - 40, PLAY_RIGHT - PLAY_LEFT - 4, 44);
       g.save();
       g.setLineDash([8, 6]);
-      g.strokeStyle = 'rgba(244, 63, 94, 0.75)';
+      g.lineDashOffset = -sceneTime * 20;
+      g.strokeStyle = `rgba(244, 63, 94, ${0.55 + heat * 0.4})`;
       g.lineWidth = 2;
       g.beginPath();
-      g.moveTo(PLAY_LEFT + 6, DANGER_Y);
-      g.lineTo(PLAY_RIGHT - 6, DANGER_Y);
+      g.moveTo(PLAY_LEFT + 8, DANGER_Y);
+      g.lineTo(PLAY_RIGHT - 8, DANGER_Y);
       g.stroke();
       g.restore();
 
-      // Side HUD info
-      g.fillStyle = '#f8fafc';
-      g.font = '800 16px sans-serif';
-      g.textAlign = 'center';
-      g.fillText('MÀN CHƠI', 75, 55);
-      g.fillStyle = '#facc15';
-      g.font = '900 34px sans-serif';
-      g.fillText(String(level), 75, 95);
+      // Stone ceiling
+      g.fillStyle = '#334155';
+      fx.roundRectPath(g, PLAY_LEFT + 2, PLAY_TOP + 1, PLAY_RIGHT - PLAY_LEFT - 4, 6, 3);
+      g.fill();
 
-      g.fillStyle = '#cbd5e1';
-      g.font = '700 14px sans-serif';
-      g.fillText('TRỨNG TIẾP', 75, 165);
-      drawEggBubble(75, 205, nextColor, 1.05);
-
-      g.fillStyle = '#94a3b8';
-      g.font = '600 12px sans-serif';
-      g.fillText('Nhấn SPACE', 75, 250);
-      g.fillText('để đổi trứng', 75, 268);
-
-      // Right sidebar instructions
-      const rightCenter = (PLAY_RIGHT + W) / 2;
-      g.fillStyle = '#38bdf8';
-      g.font = '800 15px sans-serif';
-      g.fillText('HƯỚNG DẪN', rightCenter, 55);
-      g.fillStyle = '#cbd5e1';
-      g.font = '600 12.5px sans-serif';
-      g.fillText('• Rê chuột ngắm', rightCenter, 88);
-      g.fillText('• Bấm chuột bắn', rightCenter, 112);
-      g.fillText('• Ghép ≥ 3 trứng', rightCenter, 136);
-      g.fillText('  cùng màu để nổ!', rightCenter, 156);
-
-      // Grid bubbles
+      // Grid eggs (gentle idle wobble on the bottom-most rows when close to danger)
       for (let r = 0; r < MAX_ROWS; r++) {
         for (let c = 0; c < getColCount(r); c++) {
           if (grid[r][c] != null) {
             const pos = gridToPixel(r, c);
-            drawEggBubble(pos.x, pos.y, grid[r][c], 1);
+            const jitter = heat > 0.6 && !reduced ? Math.sin(sceneTime * 30 + r + c) * heat : 0;
+            drawEggBubble(pos.x + jitter, pos.y, grid[r][c], 1);
           }
         }
       }
 
-      // Falling bubbles
       fallingBubbles.forEach((fb) => {
         drawEggBubble(fb.x, fb.y, fb.color, 0.95);
       });
 
-      // Aiming laser
       drawAimLaser();
-
-      // Launcher Dino & Cannon
       drawCuteDino();
 
+      // Stone cannon
       const clampedAngle = Math.max(-Math.PI + 0.18, Math.min(-0.18, aimAngle));
       g.save();
       g.translate(LAUNCHER_X, LAUNCHER_Y);
       g.rotate(clampedAngle + Math.PI / 2);
-      g.fillStyle = '#334155';
-      g.strokeStyle = '#38bdf8';
+      const barrel = g.createLinearGradient(-14, 0, 14, 0);
+      barrel.addColorStop(0, '#475569');
+      barrel.addColorStop(0.5, '#94a3b8');
+      barrel.addColorStop(1, '#334155');
+      g.fillStyle = barrel;
+      g.strokeStyle = '#0f172a';
       g.lineWidth = 2.5;
-      g.beginPath();
-      g.roundRect(-14, -42, 28, 42, 8);
+      fx.roundRectPath(g, -14, -44, 28, 44, 8);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#facc15';
+      fx.roundRectPath(g, -16, -46, 32, 8, 4);
       g.fill();
       g.stroke();
       g.restore();
+      // Base
+      g.fillStyle = '#1e293b';
+      g.strokeStyle = '#0f172a';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(LAUNCHER_X, LAUNCHER_Y + 14, 34, 12, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
 
-      // Current loaded egg or active flying egg
       if (activeShot) {
+        // Motion trail
+        g.save();
+        g.globalCompositeOperation = 'lighter';
+        const cObj = BUBBLE_COLORS[activeShot.color] || BUBBLE_COLORS[0];
+        for (let k = 1; k <= 4; k++) {
+          g.globalAlpha = 0.18 - k * 0.035;
+          g.beginPath();
+          g.arc(activeShot.x - activeShot.vx * 0.012 * k, activeShot.y - activeShot.vy * 0.012 * k, RADIUS - k * 2, 0, Math.PI * 2);
+          g.fillStyle = cObj.hex;
+          g.fill();
+        }
+        g.restore();
         drawEggBubble(activeShot.x, activeShot.y, activeShot.color, 1);
-      } else {
-        drawEggBubble(LAUNCHER_X, LAUNCHER_Y, currentColor, 1);
+      } else if (!isGameOver) {
+        drawEggBubble(LAUNCHER_X, LAUNCHER_Y, currentColor, 1 + Math.sin(sceneTime * 4) * 0.03);
       }
 
-      // Shockwaves
-      shockwaves.forEach((sw) => {
-        g.save();
-        g.globalAlpha = Math.max(0, sw.alpha);
-        g.strokeStyle = sw.color;
-        g.lineWidth = 3;
-        g.beginPath();
-        g.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
-        g.stroke();
-        g.restore();
-      });
+      sparks.draw(g);
 
-      // Particles
-      particles.forEach((p) => {
-        g.save();
-        g.globalAlpha = Math.max(0, p.life / p.maxLife);
-        g.fillStyle = p.color;
-        g.beginPath();
-        g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        g.fill();
-        g.restore();
-      });
-
-      // Floating texts
       floatingTexts.forEach((ft) => {
         g.save();
-        g.globalAlpha = Math.min(1, ft.life);
-        g.font = '800 18px sans-serif';
-        g.fillStyle = ft.color;
-        g.textAlign = 'center';
-        g.fillText(ft.text, ft.x, ft.y);
+        g.globalAlpha = Math.max(0, Math.min(1, ft.life));
+        fx.outlinedText(g, ft.text, ft.x, ft.y, { size: 18, color: ft.color });
         g.restore();
       });
+      g.restore();
 
-      if (isPaused && !isGameOver) {
-        g.fillStyle = 'rgba(9, 13, 22, 0.78)';
-        g.fillRect(PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP);
-        g.fillStyle = '#38bdf8';
-        g.font = '900 32px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('⏸ ĐANG TẠM DỪNG', LAUNCHER_X, H / 2 - 10);
-        g.fillStyle = '#e2e8f0';
-        g.font = '700 16px sans-serif';
-        g.fillText('Bấm nút Tiếp tục để bắn trứng tiếp nhé!', LAUNCHER_X, H / 2 + 28);
+      if (levelBannerT < 1.8 && !isGameOver) {
+        fx.drawBanner(g, W, H, `🎉 QUA MÀN ${level - 1}!`, {
+          t: levelBannerT,
+          duration: 1.8,
+          accent: '#facc15',
+          sub: `+${levelBannerBonus} điểm • Màn ${level} bắt đầu`,
+          size: 36
+        });
       }
 
+      const overlay = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (overlay !== overlayKey) {
+        overlayKey = overlay;
+        overlayT = 0;
+      }
       if (isGameOver) {
-        g.fillStyle = 'rgba(9, 13, 22, 0.82)';
-        g.fillRect(PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP);
-        g.fillStyle = '#f43f5e';
-        g.font = '900 34px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('TRỨNG ĐÃ CHẠM VẠCH!', LAUNCHER_X, H / 2 - 30);
-        g.fillStyle = '#f8fafc';
-        g.font = '700 20px sans-serif';
-        g.fillText(`Tổng điểm: ${score} • Đạt Màn ${level}`, LAUNCHER_X, H / 2 + 12);
-        g.fillStyle = '#facc15';
-        g.font = '700 16px sans-serif';
-        g.fillText('Bấm chuột hoặc nhấn Chơi Lại để bắt đầu ván mới', LAUNCHER_X, H / 2 + 52);
+        fx.drawStatePanel(g, W, H, {
+          icon: '🦖',
+          title: 'TRỨNG ĐÃ CHẠM VẠCH!',
+          subtitle: 'Khủng long nhỏ cần bạn giúp thêm lần nữa.',
+          lines: [`Tổng điểm|${score.toLocaleString('vi-VN')}`, `Đạt màn|${level}`, `Chế độ|${cfg.label}`],
+          hint: 'Bấm chuột hoặc nhấn Chơi Lại để bắt đầu ván mới',
+          accent: '#f43f5e',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g, W, H, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để bắn trứng tiếp.',
+          accent: '#a855f7',
+          t: overlayT,
+          backdrop: 0.55
+        });
       }
     }
 
@@ -944,9 +1246,8 @@
     if (pauseBtn) {
       pauseBtn.addEventListener('click', () => {
         if (isGameOver) return;
-        isPaused = !isPaused;
-        pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
         ArcadeHub.sound.click();
+        setPaused(!isPaused);
       });
     }
 
@@ -992,6 +1293,7 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       update(dt);
       render();
       animId = requestAnimationFrame(loop);
@@ -1003,6 +1305,15 @@
     return {
       restart() {
         initLevel(true);
+      },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
