@@ -12,40 +12,46 @@
       genre: 'Thiếu nhi • Luyện bàn phím',
       devices: '⌨ Bàn phím • 📱 Cảm ứng',
       unit: 'điểm',
-      accentColor: '#ec4899',
+      accentColor: '#EC4899',
       description:
         'Trò chơi luyện gõ 10 ngón vui nhộn cho trẻ: bàn phím mẫu trên màn hình tự động sáng phím cần bấm để bắn nổ bóng bay chữ cái và từ vựng.',
-      gradient: 'linear-gradient(135deg, #7c3aed 0%, #c026d3 52%, #f43f5e 100%)',
+      gradient: 'linear-gradient(180deg, #FCE7F3 0%, #FBCFE8 100%)',
       helpSteps: [
         { icon: '⌨️', title: 'Thao tác', text: 'Gõ phím chữ cái trên bàn phím máy tính hoặc bấm trực tiếp vào bàn phím ảo trên màn hình.' },
         { icon: '🎈', title: 'Mục tiêu', text: 'Bắn nổ các quả bóng bay trước khi chúng rơi chạm vạch giới hạn phía dưới.' },
         { icon: '💡', title: 'Mẹo đạt điểm cao', text: 'Phím màu vàng phát sáng trên bàn phím mẫu chính là chữ cái tiếp theo cần gõ!' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="80" cy="36" r="24" fill="rgba(255,255,255,0.08)"/>
-          <circle cx="110" cy="40" r="18" fill="rgba(255,255,255,0.08)"/>
-          <line x1="260" y1="112" x2="225" y2="62" stroke="#fde047" stroke-width="3" stroke-dasharray="4 4"/>
-          <g transform="translate(225, 54)">
-            <path d="M0,26 Q-5,38 3,46" stroke="rgba(255,255,255,0.6)" stroke-width="1.8" fill="none"/>
-            <ellipse cx="0" cy="0" rx="24" ry="28" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
-            <ellipse cx="-8" cy="-10" rx="6" ry="10" transform="rotate(-25 -8 -10)" fill="rgba(255,255,255,0.45)"/>
-            <text x="0" y="8" fill="#ffffff" font-size="22" font-weight="900" text-anchor="middle">A</text>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <ellipse cx="75" cy="42" rx="34" ry="18" fill="#FFFFFF" opacity="0.85"/>
+          <ellipse cx="330" cy="36" rx="38" ry="20" fill="#FFFFFF" opacity="0.85"/>
+          <g transform="translate(122, 56)">
+            <path d="M0,32 Q-6,48 4,60" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse cx="0" cy="0" rx="28" ry="33" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+            <ellipse cx="-9" cy="-11" rx="7" ry="11" transform="rotate(-25 -9 -11)" fill="#FFFFFF" opacity="0.6"/>
+            <text x="0" y="9" fill="#FFFFFF" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">A</text>
           </g>
-          <g transform="translate(302, 44)">
-            <path d="M0,26 Q5,38 -3,46" stroke="rgba(255,255,255,0.6)" stroke-width="1.8" fill="none"/>
-            <ellipse cx="0" cy="0" rx="24" ry="28" fill="#facc15" stroke="#ffffff" stroke-width="2"/>
-            <ellipse cx="-8" cy="-10" rx="6" ry="10" transform="rotate(-25 -8 -10)" fill="rgba(255,255,255,0.55)"/>
-            <text x="0" y="8" fill="#090d16" font-size="22" font-weight="900" text-anchor="middle">B</text>
+          <g transform="translate(200, 42)">
+            <path d="M0,34 Q6,50 -4,64" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse cx="0" cy="0" rx="30" ry="35" fill="#FFCA3A" stroke="#2B2D42" stroke-width="3"/>
+            <ellipse cx="-10" cy="-12" rx="7" ry="11" transform="rotate(-25 -10 -12)" fill="#FFFFFF" opacity="0.65"/>
+            <text x="0" y="10" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="28" font-weight="800" text-anchor="middle">B</text>
           </g>
-          <g transform="translate(356, 62)">
-            <ellipse cx="0" cy="0" rx="20" ry="24" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
-            <text x="0" y="7" fill="#090d16" font-size="18" font-weight="900" text-anchor="middle">C</text>
+          <g transform="translate(278, 56)">
+            <path d="M0,32 Q-5,48 3,60" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <ellipse cx="0" cy="0" rx="28" ry="33" fill="#38BDF8" stroke="#2B2D42" stroke-width="3"/>
+            <ellipse cx="-9" cy="-11" rx="7" ry="11" transform="rotate(-25 -9 -11)" fill="#FFFFFF" opacity="0.6"/>
+            <text x="0" y="9" fill="#FFFFFF" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">C</text>
           </g>
-          <rect x="190" y="108" width="150" height="36" rx="8" fill="rgba(9,14,28,0.88)" stroke="#38bdf8" stroke-width="2"/>
-          <rect x="200" y="115" width="22" height="22" rx="5" fill="#facc15"/>
-          <text x="211" y="131" fill="#090d16" font-size="13" font-weight="900" text-anchor="middle">A</text>
-          <text x="282" y="131" fill="#e2e8f0" font-size="13" font-weight="800" text-anchor="middle">S D F G H</text>
+          <rect x="106" y="114" width="188" height="40" rx="12" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+          <rect x="116" y="121" width="36" height="26" rx="7" fill="#FFCA3A" stroke="#2B2D42" stroke-width="2.5"/>
+          <text x="134" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">A</text>
+          <rect x="158" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+          <text x="176" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">S</text>
+          <rect x="200" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+          <text x="218" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">D</text>
+          <rect x="242" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+          <text x="260" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">F</text>
         </svg>
       `
     },
@@ -57,29 +63,36 @@
       genre: 'Thiếu nhi • Luyện chuột & phím',
       devices: '🖱 Kéo chuột • ⌨ Mũi tên',
       unit: 'điểm',
-      accentColor: '#3b82f6',
+      accentColor: '#2563EB',
       description:
         'Hóa thân thành Người Nhện, The Flash, Batman hoặc Superman vượt mê cung giải cứu Công Chúa, hỗ trợ cả kéo chuột lẫn phím mũi tên (Dễ & Khó).',
-      gradient: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #ef4444 100%)',
+      gradient: 'linear-gradient(180deg, #DBEAFE 0%, #93C5FD 100%)',
       helpSteps: [
         { icon: '🦸', title: 'Chọn Siêu Nhân', text: 'Chọn Người Nhện, The Flash, Batman hoặc Superman trên thanh công cụ trước khi đi.' },
         { icon: '🖱️', title: 'Điều khiển', text: 'Nhấn giữ và kéo chuột theo đường mê cung hoặc bấm phím Mũi tên / WASD.' },
         { icon: '🧭', title: 'Trợ giúp', text: 'Bấm nút "Chỉ đường" nếu bé cần xem vệt sáng dẫn tới chỗ Công Chúa.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g stroke="rgba(56,189,248,0.55)" stroke-width="4" stroke-linecap="round" fill="none">
-            <rect x="182" y="22" width="176" height="114" rx="10" fill="rgba(9,14,28,0.45)"/>
-            <line x1="236" y1="22" x2="236" y2="92"/>
-            <line x1="292" y1="64" x2="292" y2="136"/>
-            <line x1="236" y1="92" x2="318" y2="92"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="86" y="20" width="228" height="128" rx="18" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+          <g stroke="#60A5FA" stroke-width="5" stroke-linecap="round">
+            <line x1="156" y1="20" x2="156" y2="96"/>
+            <line x1="234" y1="68" x2="234" y2="148"/>
+            <line x1="156" y1="96" x2="262" y2="96"/>
           </g>
-          <path d="M210,54 L210,114 L264,114 L264,44 L326,44 L326,106" stroke="#fde047" stroke-width="3" stroke-dasharray="5 5" fill="none"/>
-          <circle cx="210" cy="54" r="16" fill="#dc2626" stroke="#ffffff" stroke-width="2.5"/>
-          <ellipse cx="204" cy="52" rx="4.5" ry="3" fill="#ffffff"/>
-          <ellipse cx="216" cy="52" rx="4.5" ry="3" fill="#ffffff"/>
-          <circle cx="326" cy="106" r="16" fill="#ec4899" stroke="#ffffff" stroke-width="2.5"/>
-          <polygon points="316,90 321,80 326,87 331,80 336,90" fill="#facc15" stroke="#090d16" stroke-width="1"/>
+          <path d="M122,56 L122,122 L196,122 L196,48 L274,48 L274,112" stroke="#F59E0B" stroke-width="5" stroke-dasharray="8 7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <g transform="translate(122, 56)">
+            <circle cx="0" cy="0" r="22" fill="#EF4444" stroke="#2B2D42" stroke-width="3"/>
+            <ellipse cx="-7" cy="-2" rx="6" ry="4" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+            <ellipse cx="7" cy="-2" rx="6" ry="4" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+          </g>
+          <g transform="translate(274, 112)">
+            <circle cx="0" cy="0" r="22" fill="#F472B6" stroke="#2B2D42" stroke-width="3"/>
+            <polygon points="-14,-18 -7,-32 0,-22 7,-32 14,-18" fill="#FACC15" stroke="#2B2D42" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="-6" cy="-2" r="2.8" fill="#2B2D42"/>
+            <circle cx="6" cy="-2" r="2.8" fill="#2B2D42"/>
+            <path d="M-5,6 Q0,11 5,6" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </g>
         </svg>
       `
     },
@@ -91,32 +104,35 @@
       genre: 'Thiếu nhi • Luyện chuột',
       devices: '🖱 Rê chuột • 📱 Chạm kéo',
       unit: 'điểm',
-      accentColor: '#06b6d4',
+      accentColor: '#0284C7',
       description:
         'Giúp trẻ tập điều khiển chuột mượt mà dưới đại dương rực rỡ: ăn cá nhỏ hơn để tiến hóa qua 5 cấp độ thành Cá Mập Vua.',
-      gradient: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 52%, #14b8a6 100%)',
+      gradient: 'linear-gradient(180deg, #CFFAFE 0%, #67E8F9 100%)',
       helpSteps: [
         { icon: '🖱️', title: 'Di chuyển mượt', text: 'Di chuyển chuột hoặc chạm kéo trên màn hình, chú cá sẽ bơi theo con trỏ của bạn.' },
         { icon: '🐟', title: 'Luật tiến hóa', text: 'Ăn các chú cá nhỏ hơn hoặc bằng cấp hiện tại để lớn lên; tránh cá săn mồi to hơn.' },
         { icon: '⚡', title: 'Tăng tốc & Ngọc trai', text: 'Bấm chuột trái để lướt nhanh và nhặt Ngọc Trai dưới đáy biển để nhận điểm thưởng lớn.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <polygon points="150,0 190,0 240,158 120,158" fill="rgba(255,255,255,0.07)"/>
-          <polygon points="260,0 295,0 340,158 230,158" fill="rgba(255,255,255,0.05)"/>
-          <circle cx="195" cy="45" r="5" fill="rgba(255,255,255,0.45)"/>
-          <circle cx="212" cy="28" r="8" fill="rgba(255,255,255,0.3)"/>
-          <g transform="translate(248, 82)">
-            <polygon points="-34,0 -58,-20 -58,20" fill="#ea580c" stroke="#ffffff" stroke-width="2"/>
-            <ellipse cx="0" cy="0" rx="36" ry="23" fill="#f97316" stroke="#ffffff" stroke-width="2.5"/>
-            <path d="M-8,-21 Q4,-34 14,-19" fill="#fb923c" stroke="#ffffff" stroke-width="2"/>
-            <circle cx="18" cy="-5" r="6.5" fill="#ffffff"/>
-            <circle cx="20" cy="-5" r="3.2" fill="#090d16"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <path d="M0,145 Q100,130 200,145 T400,145 L400,168 L0,168 Z" fill="#FDE68A" opacity="0.75"/>
+          <circle cx="115" cy="44" r="7" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+          <circle cx="132" cy="28" r="10" fill="#FFFFFF" stroke="#0284C7" stroke-width="2"/>
+          <g transform="translate(178, 84)">
+            <polygon points="-44,0 -74,-26 -70,0 -74,26" fill="#FB923C" stroke="#2B2D42" stroke-width="3" stroke-linejoin="round"/>
+            <path d="M-12,-28 Q6,-48 20,-26" fill="#FFCA3A" stroke="#2B2D42" stroke-width="3" stroke-linejoin="round"/>
+            <ellipse cx="0" cy="0" rx="48" ry="31" fill="#FF6B35" stroke="#2B2D42" stroke-width="3"/>
+            <path d="M-8,-29 Q2,0 -8,29" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" fill="none"/>
+            <path d="M-8,-29 Q2,0 -8,29" stroke="#2B2D42" stroke-width="2" stroke-linecap="round" fill="none"/>
+            <circle cx="24" cy="-6" r="9" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2.5"/>
+            <circle cx="27" cy="-6" r="4.5" fill="#2B2D42"/>
+            <path d="M18,10 Q28,17 36,9" stroke="#2B2D42" stroke-width="3" fill="none" stroke-linecap="round"/>
           </g>
-          <g transform="translate(332, 86)">
-            <polygon points="14,0 25,-9 25,9" fill="#22c55e"/>
-            <ellipse cx="0" cy="0" rx="15" ry="10" fill="#4ade80" stroke="#ffffff" stroke-width="2"/>
-            <circle cx="-6" cy="-2" r="2.8" fill="#090d16"/>
+          <g transform="translate(292, 78)">
+            <polygon points="20,0 35,-12 35,12" fill="#4ADE80" stroke="#2B2D42" stroke-width="2.5" stroke-linejoin="round"/>
+            <ellipse cx="0" cy="0" rx="22" ry="15" fill="#22C55E" stroke="#2B2D42" stroke-width="2.5"/>
+            <circle cx="-9" cy="-3" r="4" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+            <circle cx="-10" cy="-3" r="2" fill="#2B2D42"/>
           </g>
         </svg>
       `
@@ -129,26 +145,30 @@
       genre: 'Thiếu nhi • Phản xạ chuột',
       devices: '🖱 Bấm chuột • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#eab308',
+      accentColor: '#16A34A',
       description:
         'Rèn luyện phản xạ mắt và tay cho trẻ: cầm búa hoạt hình đập trúng Chuột Nâu và Chuột Vàng Vương Miện, khéo léo tránh các chú Thỏ Trắng.',
-      gradient: 'linear-gradient(135deg, #15803d 0%, #22c55e 52%, #eab308 100%)',
+      gradient: 'linear-gradient(180deg, #DCFCE7 0%, #86EFAC 100%)',
       helpSteps: [
         { icon: '🔨', title: 'Cách chơi', text: 'Di chuyển búa và bấm chuột trái (hoặc chạm màn hình) vào đúng ô có chuột trồi lên.' },
         { icon: '👑', title: 'Chuột Vàng thưởng lớn', text: 'Chuột đội vương miện vàng mang lại điểm gấp gần 3 lần chuột thường!' },
         { icon: '🐰', title: 'Tránh Thỏ Trắng', text: 'Đừng đập nhầm các chú Thỏ Trắng đáng yêu kẻo bị trừ điểm và mất chuỗi Combo.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <ellipse cx="262" cy="118" rx="50" ry="16" fill="#78350f" stroke="#fde047" stroke-width="2"/>
-          <rect x="236" y="58" width="52" height="56" rx="24" fill="#b45309" stroke="#ffffff" stroke-width="2.5"/>
-          <polygon points="248,58 254,44 262,54 270,44 276,58" fill="#facc15" stroke="#090d16" stroke-width="1.5"/>
-          <circle cx="251" cy="78" r="4.2" fill="#090d16"/>
-          <circle cx="273" cy="78" r="4.2" fill="#090d16"/>
-          <ellipse cx="262" cy="87" rx="7" ry="4.5" fill="#f43f5e"/>
-          <g transform="translate(324, 52) rotate(-28)">
-            <rect x="-5" y="0" width="10" height="42" rx="4" fill="#fde047" stroke="#090d16" stroke-width="2"/>
-            <rect x="-24" y="-20" width="48" height="24" rx="7" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <ellipse cx="200" cy="136" rx="74" ry="20" fill="#78350F" stroke="#2B2D42" stroke-width="3"/>
+          <rect x="162" y="54" width="76" height="80" rx="38" fill="#B45309" stroke="#2B2D42" stroke-width="3"/>
+          <polygon points="176,54 186,32 200,46 214,32 224,54" fill="#FACC15" stroke="#2B2D42" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="184" cy="82" r="5.5" fill="#2B2D42"/>
+          <circle cx="216" cy="82" r="5.5" fill="#2B2D42"/>
+          <ellipse cx="174" cy="94" rx="7" ry="4" fill="#FB7185"/>
+          <ellipse cx="226" cy="94" rx="7" ry="4" fill="#FB7185"/>
+          <ellipse cx="200" cy="94" rx="11" ry="7" fill="#F43F5E" stroke="#2B2D42" stroke-width="2.5"/>
+          <rect x="193" y="104" width="14" height="9" rx="3" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+          <g transform="translate(288, 56) rotate(-25)">
+            <rect x="-7" y="0" width="14" height="54" rx="6" fill="#FACC15" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="-32" y="-26" width="64" height="32" rx="10" fill="#EF4444" stroke="#2B2D42" stroke-width="3"/>
+            <circle cx="-32" cy="-10" r="6" fill="#FEF08A" stroke="#2B2D42" stroke-width="2"/>
           </g>
         </svg>
       `
@@ -161,25 +181,26 @@
       genre: 'Thiếu nhi • Giải đố Hành động',
       devices: '🖱 Ngắm bắn • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#f43f5e',
+      accentColor: '#E11D48',
       description:
         'Cùng Khủng Long Con ngắm bắn các quả trứng phép thuật cùng màu để làm nổ tung cả chùm bóng, có tia laser dẫn đường cho bé ở chế độ Dễ.',
-      gradient: 'linear-gradient(135deg, #be185d 0%, #ec4899 52%, #8b5cf6 100%)',
+      gradient: 'linear-gradient(180deg, #FFE4E6 0%, #FBCFE8 100%)',
       helpSteps: [
         { icon: '🎯', title: 'Ngắm & Bắn', text: 'Rê chuột hoặc chạm kéo để chỉnh tia ngắm, sau đó bấm chuột (hoặc thả tay) để bắn trứng.' },
         { icon: '💥', title: 'Nổ cụm & Rơi tự do', text: 'Ghép từ 3 quả trứng cùng màu trở lên để làm nổ. Các quả trứng mất điểm bám phía trên sẽ rơi xuống cộng điểm lớn!' },
         { icon: '🔄', title: 'Đổi trứng dự bị', text: 'Nhấn phím Space hoặc nút "Đổi Trứng" để hoán đổi giữa quả trứng đang cầm và quả trứng tiếp theo.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="216" cy="40" r="19" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
-          <circle cx="254" cy="40" r="19" fill="#f43f5e" stroke="#ffffff" stroke-width="2"/>
-          <circle cx="292" cy="40" r="19" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
-          <circle cx="235" cy="72" r="19" fill="#facc15" stroke="#ffffff" stroke-width="2"/>
-          <circle cx="273" cy="72" r="19" fill="#22c55e" stroke="#ffffff" stroke-width="2"/>
-          <circle cx="311" cy="72" r="19" fill="#a855f7" stroke="#ffffff" stroke-width="2"/>
-          <line x1="254" y1="134" x2="235" y2="85" stroke="#fde047" stroke-width="3.5" stroke-dasharray="5 5"/>
-          <circle cx="254" cy="132" r="17" fill="#f43f5e" stroke="#fef08a" stroke-width="2.5"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="148" cy="38" r="22" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="196" cy="38" r="22" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="244" cy="38" r="22" fill="#38BDF8" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="172" cy="76" r="22" fill="#FFCA3A" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="220" cy="76" r="22" fill="#4ADE80" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="268" cy="76" r="22" fill="#A855F7" stroke="#2B2D42" stroke-width="3"/>
+          <line x1="196" y1="138" x2="174" y2="96" stroke="#F59E0B" stroke-width="4.5" stroke-dasharray="6 6" stroke-linecap="round"/>
+          <circle cx="196" cy="138" r="22" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="189" cy="131" r="6" fill="#FFFFFF" opacity="0.65"/>
         </svg>
       `
     },
@@ -191,26 +212,26 @@
       genre: 'Thiếu nhi • Phản xạ & Giải đố',
       devices: '🖱 Rê chuột • ⌨ Phím • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#38bdf8',
+      accentColor: '#4F46E5',
       description:
         'Điều khiển tàu đệm năng lượng hứng bóng phá vỡ pháo đài gạch vũ trụ, nhặt vật phẩm nhân 3 bóng, mở rộng ván trượt và súng đôi Laser.',
-      gradient: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #06b6d4 100%)',
+      gradient: 'linear-gradient(180deg, #E0E7FF 0%, #C7D2FE 100%)',
       helpSteps: [
         { icon: '🛸', title: 'Điều khiển ván trượt', text: 'Di chuyển chuột ngang, kéo tay trên màn hình cảm ứng hoặc dùng phím Mũi tên Trái/Phải.' },
         { icon: '🔮', title: 'Săn vật phẩm rơi', text: 'Đón bắt các viên thuốc năng lượng rơi xuống để kích hoạt X3 Bóng, Ván Rộng, Súng Đôi Laser hoặc +1 Tim.' },
         { icon: '📐', title: 'Đổi góc nảy bóng', text: 'Đỡ bóng ở hai mép ván trượt để tạo góc bắn chéo xuyên vào các khe gạch hẹp.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <rect x="186" y="26" width="46" height="19" rx="5" fill="#f43f5e" stroke="#ffffff" stroke-width="1.5"/>
-          <rect x="238" y="26" width="46" height="19" rx="5" fill="#facc15" stroke="#ffffff" stroke-width="1.5"/>
-          <rect x="290" y="26" width="46" height="19" rx="5" fill="#22c55e" stroke="#ffffff" stroke-width="1.5"/>
-          <rect x="212" y="52" width="46" height="19" rx="5" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5"/>
-          <rect x="264" y="52" width="46" height="19" rx="5" fill="#a855f7" stroke="#ffffff" stroke-width="1.5"/>
-          <circle cx="252" cy="102" r="6" fill="rgba(254,240,138,0.35)"/>
-          <circle cx="258" cy="95" r="7.5" fill="rgba(254,240,138,0.6)"/>
-          <circle cx="264" cy="88" r="9.5" fill="#fef08a" stroke="#f97316" stroke-width="2"/>
-          <rect x="214" y="122" width="96" height="15" rx="7.5" fill="#38bdf8" stroke="#ffffff" stroke-width="2"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="92" y="24" width="66" height="24" rx="7" fill="#FF595E" stroke="#2B2D42" stroke-width="2.8"/>
+          <rect x="167" y="24" width="66" height="24" rx="7" fill="#FFCA3A" stroke="#2B2D42" stroke-width="2.8"/>
+          <rect x="242" y="24" width="66" height="24" rx="7" fill="#4ADE80" stroke="#2B2D42" stroke-width="2.8"/>
+          <rect x="128" y="56" width="66" height="24" rx="7" fill="#38BDF8" stroke="#2B2D42" stroke-width="2.8"/>
+          <rect x="204" y="56" width="66" height="24" rx="7" fill="#A855F7" stroke="#2B2D42" stroke-width="2.8"/>
+          <circle cx="190" cy="108" r="8" fill="#FDE047" opacity="0.6"/>
+          <circle cx="204" cy="95" r="13" fill="#FFCA3A" stroke="#2B2D42" stroke-width="3"/>
+          <rect x="136" y="130" width="128" height="20" rx="10" fill="#38BDF8" stroke="#2B2D42" stroke-width="3"/>
+          <rect x="172" y="134" width="56" height="12" rx="6" fill="#FEF08A"/>
         </svg>
       `
     },
@@ -222,25 +243,32 @@
       genre: 'Thiếu nhi • Toán học & Điều khiển',
       devices: '⌨ Mũi tên • 🖱 Chuột • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#22c55e',
+      accentColor: '#059669',
       description:
         'Tính nhẩm nhanh phép toán trên màn hình rồi dẫn Rồng Con đi ăn đúng quả táo mang số kết quả chính xác để Rồng lớn nhanh.',
-      gradient: 'linear-gradient(135deg, #15803d 0%, #16a34a 50%, #f59e0b 100%)',
+      gradient: 'linear-gradient(180deg, #ECFCCB 0%, #A3E635 100%)',
       helpSteps: [
         { icon: '🧮', title: 'Đọc phép tính', text: 'Quan sát phép tính hiển thị ở bảng vàng phía trên sân cỏ.' },
         { icon: '🐉', title: 'Dẫn đường Rồng Con', text: 'Dùng phím Mũi tên / WASD hoặc bấm trực tiếp vào ô trên sân cỏ để Rồng Con rẽ hướng.' },
         { icon: '🍎', title: 'Ăn đúng táo kết quả', text: 'Ăn quả táo mang số đúng để ghi điểm và nối dài chuỗi Combo; tránh ăn nhầm quả táo số sai!' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="202" cy="90" r="15" fill="#16a34a" stroke="#052e16" stroke-width="1.5"/>
-          <circle cx="228" cy="88" r="17" fill="#4ade80" stroke="#052e16" stroke-width="1.5"/>
-          <circle cx="258" cy="86" r="21" fill="#22c55e" stroke="#fef08a" stroke-width="2.5"/>
-          <circle cx="253" cy="81" r="4" fill="#ffffff"/><circle cx="265" cy="81" r="4" fill="#ffffff"/>
-          <circle cx="322" cy="84" r="19" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
-          <text x="322" y="90" fill="#ffffff" font-size="17" font-weight="900" text-anchor="middle">8</text>
-          <rect x="210" y="22" width="120" height="32" rx="9" fill="rgba(9,14,28,0.88)" stroke="#facc15" stroke-width="2"/>
-          <text x="270" y="43" fill="#facc15" font-size="16" font-weight="900" text-anchor="middle">5 + 3 = ?</text>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="120" y="18" width="160" height="38" rx="12" fill="#FEF08A" stroke="#2B2D42" stroke-width="3"/>
+          <text x="200" y="44" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="22" font-weight="800" text-anchor="middle">5 + 3 = ?</text>
+          <circle cx="112" cy="112" r="18" fill="#16A34A" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="144" cy="108" r="21" fill="#22C55E" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="182" cy="104" r="26" fill="#4ADE80" stroke="#2B2D42" stroke-width="3"/>
+          <circle cx="175" cy="96" r="5.5" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+          <circle cx="191" cy="96" r="5.5" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2"/>
+          <circle cx="176" cy="96" r="2.5" fill="#2B2D42"/>
+          <circle cx="192" cy="96" r="2.5" fill="#2B2D42"/>
+          <path d="M175,112 Q183,118 191,112" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <g transform="translate(274, 104)">
+            <path d="M0,-24 Q8,-34 14,-26" stroke="#15803D" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <circle cx="0" cy="0" r="25" fill="#EF4444" stroke="#2B2D42" stroke-width="3"/>
+            <text x="0" y="8" fill="#FFFFFF" font-family="Baloo 2, sans-serif" font-size="24" font-weight="800" text-anchor="middle">8</text>
+          </g>
         </svg>
       `
     },
@@ -252,22 +280,32 @@
       genre: 'Thiếu nhi • Tư duy Không gian',
       devices: '⌨ Mũi tên • 🖱 Bấm ô • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#f59e0b',
+      accentColor: '#D97706',
       description:
         'Giúp Hiệp Sĩ Nhí suy nghĩ đường đi thông minh để đẩy các viên đá phép thuật đè lên công tắc, mở khóa Rương Vàng Kho Báu.',
-      gradient: 'linear-gradient(135deg, #b45309 0%, #f59e0b 52%, #3b82f6 100%)',
+      gradient: 'linear-gradient(180deg, #FEF3C7 0%, #FCD34D 100%)',
       helpSteps: [
         { icon: '💎', title: 'Quy tắc đẩy đá', text: 'Hiệp Sĩ chỉ có thể ĐẨY từng viên đá về phía trước (không thể kéo ngược lại hoặc đẩy 2 viên cùng lúc).' },
         { icon: '✨', title: 'Kích hoạt công tắc', text: 'Đẩy tất cả các viên đá đè lên các vòng tròn năng lượng màu xanh để mở Rương Kho Báu.' },
         { icon: '↩', title: 'Đừng ngại thử nghiệm', text: 'Nếu lỡ đẩy đá vào góc tường, bấm nút "Đi Lại (Z)" hoặc "Xếp Lại Màn" bất cứ lúc nào!' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="212" cy="82" r="21" fill="#38bdf8" stroke="#ffffff" stroke-width="2.5"/>
-          <rect x="204" y="76" width="16" height="6" fill="#090d16"/>
-          <rect x="250" y="58" width="46" height="46" rx="9" fill="#f59e0b" stroke="#fef08a" stroke-width="2.5"/>
-          <polygon points="273,68 283,81 273,94 263,81" fill="#fef08a"/>
-          <circle cx="332" cy="82" r="18" fill="rgba(56,189,248,0.28)" stroke="#38bdf8" stroke-width="3" stroke-dasharray="5 3"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g transform="translate(112, 92)">
+            <circle cx="0" cy="0" r="26" fill="#38BDF8" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="-14" y="-8" width="28" height="10" rx="5" fill="#FFFFFF" stroke="#2B2D42" stroke-width="2.5"/>
+            <circle cx="-6" cy="-3" r="2.5" fill="#2B2D42"/>
+            <circle cx="6" cy="-3" r="2.5" fill="#2B2D42"/>
+          </g>
+          <g transform="translate(172, 58)">
+            <rect x="0" y="0" width="64" height="64" rx="14" fill="#F59E0B" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="10" y="10" width="44" height="44" rx="8" fill="#FDE047" stroke="#2B2D42" stroke-width="2.5"/>
+            <polygon points="32,18 44,32 32,46 20,32" fill="#FF6B35" stroke="#2B2D42" stroke-width="2"/>
+          </g>
+          <path d="M246,90 L268,90" stroke="#2B2D42" stroke-width="4" stroke-linecap="round"/>
+          <polygon points="266,82 278,90 266,98" fill="#2B2D42"/>
+          <circle cx="304" cy="90" r="24" fill="#BAE6FD" stroke="#2B2D42" stroke-width="3" stroke-dasharray="7 5"/>
+          <circle cx="304" cy="90" r="10" fill="#0EA5E9"/>
         </svg>
       `
     },
@@ -279,24 +317,26 @@
       genre: 'Thiếu nhi • Luyện trí nhớ',
       devices: '🖱 Bấm chuột • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#a855f7',
+      accentColor: '#7C3AED',
       description:
         'Lật mở các cặp thẻ bài Siêu Anh Hùng giống nhau để phóng tuyệt chiêu tấn công Quái Vật Vũ Trụ hoặc bật khiên hồi máu cho đội.',
-      gradient: 'linear-gradient(135deg, #6d28d9 0%, #9333ea 50%, #f43f5e 100%)',
+      gradient: 'linear-gradient(180deg, #EDE9FE 0%, #C4B5FD 100%)',
       helpSteps: [
         { icon: '👁️', title: 'Ghi nhớ nhanh', text: 'Đầu mỗi màn chơi, các thẻ bài sẽ mở sẵn trong vài giây để bé ghi nhớ vị trí.' },
         { icon: '⚡', title: 'Ghép cặp tung chưởng', text: 'Lật trúng 2 thẻ giống nhau sẽ lập tức phóng đòn tấn công trừ máu Boss (thẻ Tim giúp hồi máu cho Đội Siêu Nhân).' },
         { icon: '💡', title: 'Trợ giúp Soi Thẻ', text: 'Mỗi màn chơi bạn có 1 quyền bấm nút "Soi Thẻ" để nhìn lại toàn bộ bàn.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g transform="translate(192, 34) rotate(-5)">
-            <rect x="0" y="0" width="58" height="82" rx="9" fill="#1e293b" stroke="#facc15" stroke-width="2.5"/>
-            <text x="29" y="50" font-size="30" text-anchor="middle">⚡</text>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g transform="translate(115, 30) rotate(-7)">
+            <rect x="0" y="0" width="76" height="104" rx="14" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="8" y="8" width="60" height="88" rx="9" fill="#FEF08A" stroke="#2B2D42" stroke-width="2"/>
+            <text x="38" y="64" font-size="38" text-anchor="middle">⚡</text>
           </g>
-          <g transform="translate(264, 32) rotate(6)">
-            <rect x="0" y="0" width="58" height="82" rx="9" fill="#2563eb" stroke="#93c5fd" stroke-width="2.5"/>
-            <text x="29" y="50" font-size="28" text-anchor="middle">⭐</text>
+          <g transform="translate(208, 28) rotate(7)">
+            <rect x="0" y="0" width="76" height="104" rx="14" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="8" y="8" width="60" height="88" rx="9" fill="#BAE6FD" stroke="#2B2D42" stroke-width="2"/>
+            <text x="38" y="64" font-size="38" text-anchor="middle">⚡</text>
           </g>
         </svg>
       `
@@ -309,23 +349,30 @@
       genre: 'Thiếu nhi • Khoa học & Logic',
       devices: '🖱 Bấm xoay gương • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#10b981',
+      accentColor: '#0D9488',
       description:
         'Bấm chuột xoay các tấm gương phản xạ 45° để dẫn tia laser đi qua các ngôi sao và nạp đầy viên pin năng lượng cho chú Robot.',
-      gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #10b981 100%)',
+      gradient: 'linear-gradient(180deg, #CCFBF1 0%, #5EEAD4 100%)',
       helpSteps: [
         { icon: '🪞', title: 'Xoay gương 45°', text: 'Bấm chuột hoặc chạm vào bất kỳ ô gương nào trên lưới để lật hướng gương (/ hoặc \\).' },
         { icon: '🤖', title: 'Sạc pin cho Robot', text: 'Dẫn tia laser đỏ đi qua các ngôi sao vàng và chiếu trúng chú Robot để sạc đầy năng lượng.' },
         { icon: '💡', title: 'Gợi ý thông minh', text: 'Bấm nút "Gợi Ý Xoay 1 Gương" nếu bạn muốn hệ thống tự động chỉnh đúng 1 tấm gương trên đường đi.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <polyline points="180,98 250,98 250,42 324,42" fill="none" stroke="#f43f5e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <polyline points="180,98 250,98 250,42 324,42" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="236" y1="112" x2="264" y2="84" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
-          <line x1="236" y1="56" x2="264" y2="28" stroke="#38bdf8" stroke-width="6" stroke-linecap="round"/>
-          <circle cx="328" cy="42" r="19" fill="#16a34a" stroke="#ffffff" stroke-width="2.5"/>
-          <text x="328" y="48" font-size="18" text-anchor="middle">🤖</text>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="82" y="96" width="38" height="28" rx="8" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+          <polyline points="120,110 196,110 196,48 282,48" fill="none" stroke="#FF595E" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="120,110 196,110 196,48 282,48" fill="none" stroke="#FEF08A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="178" y1="128" x2="214" y2="92" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+          <line x1="178" y1="128" x2="214" y2="92" stroke="#0284C7" stroke-width="5" stroke-linecap="round"/>
+          <line x1="178" y1="66" x2="214" y2="30" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+          <line x1="178" y1="66" x2="214" y2="30" stroke="#0284C7" stroke-width="5" stroke-linecap="round"/>
+          <g transform="translate(298, 48)">
+            <rect x="-24" y="-24" width="48" height="48" rx="14" fill="#4ADE80" stroke="#2B2D42" stroke-width="3"/>
+            <circle cx="-8" cy="-4" r="4.5" fill="#2B2D42"/>
+            <circle cx="8" cy="-4" r="4.5" fill="#2B2D42"/>
+            <path d="M-8,8 Q0,15 8,8" stroke="#2B2D42" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </g>
         </svg>
       `
     },
@@ -337,32 +384,32 @@
       genre: 'Trí tuệ • Đối kháng',
       devices: '💻 Chuột • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#38bdf8',
+      accentColor: '#0284C7',
       description:
         'Bàn cờ 15x15 sắc nét với AI đánh giá thế cờ công-thủ 3 cấp độ hoặc chế độ 2 người chơi chung máy.',
-      gradient: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #0ea5e9 100%)',
+      gradient: 'linear-gradient(180deg, #E0F2FE 0%, #7DD3FC 100%)',
       helpSteps: [
         { icon: '⭕', title: 'Luật thắng 5 quân', text: 'Người chơi xếp được 5 quân liên tiếp theo hàng ngang, dọc hoặc chéo trước sẽ giành chiến thắng.' },
         { icon: '🤖', title: '2 Chế độ chơi', text: 'Chơi với Máy (Dễ/Vừa/Khó) để tích lũy chuỗi thắng ghi danh Top 3, hoặc đấu 2 người trên cùng thiết bị.' },
         { icon: '↶', title: 'Đi lại nước cờ', text: 'Sử dụng nút "Đi lại" trên thanh công cụ nếu bạn bấm nhầm ô.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g stroke="rgba(255,255,255,0.14)" stroke-width="1">
-            <line x1="160" y1="0" x2="160" y2="158"/><line x1="200" y1="0" x2="200" y2="158"/>
-            <line x1="240" y1="0" x2="240" y2="158"/><line x1="280" y1="0" x2="280" y2="158"/>
-            <line x1="320" y1="0" x2="320" y2="158"/><line x1="120" y1="35" x2="380" y2="35"/>
-            <line x1="120" y1="75" x2="380" y2="75"/><line x1="120" y1="115" x2="380" y2="115"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="116" y="16" width="168" height="136" rx="16" fill="#FFFDF7" stroke="#2B2D42" stroke-width="3"/>
+          <g stroke="#CBD5E1" stroke-width="2.5">
+            <line x1="172" y1="16" x2="172" y2="152"/>
+            <line x1="228" y1="16" x2="228" y2="152"/>
+            <line x1="116" y1="62" x2="284" y2="62"/>
+            <line x1="116" y1="106" x2="284" y2="106"/>
           </g>
-          <g stroke="#38bdf8" stroke-width="4.5" stroke-linecap="round">
-            <line x1="170" y1="45" x2="190" y2="65"/><line x1="190" y1="45" x2="170" y2="65"/>
-            <line x1="210" y1="85" x2="230" y2="105"/><line x1="230" y1="85" x2="210" y2="105"/>
-            <line x1="250" y1="45" x2="270" y2="65"/><line x1="270" y1="45" x2="250" y2="65"/>
+          <g stroke="#0284C7" stroke-width="6" stroke-linecap="round">
+            <line x1="132" y1="28" x2="156" y2="50"/><line x1="156" y1="28" x2="132" y2="50"/>
+            <line x1="188" y1="73" x2="212" y2="95"/><line x1="212" y1="73" x2="188" y2="95"/>
+            <line x1="244" y1="118" x2="268" y2="140"/><line x1="268" y1="118" x2="244" y2="140"/>
           </g>
-          <circle cx="220" cy="55" r="11" stroke="#f43f5e" stroke-width="4.5" fill="none"/>
-          <circle cx="260" cy="95" r="11" stroke="#f43f5e" stroke-width="4.5" fill="none"/>
-          <circle cx="300" cy="55" r="11" stroke="#f43f5e" stroke-width="4.5" fill="none"/>
-          <line x1="162" y1="38" x2="278" y2="112" stroke="#fbbf24" stroke-width="4" stroke-dasharray="6 4"/>
+          <circle cx="200" cy="39" r="13" stroke="#FF595E" stroke-width="6" fill="none"/>
+          <circle cx="144" cy="84" r="13" stroke="#FF595E" stroke-width="6" fill="none"/>
+          <line x1="128" y1="24" x2="272" y2="144" stroke="#F59E0B" stroke-width="5" stroke-dasharray="8 6" stroke-linecap="round"/>
         </svg>
       `
     },
@@ -374,26 +421,28 @@
       genre: 'Giải đố • Logic',
       devices: '⌨ Phím • 📱 Cảm ứng',
       unit: 'điểm',
-      accentColor: '#818cf8',
+      accentColor: '#6366F1',
       description:
         'Thử thách trí não với bộ sinh đề Sudoku tự động 3 độ khó, hỗ trợ chế độ ghi chú (Notes) và gợi ý thông minh.',
-      gradient: 'linear-gradient(135deg, #4338ca 0%, #6366f1 55%, #8b5cf6 100%)',
+      gradient: 'linear-gradient(180deg, #E0E7FF 0%, #A5B4FC 100%)',
       helpSteps: [
         { icon: '🔢', title: 'Quy tắc 1-9', text: 'Điền các số từ 1 đến 9 sao cho mỗi hàng ngang, mỗi cột dọc và mỗi vùng 3x3 không bị trùng số nào.' },
         { icon: '✏️', title: 'Chế độ Ghi chú', text: 'Bật nút "Ghi chú (Phím N)" để viết nháp các số có thể điền vào một ô.' },
         { icon: '💡', title: '3 Quyền Gợi ý', text: 'Khi gặp ô khó, bấm nút "Dùng Gợi Ý" để mở ngay con số chính xác.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <rect x="210" y="20" width="114" height="114" rx="10" fill="rgba(9,14,28,0.68)" stroke="#a855f7" stroke-width="2.5"/>
-          <line x1="248" y1="20" x2="248" y2="134" stroke="#818cf8" stroke-width="2"/>
-          <line x1="286" y1="20" x2="286" y2="134" stroke="#818cf8" stroke-width="2"/>
-          <line x1="210" y1="58" x2="324" y2="58" stroke="#818cf8" stroke-width="2"/>
-          <line x1="210" y1="96" x2="324" y2="96" stroke="#818cf8" stroke-width="2"/>
-          <text x="229" y="46" fill="#38bdf8" font-size="21" font-weight="900" text-anchor="middle">9</text>
-          <text x="267" y="84" fill="#fbbf24" font-size="21" font-weight="900" text-anchor="middle">5</text>
-          <text x="305" y="122" fill="#22c55e" font-size="21" font-weight="900" text-anchor="middle">1</text>
-          <text x="229" y="122" fill="#e2e8f0" font-size="21" font-weight="900" text-anchor="middle">7</text>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <rect x="132" y="16" width="136" height="136" rx="16" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+          <line x1="177" y1="16" x2="177" y2="152" stroke="#2B2D42" stroke-width="2.5"/>
+          <line x1="223" y1="16" x2="223" y2="152" stroke="#2B2D42" stroke-width="2.5"/>
+          <line x1="132" y1="61" x2="268" y2="61" stroke="#2B2D42" stroke-width="2.5"/>
+          <line x1="132" y1="107" x2="268" y2="107" stroke="#2B2D42" stroke-width="2.5"/>
+          <rect x="178" y="62" width="44" height="44" fill="#FEF08A"/>
+          <text x="155" y="47" fill="#2563EB" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">9</text>
+          <text x="200" y="93" fill="#D9381E" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">5</text>
+          <text x="245" y="138" fill="#16A34A" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">1</text>
+          <text x="155" y="138" fill="#7C3AED" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">7</text>
+          <text x="245" y="47" fill="#0284C7" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">3</text>
         </svg>
       `
     },
@@ -405,29 +454,29 @@
       genre: 'Board Game • Chiến thuật',
       devices: '💻 Chuột • 📱 Chạm',
       unit: 'điểm',
-      accentColor: '#10b981',
+      accentColor: '#059669',
       description:
         'Đánh bài Domino truyền thống 28 quân trên bàn nỉ sang trọng. Tính toán nước chặn hai đầu để giành chiến thắng.',
-      gradient: 'linear-gradient(135deg, #047857 0%, #10b981 55%, #14b8a6 100%)',
+      gradient: 'linear-gradient(180deg, #D1FAE5 0%, #6EE7B7 100%)',
       helpSteps: [
         { icon: '🀫', title: 'Nối quân khớp chấm', text: 'Chọn các quân cờ có viền xanh lá trên tay bạn để nối vào một trong hai đầu của dây cờ trên bàn.' },
         { icon: '🔒', title: 'Luật rút cờ Nọc', text: 'Chỉ khi trên tay không còn quân nào đánh được, bạn mới được bấm rút thêm quân từ chồng cờ Nọc bên phải bàn.' },
         { icon: '🏆', title: 'Chiến thắng ván', text: 'Ai đánh hết bài trên tay trước hoặc có tổng số chấm còn lại ít hơn khi bàn bị khóa sẽ thắng ván!' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g transform="translate(190, 34) rotate(-12)">
-            <rect x="0" y="0" width="46" height="86" rx="7" fill="#f8fafc" stroke="#38bdf8" stroke-width="2.5"/>
-            <line x1="4" y1="43" x2="42" y2="43" stroke="#64748b" stroke-width="2"/>
-            <circle cx="14" cy="15" r="4" fill="#0f172a"/><circle cx="32" cy="29" r="4" fill="#0f172a"/>
-            <circle cx="14" cy="56" r="4" fill="#0f172a"/><circle cx="23" cy="65" r="4" fill="#0f172a"/><circle cx="32" cy="74" r="4" fill="#0f172a"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <g transform="translate(130, 32) rotate(-10)">
+            <rect x="0" y="0" width="58" height="106" rx="12" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+            <line x1="6" y1="53" x2="52" y2="53" stroke="#2B2D42" stroke-width="2.5"/>
+            <circle cx="18" cy="20" r="5" fill="#2563EB"/><circle cx="40" cy="36" r="5" fill="#2563EB"/>
+            <circle cx="18" cy="70" r="5" fill="#16A34A"/><circle cx="29" cy="80" r="5" fill="#16A34A"/><circle cx="40" cy="90" r="5" fill="#16A34A"/>
           </g>
-          <g transform="translate(262, 28) rotate(14)">
-            <rect x="0" y="0" width="46" height="86" rx="7" fill="#f8fafc" stroke="#fbbf24" stroke-width="2.5"/>
-            <line x1="4" y1="43" x2="42" y2="43" stroke="#64748b" stroke-width="2"/>
-            <circle cx="14" cy="14" r="4" fill="#dc2626"/><circle cx="32" cy="14" r="4" fill="#dc2626"/>
-            <circle cx="14" cy="30" r="4" fill="#dc2626"/><circle cx="32" cy="30" r="4" fill="#dc2626"/>
-            <circle cx="23" cy="64" r="5" fill="#0f172a"/>
+          <g transform="translate(212, 26) rotate(12)">
+            <rect x="0" y="0" width="58" height="106" rx="12" fill="#FEF9C3" stroke="#2B2D42" stroke-width="3"/>
+            <line x1="6" y1="53" x2="52" y2="53" stroke="#2B2D42" stroke-width="2.5"/>
+            <circle cx="18" cy="18" r="5" fill="#EF4444"/><circle cx="40" cy="18" r="5" fill="#EF4444"/>
+            <circle cx="18" cy="36" r="5" fill="#EF4444"/><circle cx="40" cy="36" r="5" fill="#EF4444"/>
+            <circle cx="29" cy="78" r="6.5" fill="#2B2D42"/>
           </g>
         </svg>
       `
@@ -440,24 +489,29 @@
       genre: 'Bắn súng • Hành động',
       devices: '🖱 Ngắm bắn • 📱 Cảm ứng',
       unit: 'điểm',
-      accentColor: '#f59e0b',
+      accentColor: '#EA580C',
       description:
         'Bảo vệ bờ biển trước các đợt đổ bộ của lính dù, trực thăng và xe tăng bọc thép bằng súng máy đôi và đại pháo.',
-      gradient: 'linear-gradient(135deg, #b45309 0%, #ea580c 50%, #ef4444 100%)',
+      gradient: 'linear-gradient(180deg, #FFEDD5 0%, #FDBA74 100%)',
       helpSteps: [
         { icon: '🎯', title: 'Ngắm bắn súng máy', text: 'Di chuyển chuột và giữ chuột trái (hoặc bật chế độ Tự động bắn) để xả đạn súng máy đôi.' },
         { icon: '🚀', title: 'Khai hỏa Đại Pháo', text: 'Bấm chuột phải hoặc nhấn phím Space để bắn đạn Đại Pháo tiêu diệt xe tăng hạng nặng.' },
         { icon: '📦', title: 'Bắn kiện hàng tiếp tế', text: 'Bắn hạ các thùng hàng thả dù màu xanh để hồi máu lô cốt và nhận thêm đạn Đại Pháo.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <circle cx="275" cy="76" r="38" fill="rgba(251,191,36,0.28)"/>
-          <circle cx="275" cy="76" r="25" stroke="#22c55e" stroke-width="2.5" fill="none"/>
-          <line x1="242" y1="76" x2="308" y2="76" stroke="#22c55e" stroke-width="2"/>
-          <line x1="275" y1="43" x2="275" y2="109" stroke="#22c55e" stroke-width="2"/>
-          <path d="M195 48 A18 18 0 0 1 231 48 Z" fill="#e2e8f0"/>
-          <line x1="198" y1="48" x2="213" y2="65" stroke="#cbd5e1"/><line x1="228" y1="48" x2="213" y2="65" stroke="#cbd5e1"/>
-          <circle cx="213" cy="69" r="5" fill="#fbbf24"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <path d="M92,48 A24,24 0 0,1 140,48 Z" fill="#FF595E" stroke="#2B2D42" stroke-width="2.5"/>
+          <line x1="96" y1="48" x2="116" y2="70" stroke="#2B2D42" stroke-width="2"/>
+          <line x1="136" y1="48" x2="116" y2="70" stroke="#2B2D42" stroke-width="2"/>
+          <rect x="108" y="70" width="16" height="14" rx="4" fill="#FACC15" stroke="#2B2D42" stroke-width="2"/>
+          <g transform="translate(215, 84)">
+            <circle cx="0" cy="0" r="44" fill="#FFFFFF" opacity="0.65"/>
+            <circle cx="0" cy="0" r="32" stroke="#16A34A" stroke-width="3.5" fill="none"/>
+            <circle cx="0" cy="0" r="14" stroke="#16A34A" stroke-width="2.5" fill="none"/>
+            <line x1="-40" y1="0" x2="40" y2="0" stroke="#16A34A" stroke-width="3" stroke-linecap="round"/>
+            <line x1="0" y1="-40" x2="0" y2="40" stroke="#16A34A" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="0" cy="0" r="5" fill="#EF4444"/>
+          </g>
         </svg>
       `
     },
@@ -469,21 +523,25 @@
       genre: 'Đua xe • Hành động',
       devices: '⌨ Phím • 📱 Cảm ứng',
       unit: 'điểm',
-      accentColor: '#f43f5e',
+      accentColor: '#E11D48',
       description:
         'Vít ga siêu mô-tô trên đại lộ Pseudo-3D, bật Nitro bứt tốc, lạng lách qua dòng xe và tung cú đá hạ gục các tay đua đối thủ!',
-      gradient: 'linear-gradient(135deg, #7e22ce 0%, #e11d48 55%, #f97316 100%)',
+      gradient: 'linear-gradient(180deg, #FFE4E6 0%, #FDA4AF 100%)',
       helpSteps: [
         { icon: '🏍️', title: 'Lái xe & Lạng lách', text: 'Dùng phím Mũi tên Trái/Phải (hoặc A/D) để chuyển làn tránh ô tô trên đại lộ.' },
         { icon: '🦵', title: 'Tung cú đá cận chiến', text: 'Nhấn phím Space khi chạy áp sát các tay đua đối thủ để đá văng họ và nhận điểm thưởng lớn!' },
         { icon: '⚡', title: 'Bứt tốc Nitro', text: 'Giữ phím Shift hoặc nút Nitro để phun lửa tăng tốc vượt mặt toàn bộ đoàn đua.' }
       ],
       svgArt: `
-        <svg viewBox="0 0 400 158" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <polygon points="245,35 285,35 365,158 165,158" fill="rgba(15,23,42,0.72)" stroke="#fbbf24" stroke-width="2"/>
-          <line x1="265" y1="40" x2="265" y2="158" stroke="#38bdf8" stroke-width="3" stroke-dasharray="10 8"/>
-          <rect x="251" y="78" width="28" height="46" rx="8" fill="#2563eb" stroke="#f8fafc" stroke-width="2"/>
-          <circle cx="265" cy="70" r="10" fill="#fbbf24"/>
+        <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <polygon points="168,26 232,26 320,168 80,168" fill="#64748B" stroke="#2B2D42" stroke-width="3"/>
+          <line x1="200" y1="32" x2="200" y2="168" stroke="#FEF08A" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>
+          <g transform="translate(200, 104)">
+            <rect x="-20" y="-18" width="40" height="54" rx="14" fill="#EF4444" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="-28" y="-12" width="56" height="8" rx="4" fill="#2B2D42"/>
+            <circle cx="0" cy="-24" r="15" fill="#FACC15" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="-10" y="-28" width="20" height="7" rx="3.5" fill="#38BDF8" stroke="#2B2D42" stroke-width="2"/>
+          </g>
         </svg>
       `
     }
@@ -679,9 +737,7 @@
   // Card art is drawn for a wide 400x158 banner with the subject on the right;
   // the taller showcase frames just that subject instead of slicing it.
   function toShowcaseArt(svgArt) {
-    return svgArt
-      .replace('viewBox="0 0 400 158"', 'viewBox="150 0 240 158"')
-      .replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="xMidYMid meet"');
+    return svgArt;
   }
 
   function renderShowcase(game, animate) {
@@ -824,8 +880,6 @@
       card.style.setProperty('--i', String(idx));
       card.innerHTML = `
         <div class="card-banner" style="background: ${game.gradient};">
-          <span class="game-genre-tag">${escapeHtml(game.genre)}</span>
-          <span class="game-device-tag">${escapeHtml(game.devices)}</span>
           <div class="card-banner-art" aria-hidden="true">${game.svgArt}</div>
           <div class="card-badges">
             <span class="card-featured-badge" hidden>🌟 Đang chiếu</span>
@@ -833,6 +887,10 @@
           </div>
         </div>
         <div class="card-body">
+          <div class="card-meta-row">
+            <span class="card-genre-pill">${escapeHtml(game.genre)}</span>
+            <span class="card-device-pill">${escapeHtml(game.devices)}</span>
+          </div>
           <div class="card-title-row">
             <h3>${escapeHtml(game.title)}</h3>
             <span class="score-unit-badge">${escapeHtml(game.subtitle)}</span>
