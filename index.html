@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#FFF8EC" />
   <title>Sân Chơi Nhí — Cổng Game Thiếu Nhi Vui Học Miễn Phí</title>
   <meta name="description" content="Sân Chơi Nhí — Cổng game giáo dục miễn phí, an toàn, không quảng cáo dành cho thiếu nhi. Khám phá 15 trò chơi luyện gõ phím 10 ngón, điều khiển chuột, tính nhẩm và giải đố tư duy trên máy tính và điện thoại." />
@@ -20,7 +20,11 @@
   <link rel="manifest" href="site.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
+  </noscript>
   <link rel="stylesheet" href="styles/main.css" />
 </head>
 <body>
@@ -40,7 +44,7 @@
   <div id="appRoot" class="app-root">
     <!-- Top Navigation Bar -->
     <header class="top-navbar">
-      <button type="button" class="brand" id="brandHomeBtn" title="Về trang chủ" aria-label="Sân Chơi Nhí — về trang chủ">
+      <button type="button" class="brand" id="brandHomeBtn" title="Về trang chủ">
         <span class="brand-logo" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="3" y="8" width="42" height="32" rx="14" fill="#FF9F1C" stroke="#2B2D42" stroke-width="3"/>
@@ -75,7 +79,7 @@
         </button>
 
         <!-- Fullscreen Toggle -->
-        <button id="globalFullscreenBtn" class="icon-btn fullscreen-btn" type="button" title="Toàn màn hình (Fullscreen)" aria-label="Toàn màn hình">
+        <button id="globalFullscreenBtn" class="icon-btn fullscreen-btn" type="button" title="Toàn màn hình (Fullscreen)" aria-label="Phóng to toàn màn hình">
           <span id="fullscreenIcon" aria-hidden="true">⛶</span>
           <span class="btn-label-desktop">Phóng to</span>
         </button>
@@ -97,7 +101,18 @@
 
             <!-- Featured Game Quick Launch Spotlight -->
             <div class="hero-featured-bar" id="heroFeaturedBar">
-              <!-- Populated dynamically by js/app.js -->
+              <div class="featured-left">
+                <span class="featured-tag">🌟 Đang chiếu</span>
+                <div class="featured-info">
+                  <strong>Bóng Bay Luyện Phím — Tập Gõ 10 Ngón • Dễ &amp; Khó</strong>
+                  <span>Thiếu nhi • Luyện bàn phím • ⌨ Bàn phím • 📱 Cảm ứng</span>
+                </div>
+              </div>
+              <div class="featured-actions">
+                <button type="button" class="featured-switch-btn" id="featPrevBtn" title="Game trước" aria-label="Game gợi ý trước">◀</button>
+                <button type="button" class="featured-switch-btn" id="featNextBtn" title="Game tiếp theo" aria-label="Game gợi ý tiếp theo">▶</button>
+                <button type="button" class="featured-play-btn" id="featLaunchBtn">▶ Chơi Ngay</button>
+              </div>
             </div>
 
             <!-- Compact Sticker Bag of Achievements -->
@@ -126,8 +141,69 @@
             </div>
           </div>
 
-          <!-- Featured Game Showcase Art (populated by js/app.js) -->
-          <div class="hero-showcase" id="heroShowcase" aria-live="polite"></div>
+          <!-- Featured Game Showcase Art (pre-rendered for zero CLS, managed by js/app.js) -->
+          <div class="hero-showcase" id="heroShowcase" aria-live="polite">
+            <div class="showcase-stage" role="button" tabindex="0"
+              style="background: linear-gradient(180deg, #FCE7F3 0%, #FBCFE8 100%); --card-accent: #EC4899;">
+              <div class="showcase-floor" aria-hidden="true"></div>
+              <div class="showcase-light" aria-hidden="true"></div>
+              <div class="showcase-art" aria-hidden="true">
+                <svg viewBox="0 0 400 168" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+                  <ellipse cx="75" cy="42" rx="34" ry="18" fill="#FFFFFF" opacity="0.85"/>
+                  <ellipse cx="330" cy="36" rx="38" ry="20" fill="#FFFFFF" opacity="0.85"/>
+                  <g transform="translate(122, 56)">
+                    <path d="M0,32 Q-6,48 4,60" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <ellipse cx="0" cy="0" rx="28" ry="33" fill="#FF595E" stroke="#2B2D42" stroke-width="3"/>
+                    <ellipse cx="-9" cy="-11" rx="7" ry="11" transform="rotate(-25 -9 -11)" fill="#FFFFFF" opacity="0.6"/>
+                    <text x="0" y="9" fill="#FFFFFF" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">A</text>
+                  </g>
+                  <g transform="translate(200, 42)">
+                    <path d="M0,34 Q6,50 -4,64" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <ellipse cx="0" cy="0" rx="30" ry="35" fill="#FFCA3A" stroke="#2B2D42" stroke-width="3"/>
+                    <ellipse cx="-10" cy="-12" rx="7" ry="11" transform="rotate(-25 -10 -12)" fill="#FFFFFF" opacity="0.65"/>
+                    <text x="0" y="10" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="28" font-weight="800" text-anchor="middle">B</text>
+                  </g>
+                  <g transform="translate(278, 56)">
+                    <path d="M0,32 Q-5,48 3,60" stroke="#2B2D42" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                    <ellipse cx="0" cy="0" rx="28" ry="33" fill="#38BDF8" stroke="#2B2D42" stroke-width="3"/>
+                    <ellipse cx="-9" cy="-11" rx="7" ry="11" transform="rotate(-25 -9 -11)" fill="#FFFFFF" opacity="0.6"/>
+                    <text x="0" y="9" fill="#FFFFFF" font-family="Baloo 2, sans-serif" font-size="26" font-weight="800" text-anchor="middle">C</text>
+                  </g>
+                  <rect x="106" y="114" width="188" height="40" rx="12" fill="#FFFFFF" stroke="#2B2D42" stroke-width="3"/>
+                  <rect x="116" y="121" width="36" height="26" rx="7" fill="#FFCA3A" stroke="#2B2D42" stroke-width="2.5"/>
+                  <text x="134" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">A</text>
+                  <rect x="158" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+                  <text x="176" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">S</text>
+                  <rect x="200" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+                  <text x="218" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">D</text>
+                  <rect x="242" y="121" width="36" height="26" rx="7" fill="#F1F5F9" stroke="#2B2D42" stroke-width="2.5"/>
+                  <text x="260" y="139" fill="#2B2D42" font-family="Baloo 2, sans-serif" font-size="16" font-weight="800" text-anchor="middle">F</text>
+                </svg>
+              </div>
+              <div class="showcase-caption">
+                <span class="showcase-genre">Thiếu nhi • Luyện bàn phím</span>
+                <strong>Bóng Bay Luyện Phím</strong>
+                <small>Tập Gõ 10 Ngón • Dễ &amp; Khó</small>
+              </div>
+            </div>
+            <div class="showcase-dots" role="group" aria-label="Chọn game gợi ý">
+              <button type="button" class="showcase-dot" data-feature-index="0" aria-label="Bóng Bay Luyện Phím" aria-current="true"></button>
+              <button type="button" class="showcase-dot" data-feature-index="1" aria-label="Mê Cung Siêu Nhân" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="2" aria-label="Cá Lớn Nuốt Cá Bé" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="3" aria-label="Đập Chuột Vui Nhộn" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="4" aria-label="Khủng Long Bắn Trứng" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="5" aria-label="Phá Gạch Siêu Cấp" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="6" aria-label="Rồng Nhí Học Toán" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="7" aria-label="Hiệp Sĩ Đẩy Đá Mở Kho Báu" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="8" aria-label="Lật Thẻ Chiến Đấu Quái Vật" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="9" aria-label="Mê Cung Gương Laser" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="10" aria-label="Cờ Caro (Gomoku)" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="11" aria-label="Sudoku Cổ Điển" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="12" aria-label="Cờ Domino" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="13" aria-label="Beach Head Phòng Thủ" aria-current="false"></button>
+              <button type="button" class="showcase-dot" data-feature-index="14" aria-label="Đua Xe Đường Trường" aria-current="false"></button>
+            </div>
+          </div>
         </div>
 
         <!-- Catalog Filter & Search Controls -->
@@ -165,6 +241,7 @@
         </div>
 
         <!-- Games Grid -->
+        <h2 class="sr-only">Danh sách trò chơi</h2>
         <div id="gamesGrid" class="games-grid">
           <!-- Populated dynamically by js/app.js -->
         </div>
@@ -176,7 +253,7 @@
           <!-- In-Game Header Bar -->
           <div class="game-stage-header">
             <div class="stage-left">
-              <button id="backToHomeBtn" class="back-btn" type="button" title="Quay về danh sách trò chơi" aria-label="Quay về trang chủ">
+              <button id="backToHomeBtn" class="back-btn" type="button" title="Quay về danh sách trò chơi" aria-label="Chọn trò khác — Quay về trang chủ">
                 <span class="back-arrow" aria-hidden="true">←</span><span class="btn-text">Chọn trò khác</span>
               </button>
               <div class="stage-title-group">
@@ -211,7 +288,7 @@
               <button id="stageLeaderboardBtn" class="stage-action-btn" type="button" title="Xem Top 3 của game này" aria-label="Top 3">
                 <span class="btn-ico" aria-hidden="true">🏆</span><span class="btn-text">Top 3</span>
               </button>
-              <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình" aria-label="Toàn màn hình">
+              <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình" aria-label="Phóng to toàn màn hình">
                 <span class="btn-ico" aria-hidden="true" id="stageFullscreenIcon">⛶</span><span class="btn-text" id="stageFullscreenText">Phóng to</span>
               </button>
             </div>
@@ -232,7 +309,7 @@
     </footer>
 
     <!-- PLAYER NAME MODAL -->
-    <div id="nameModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
+    <div id="nameModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
       <div class="modal-card">
         <div class="modal-header">
           <div class="modal-badge">🎈 THẺ TÊN CỦA BÉ</div>
@@ -304,24 +381,7 @@
   <script defer src="js/core/fullscreen.js"></script>
   <script defer src="js/core/fx.js"></script>
 
-  <!-- Game Modules -->
-  <script defer src="js/games/caro.js"></script>
-  <script defer src="js/games/sudoku.js"></script>
-  <script defer src="js/games/domino.js"></script>
-  <script defer src="js/games/beachhead.js"></script>
-  <script defer src="js/games/roadrash.js"></script>
-  <script defer src="js/games/feedingfrenzy.js"></script>
-  <script defer src="js/games/typing.js"></script>
-  <script defer src="js/games/maze.js"></script>
-  <script defer src="js/games/whackamole.js"></script>
-  <script defer src="js/games/bubbleshooter.js"></script>
-  <script defer src="js/games/brickbreaker.js"></script>
-  <script defer src="js/games/mathsnake.js"></script>
-  <script defer src="js/games/sokoban.js"></script>
-  <script defer src="js/games/memorybattle.js"></script>
-  <script defer src="js/games/lasermirror.js"></script>
-
-  <!-- Main Application Entry -->
+  <!-- Main Application Entry (Game modules are lazy-loaded on demand) -->
   <script defer src="js/app.js"></script>
 </body>
 </html>

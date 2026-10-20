@@ -744,7 +744,6 @@
     if (!heroShowcase) return;
     heroShowcase.innerHTML = `
       <div class="showcase-stage${animate ? ' is-entering' : ''}" role="button" tabindex="0"
-        aria-label="Chơi ngay ${escapeHtml(game.title)}"
         style="background: ${game.gradient}; --card-accent: ${game.accentColor || '#38bdf8'};">
         <div class="showcase-floor" aria-hidden="true"></div>
         <div class="showcase-light" aria-hidden="true"></div>
@@ -854,6 +853,7 @@
     renderFeaturedSpotlight();
 
     const filtered = getFilteredGames();
+    gamesGrid.classList.toggle('is-filtered', selectedCategory !== 'all' || searchQuery.trim().length > 0);
     gamesGrid.innerHTML = '';
 
     if (filtered.length === 0) {
@@ -904,7 +904,9 @@
         </div>
       `;
 
-      // The whole card is a launch target; the button stays the keyboard/AT entry point.
+      // Preload game module on hover/touch and launch on click
+      card.addEventListener('pointerenter', () => { ensureGameModuleLoaded(game.id); }, { once: true, passive: true });
+      card.addEventListener('touchstart', () => { ensureGameModuleLoaded(game.id); }, { once: true, passive: true });
       card.addEventListener('click', () => {
         ArcadeHub.sound.click();
         requestLaunchGame(game.id);
@@ -1148,11 +1150,50 @@
     }
   }
 
+  const gameLoadPromises = Object.create(null);
+
+  function ensureGameModuleLoaded(gameId) {
+    if (!gameId) return Promise.resolve(null);
+    if (ArcadeHub.games && ArcadeHub.games[gameId]) {
+      return Promise.resolve(ArcadeHub.games[gameId]);
+    }
+    if (gameLoadPromises[gameId]) {
+      return gameLoadPromises[gameId];
+    }
+    const validMeta = GAME_CATALOG.find((g) => g.id === gameId);
+    if (!validMeta) return Promise.resolve(null);
+
+    gameLoadPromises[gameId] = new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = `js/games/${encodeURIComponent(gameId)}.js`;
+      script.async = true;
+      script.onload = () => {
+        resolve((ArcadeHub.games && ArcadeHub.games[gameId]) || null);
+      };
+      script.onerror = () => {
+        delete gameLoadPromises[gameId];
+        resolve(null);
+      };
+      document.head.appendChild(script);
+    });
+    return gameLoadPromises[gameId];
+  }
+
   function mountGame(gameId) {
     const gameMeta = GAME_CATALOG.find((g) => g.id === gameId);
-    const gameModule = ArcadeHub.games && ArcadeHub.games[gameId];
-    if (!gameMeta || !gameModule) {
+    if (!gameMeta) {
       showToast('Không tìm thấy module trò chơi!');
+      return;
+    }
+    const gameModule = ArcadeHub.games && ArcadeHub.games[gameId];
+    if (!gameModule) {
+      ensureGameModuleLoaded(gameId).then((loadedMod) => {
+        if (!loadedMod) {
+          showToast('Không tìm thấy module trò chơi!');
+          return;
+        }
+        mountGame(gameId);
+      });
       return;
     }
 
@@ -1334,7 +1375,7 @@
   ArcadeHub.fullscreen.onChange((isFull) => {
     if (stageFullscreenIcon) stageFullscreenIcon.textContent = isFull ? '🗗' : '⛶';
     if (stageFullscreenText) stageFullscreenText.textContent = isFull ? 'Thoát Full' : 'Full màn hình';
-    stageFullscreenBtn.setAttribute('aria-label', isFull ? 'Thoát toàn màn hình' : 'Toàn màn hình');
+    stageFullscreenBtn.setAttribute('aria-label', isFull ? 'Thoát Full màn hình' : 'Phóng to toàn màn hình');
   });
 
   // Khóa nút Back của trình duyệt & thao tác vuốt cạnh màn hình trên điện thoại khi đang trong game
