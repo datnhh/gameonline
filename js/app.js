@@ -15,7 +15,7 @@
       accentColor: '#ec4899',
       description:
         'Trò chơi luyện gõ 10 ngón vui nhộn cho trẻ: bàn phím mẫu trên màn hình tự động sáng phím cần bấm để bắn nổ bóng bay chữ cái và từ vựng.',
-      gradient: 'linear-gradient(135deg, #3b0764 0%, #6d28d9 50%, #db2777 100%)',
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #c026d3 52%, #f43f5e 100%)',
       helpSteps: [
         { icon: '⌨️', title: 'Thao tác', text: 'Gõ phím chữ cái trên bàn phím máy tính hoặc bấm trực tiếp vào bàn phím ảo trên màn hình.' },
         { icon: '🎈', title: 'Mục tiêu', text: 'Bắn nổ các quả bóng bay trước khi chúng rơi chạm vạch giới hạn phía dưới.' },
@@ -60,7 +60,7 @@
       accentColor: '#3b82f6',
       description:
         'Hóa thân thành Người Nhện, The Flash, Batman hoặc Superman vượt mê cung giải cứu Công Chúa, hỗ trợ cả kéo chuột lẫn phím mũi tên (Dễ & Khó).',
-      gradient: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 50%, #dc2626 100%)',
+      gradient: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #ef4444 100%)',
       helpSteps: [
         { icon: '🦸', title: 'Chọn Siêu Nhân', text: 'Chọn Người Nhện, The Flash, Batman hoặc Superman trên thanh công cụ trước khi đi.' },
         { icon: '🖱️', title: 'Điều khiển', text: 'Nhấn giữ và kéo chuột theo đường mê cung hoặc bấm phím Mũi tên / WASD.' },
@@ -94,7 +94,7 @@
       accentColor: '#06b6d4',
       description:
         'Giúp trẻ tập điều khiển chuột mượt mà dưới đại dương rực rỡ: ăn cá nhỏ hơn để tiến hóa qua 5 cấp độ thành Cá Mập Vua.',
-      gradient: 'linear-gradient(135deg, #082f49 0%, #0284c7 52%, #0d9488 100%)',
+      gradient: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 52%, #14b8a6 100%)',
       helpSteps: [
         { icon: '🖱️', title: 'Di chuyển mượt', text: 'Di chuyển chuột hoặc chạm kéo trên màn hình, chú cá sẽ bơi theo con trỏ của bạn.' },
         { icon: '🐟', title: 'Luật tiến hóa', text: 'Ăn các chú cá nhỏ hơn hoặc bằng cấp hiện tại để lớn lên; tránh cá săn mồi to hơn.' },
@@ -132,7 +132,7 @@
       accentColor: '#eab308',
       description:
         'Rèn luyện phản xạ mắt và tay cho trẻ: cầm búa hoạt hình đập trúng Chuột Nâu và Chuột Vàng Vương Miện, khéo léo tránh các chú Thỏ Trắng.',
-      gradient: 'linear-gradient(135deg, #14532d 0%, #15803d 52%, #ca8a04 100%)',
+      gradient: 'linear-gradient(135deg, #15803d 0%, #22c55e 52%, #eab308 100%)',
       helpSteps: [
         { icon: '🔨', title: 'Cách chơi', text: 'Di chuyển búa và bấm chuột trái (hoặc chạm màn hình) vào đúng ô có chuột trồi lên.' },
         { icon: '👑', title: 'Chuột Vàng thưởng lớn', text: 'Chuột đội vương miện vàng mang lại điểm gấp gần 3 lần chuột thường!' },
@@ -164,7 +164,7 @@
       accentColor: '#f43f5e',
       description:
         'Cùng Khủng Long Con ngắm bắn các quả trứng phép thuật cùng màu để làm nổ tung cả chùm bóng, có tia laser dẫn đường cho bé ở chế độ Dễ.',
-      gradient: 'linear-gradient(135deg, #831843 0%, #db2777 50%, #7c3aed 100%)',
+      gradient: 'linear-gradient(135deg, #be185d 0%, #ec4899 52%, #8b5cf6 100%)',
       helpSteps: [
         { icon: '🎯', title: 'Ngắm & Bắn', text: 'Rê chuột hoặc chạm kéo để chỉnh tia ngắm, sau đó bấm chuột (hoặc thả tay) để bắn trứng.' },
         { icon: '💥', title: 'Nổ cụm & Rơi tự do', text: 'Ghép từ 3 quả trứng cùng màu trở lên để làm nổ. Các quả trứng mất điểm bám phía trên sẽ rơi xuống cộng điểm lớn!' },
@@ -194,7 +194,7 @@
       accentColor: '#38bdf8',
       description:
         'Điều khiển tàu đệm năng lượng hứng bóng phá vỡ pháo đài gạch vũ trụ, nhặt vật phẩm nhân 3 bóng, mở rộng ván trượt và súng đôi Laser.',
-      gradient: 'linear-gradient(135deg, #0f172a 0%, #1e40af 50%, #0891b2 100%)',
+      gradient: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #06b6d4 100%)',
       helpSteps: [
         { icon: '🛸', title: 'Điều khiển ván trượt', text: 'Di chuyển chuột ngang, kéo tay trên màn hình cảm ứng hoặc dùng phím Mũi tên Trái/Phải.' },
         { icon: '🔮', title: 'Săn vật phẩm rơi', text: 'Đón bắt các viên thuốc năng lượng rơi xuống để kích hoạt X3 Bóng, Ván Rộng, Súng Đôi Laser hoặc +1 Tim.' },
@@ -225,7 +225,7 @@
       accentColor: '#22c55e',
       description:
         'Tính nhẩm nhanh phép toán trên màn hình rồi dẫn Rồng Con đi ăn đúng quả táo mang số kết quả chính xác để Rồng lớn nhanh.',
-      gradient: 'linear-gradient(135deg, #064e3b 0%, #16a34a 50%, #ca8a04 100%)',
+      gradient: 'linear-gradient(135deg, #15803d 0%, #16a34a 50%, #f59e0b 100%)',
       helpSteps: [
         { icon: '🧮', title: 'Đọc phép tính', text: 'Quan sát phép tính hiển thị ở bảng vàng phía trên sân cỏ.' },
         { icon: '🐉', title: 'Dẫn đường Rồng Con', text: 'Dùng phím Mũi tên / WASD hoặc bấm trực tiếp vào ô trên sân cỏ để Rồng Con rẽ hướng.' },
@@ -255,7 +255,7 @@
       accentColor: '#f59e0b',
       description:
         'Giúp Hiệp Sĩ Nhí suy nghĩ đường đi thông minh để đẩy các viên đá phép thuật đè lên công tắc, mở khóa Rương Vàng Kho Báu.',
-      gradient: 'linear-gradient(135deg, #78350f 0%, #d97706 50%, #2563eb 100%)',
+      gradient: 'linear-gradient(135deg, #b45309 0%, #f59e0b 52%, #3b82f6 100%)',
       helpSteps: [
         { icon: '💎', title: 'Quy tắc đẩy đá', text: 'Hiệp Sĩ chỉ có thể ĐẨY từng viên đá về phía trước (không thể kéo ngược lại hoặc đẩy 2 viên cùng lúc).' },
         { icon: '✨', title: 'Kích hoạt công tắc', text: 'Đẩy tất cả các viên đá đè lên các vòng tròn năng lượng màu xanh để mở Rương Kho Báu.' },
@@ -282,7 +282,7 @@
       accentColor: '#a855f7',
       description:
         'Lật mở các cặp thẻ bài Siêu Anh Hùng giống nhau để phóng tuyệt chiêu tấn công Quái Vật Vũ Trụ hoặc bật khiên hồi máu cho đội.',
-      gradient: 'linear-gradient(135deg, #311042 0%, #7e22ce 50%, #e11d48 100%)',
+      gradient: 'linear-gradient(135deg, #6d28d9 0%, #9333ea 50%, #f43f5e 100%)',
       helpSteps: [
         { icon: '👁️', title: 'Ghi nhớ nhanh', text: 'Đầu mỗi màn chơi, các thẻ bài sẽ mở sẵn trong vài giây để bé ghi nhớ vị trí.' },
         { icon: '⚡', title: 'Ghép cặp tung chưởng', text: 'Lật trúng 2 thẻ giống nhau sẽ lập tức phóng đòn tấn công trừ máu Boss (thẻ Tim giúp hồi máu cho Đội Siêu Nhân).' },
@@ -312,7 +312,7 @@
       accentColor: '#10b981',
       description:
         'Bấm chuột xoay các tấm gương phản xạ 45° để dẫn tia laser đi qua các ngôi sao và nạp đầy viên pin năng lượng cho chú Robot.',
-      gradient: 'linear-gradient(135deg, #0f172a 0%, #0284c7 50%, #10b981 100%)',
+      gradient: 'linear-gradient(135deg, #0369a1 0%, #0284c7 50%, #10b981 100%)',
       helpSteps: [
         { icon: '🪞', title: 'Xoay gương 45°', text: 'Bấm chuột hoặc chạm vào bất kỳ ô gương nào trên lưới để lật hướng gương (/ hoặc \\).' },
         { icon: '🤖', title: 'Sạc pin cho Robot', text: 'Dẫn tia laser đỏ đi qua các ngôi sao vàng và chiếu trúng chú Robot để sạc đầy năng lượng.' },
@@ -340,7 +340,7 @@
       accentColor: '#38bdf8',
       description:
         'Bàn cờ 15x15 sắc nét với AI đánh giá thế cờ công-thủ 3 cấp độ hoặc chế độ 2 người chơi chung máy.',
-      gradient: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 50%, #0284c7 100%)',
+      gradient: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #0ea5e9 100%)',
       helpSteps: [
         { icon: '⭕', title: 'Luật thắng 5 quân', text: 'Người chơi xếp được 5 quân liên tiếp theo hàng ngang, dọc hoặc chéo trước sẽ giành chiến thắng.' },
         { icon: '🤖', title: '2 Chế độ chơi', text: 'Chơi với Máy (Dễ/Vừa/Khó) để tích lũy chuỗi thắng ghi danh Top 3, hoặc đấu 2 người trên cùng thiết bị.' },
@@ -377,7 +377,7 @@
       accentColor: '#818cf8',
       description:
         'Thử thách trí não với bộ sinh đề Sudoku tự động 3 độ khó, hỗ trợ chế độ ghi chú (Notes) và gợi ý thông minh.',
-      gradient: 'linear-gradient(135deg, #1e1b4b 0%, #4f46e5 55%, #7c3aed 100%)',
+      gradient: 'linear-gradient(135deg, #4338ca 0%, #6366f1 55%, #8b5cf6 100%)',
       helpSteps: [
         { icon: '🔢', title: 'Quy tắc 1-9', text: 'Điền các số từ 1 đến 9 sao cho mỗi hàng ngang, mỗi cột dọc và mỗi vùng 3x3 không bị trùng số nào.' },
         { icon: '✏️', title: 'Chế độ Ghi chú', text: 'Bật nút "Ghi chú (Phím N)" để viết nháp các số có thể điền vào một ô.' },
@@ -408,7 +408,7 @@
       accentColor: '#10b981',
       description:
         'Đánh bài Domino truyền thống 28 quân trên bàn nỉ sang trọng. Tính toán nước chặn hai đầu để giành chiến thắng.',
-      gradient: 'linear-gradient(135deg, #064e3b 0%, #059669 55%, #0d9488 100%)',
+      gradient: 'linear-gradient(135deg, #047857 0%, #10b981 55%, #14b8a6 100%)',
       helpSteps: [
         { icon: '🀫', title: 'Nối quân khớp chấm', text: 'Chọn các quân cờ có viền xanh lá trên tay bạn để nối vào một trong hai đầu của dây cờ trên bàn.' },
         { icon: '🔒', title: 'Luật rút cờ Nọc', text: 'Chỉ khi trên tay không còn quân nào đánh được, bạn mới được bấm rút thêm quân từ chồng cờ Nọc bên phải bàn.' },
@@ -443,7 +443,7 @@
       accentColor: '#f59e0b',
       description:
         'Bảo vệ bờ biển trước các đợt đổ bộ của lính dù, trực thăng và xe tăng bọc thép bằng súng máy đôi và đại pháo.',
-      gradient: 'linear-gradient(135deg, #451a03 0%, #b45309 50%, #dc2626 100%)',
+      gradient: 'linear-gradient(135deg, #b45309 0%, #ea580c 50%, #ef4444 100%)',
       helpSteps: [
         { icon: '🎯', title: 'Ngắm bắn súng máy', text: 'Di chuyển chuột và giữ chuột trái (hoặc bật chế độ Tự động bắn) để xả đạn súng máy đôi.' },
         { icon: '🚀', title: 'Khai hỏa Đại Pháo', text: 'Bấm chuột phải hoặc nhấn phím Space để bắn đạn Đại Pháo tiêu diệt xe tăng hạng nặng.' },
@@ -472,7 +472,7 @@
       accentColor: '#f43f5e',
       description:
         'Vít ga siêu mô-tô trên đại lộ Pseudo-3D, bật Nitro bứt tốc, lạng lách qua dòng xe và tung cú đá hạ gục các tay đua đối thủ!',
-      gradient: 'linear-gradient(135deg, #3b0764 0%, #be123c 55%, #ea580c 100%)',
+      gradient: 'linear-gradient(135deg, #7e22ce 0%, #e11d48 55%, #f97316 100%)',
       helpSteps: [
         { icon: '🏍️', title: 'Lái xe & Lạng lách', text: 'Dùng phím Mũi tên Trái/Phải (hoặc A/D) để chuyển làn tránh ô tô trên đại lộ.' },
         { icon: '🦵', title: 'Tung cú đá cận chiến', text: 'Nhấn phím Space khi chạy áp sát các tay đua đối thủ để đá văng họ và nhận điểm thưởng lớn!' },
@@ -568,6 +568,19 @@
   let selectedCategory = 'all';
   let searchQuery = '';
   let featuredIndex = 0;
+  let featuredAutoTimer = null;
+  let isHoveringFeatured = false;
+  const FEATURED_AUTO_MS = 5000;
+
+  function restartFeaturedAutoSlide() {
+    if (featuredAutoTimer) {
+      clearInterval(featuredAutoTimer);
+    }
+    featuredAutoTimer = setInterval(() => {
+      if (activeGameId || document.hidden || isHoveringFeatured) return;
+      setFeaturedIndex(featuredIndex + 1, true);
+    }, FEATURED_AUTO_MS);
+  }
 
   function showToast(message) {
     const item = document.createElement('div');
@@ -655,10 +668,11 @@
     `;
   }
 
-  function setFeaturedIndex(nextIndex) {
+  function setFeaturedIndex(nextIndex, fromAuto) {
     const len = GAME_CATALOG.length;
     featuredIndex = ((nextIndex % len) + len) % len;
     renderFeaturedSpotlight(true);
+    if (!fromAuto) restartFeaturedAutoSlide();
     syncFeaturedCardBadge();
   }
 
@@ -723,7 +737,7 @@
 
     heroFeaturedBar.innerHTML = `
       <div class="featured-left">
-        <span class="featured-tag">🔥 Gợi ý hôm nay</span>
+        <span class="featured-tag">🌟 Đang chiếu</span>
         <div class="featured-info">
           <strong>${escapeHtml(game.title)} — ${escapeHtml(game.subtitle)}</strong>
           <span>${escapeHtml(game.genre)} • ${escapeHtml(game.devices)}${escapeHtml(recordText)}</span>
@@ -814,7 +828,7 @@
           <span class="game-device-tag">${escapeHtml(game.devices)}</span>
           <div class="card-banner-art" aria-hidden="true">${game.svgArt}</div>
           <div class="card-badges">
-            <span class="card-featured-badge" hidden>🔥 Gợi ý hôm nay</span>
+            <span class="card-featured-badge" hidden>🌟 Đang chiếu</span>
             ${personalBestHtml}
           </div>
         </div>
@@ -856,7 +870,7 @@
   }
 
   gamesGrid.addEventListener('pointermove', (evt) => {
-    if (evt.pointerType !== 'mouse' || ArcadeHub.fx.isReducedMotion()) return;
+    if (true) return; // Sticker cards use bouncy CSS hover instead of 3D tilt
     const card = evt.target.closest('.game-card');
     if (card !== tiltCard) {
       resetTilt(tiltCard);
@@ -1342,6 +1356,16 @@
 
   // Initial Boot
   function initApp() {
+    [heroShowcase, heroFeaturedBar].forEach((el) => {
+      if (!el) return;
+      el.addEventListener('pointerenter', () => {
+        isHoveringFeatured = true;
+      });
+      el.addEventListener('pointerleave', () => {
+        isHoveringFeatured = false;
+      });
+    });
+    restartFeaturedAutoSlide();
     updateSoundButtonUI();
     syncPlayerProfileUI();
     renderHomeCatalog();

@@ -3,53 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#060914" />
-  <title>Mini Game — Cổng Game Online Miễn Phí Không Quảng Cáo</title>
+  <meta name="theme-color" content="#FFF8EC" />
+  <title>Sân Chơi Nhí — Cổng Game Thiếu Nhi Vui Học Miễn Phí</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+  <link rel="shortcut icon" href="favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles/main.css" />
 </head>
 <body>
-  <!-- Ambient Background Layers -->
+  <!-- Playful Cartoon Sky & Sticker Background -->
   <div class="ambient-bg" aria-hidden="true">
-    <div class="ambient-orb orb-1"></div>
-    <div class="ambient-orb orb-2"></div>
-    <div class="ambient-orb orb-3"></div>
-    <div class="ambient-grid"></div>
-    <div class="ambient-noise"></div>
+    <svg class="ambient-cloud cloud-1" viewBox="0 0 220 90" fill="none">
+      <path d="M45 78H178C196 78 210 64 210 47C210 31 198 18 182 16C174 6 161 0 146 0C125 0 107 13 101 31C95 27 87 24 78 24C58 24 42 39 40 58C26 60 16 68 16 78H45Z" fill="#FFFFFF" fill-opacity="0.88"/>
+    </svg>
+    <svg class="ambient-cloud cloud-2" viewBox="0 0 220 90" fill="none">
+      <path d="M45 78H178C196 78 210 64 210 47C210 31 198 18 182 16C174 6 161 0 146 0C125 0 107 13 101 31C95 27 87 24 78 24C58 24 42 39 40 58C26 60 16 68 16 78H45Z" fill="#FFFFFF" fill-opacity="0.75"/>
+    </svg>
+    <div class="ambient-doodle doodle-star-1">★</div>
+    <div class="ambient-doodle doodle-star-2">✦</div>
+    <div class="ambient-doodle doodle-star-3">●</div>
   </div>
 
   <div id="appRoot" class="app-root">
     <!-- Top Navigation Bar -->
     <header class="top-navbar">
-      <button type="button" class="brand" id="brandHomeBtn" title="Về trang chủ" aria-label="Mini Game — về trang chủ">
+      <button type="button" class="brand" id="brandHomeBtn" title="Về trang chủ" aria-label="Sân Chơi Nhí — về trang chủ">
         <span class="brand-logo" aria-hidden="true">
-          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="2" y="6" width="36" height="28" rx="9" fill="url(#logoGrad)" stroke="#60a5fa" stroke-width="2"/>
-            <path d="M12 16V24M8 20H16" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
-            <circle cx="26" cy="16" r="2.4" fill="#f43f5e"/>
-            <circle cx="31" cy="20" r="2.4" fill="#22c55e"/>
-            <circle cx="21" cy="20" r="2.4" fill="#eab308"/>
-            <circle cx="26" cy="24" r="2.4" fill="#38bdf8"/>
-            <defs>
-              <linearGradient id="logoGrad" x1="2" y1="6" x2="38" y2="34" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#1d4ed8"/>
-                <stop offset="0.5" stop-color="#4f46e5"/>
-                <stop offset="1" stop-color="#9333ea"/>
-              </linearGradient>
-            </defs>
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="8" width="42" height="32" rx="14" fill="#FF9F1C" stroke="#2B2D42" stroke-width="3"/>
+            <rect x="6" y="10" width="36" height="12" rx="6" fill="#FFBF69" opacity="0.55"/>
+            <path d="M15 20V28M11 24H19" stroke="#FFFFFF" stroke-width="3.6" stroke-linecap="round"/>
+            <circle cx="31" cy="20" r="3" fill="#FF595E" stroke="#2B2D42" stroke-width="1.8"/>
+            <circle cx="37" cy="24" r="3" fill="#8AC926" stroke="#2B2D42" stroke-width="1.8"/>
+            <circle cx="25" cy="24" r="3" fill="#1982C4" stroke="#2B2D42" stroke-width="1.8"/>
+            <circle cx="31" cy="28" r="3" fill="#FFCA3A" stroke="#2B2D42" stroke-width="1.8"/>
           </svg>
         </span>
         <span class="brand-text">
-          <span class="brand-name">MINI<span>GAME</span></span>
-          <span class="brand-tagline">Online Web Game • Ad-Free Arcade</span>
+          <span class="brand-name">SÂN CHƠI <span>NHÍ</span></span>
+          <span class="brand-tagline">Góc Vui Học • Không Quảng Cáo</span>
         </span>
       </button>
 
       <div class="navbar-actions">
         <!-- Player Profile Pill -->
-        <button id="changeNameBtn" class="player-pill" type="button" title="Bấm để đổi tên người chơi">
-          <span class="player-avatar" id="playerAvatar">P</span>
+        <button id="changeNameBtn" class="player-pill" type="button" title="Bấm để đổi tên của bé">
+          <span class="player-avatar" id="playerAvatar">B</span>
           <span class="player-info">
-            <span class="player-label">Người chơi</span>
+            <span class="player-label">Bé chơi</span>
             <strong class="player-name" id="currentPlayerName">Khách</strong>
           </span>
           <span class="edit-icon" aria-hidden="true">✎</span>
@@ -63,7 +70,7 @@
         <!-- Fullscreen Toggle -->
         <button id="globalFullscreenBtn" class="icon-btn fullscreen-btn" type="button" title="Toàn màn hình (Fullscreen)" aria-label="Toàn màn hình">
           <span id="fullscreenIcon" aria-hidden="true">⛶</span>
-          <span class="btn-label-desktop">Full màn hình</span>
+          <span class="btn-label-desktop">Phóng to</span>
         </button>
       </div>
     </header>
@@ -75,32 +82,39 @@
         <div class="hero-banner">
           <div class="hero-content">
             <div class="hero-badges-row">
-              <span class="hero-badge">⚡ Miễn phí 100% • Không quảng cáo</span>
-              <span class="hero-badge badge-emerald">🖥️ Máy tính &amp; 📱 Điện thoại</span>
+              <span class="hero-badge">🎈 Góc Vui Học Cho Bé</span>
+              <span class="hero-badge badge-emerald">🌟 An toàn • Không quảng cáo</span>
             </div>
-            <h1 class="hero-title">Chơi Game Online Miễn Phí — <span class="hero-title-accent">Vừa Chơi Vừa Học</span> Cho Thiếu Nhi</h1>
-            <p class="hero-lead">Khám phá <strong id="heroGamesCount">15</strong> tựa game giải đố, luyện phản xạ chuột phím, toán học và hành động. Không quảng cáo, lưu bảng vàng Top 3 trực tiếp trên thiết bị của bạn.</p>
+            <h1 class="hero-title">Hôm Nay Bé Muốn <span class="hero-title-accent">Chơi Trò Gì</span> Nào?</h1>
+            <p class="hero-lead">Cùng khám phá <strong id="heroGamesCount">15</strong> trò chơi luyện gõ phím 10 ngón, điều khiển chuột, tính nhẩm và giải đố siêu vui!</p>
 
             <!-- Featured Game Quick Launch Spotlight -->
             <div class="hero-featured-bar" id="heroFeaturedBar">
               <!-- Populated dynamically by js/app.js -->
             </div>
 
-            <div class="hero-stats" id="heroStats">
-              <div class="stat-box">
+            <!-- Compact Sticker Bag of Achievements -->
+            <div class="hero-stats" id="heroStats" aria-label="Bộ sưu tập huy hiệu của bé">
+              <div class="stat-box stat-games">
                 <span class="stat-icon" aria-hidden="true">🎮</span>
-                <span class="stat-num" id="totalGamesCount">15</span>
-                <span class="stat-title">Tựa Game</span>
+                <div class="stat-text">
+                  <span class="stat-num" id="totalGamesCount">15</span>
+                  <span class="stat-title">Trò chơi</span>
+                </div>
               </div>
-              <div class="stat-box">
-                <span class="stat-icon" aria-hidden="true">🏅</span>
-                <span class="stat-num" id="totalRecordsCount">0</span>
-                <span class="stat-title">Kỷ Lục Đã Lập</span>
+              <div class="stat-box stat-records">
+                <span class="stat-icon" aria-hidden="true">⭐</span>
+                <div class="stat-text">
+                  <span class="stat-num" id="totalRecordsCount">0</span>
+                  <span class="stat-title">Kỷ lục</span>
+                </div>
               </div>
-              <div class="stat-box">
+              <div class="stat-box stat-crowns">
                 <span class="stat-icon" aria-hidden="true">👑</span>
-                <span class="stat-num" id="topOneCount">0</span>
-                <span class="stat-title">Danh Hiệu Top 1</span>
+                <div class="stat-text">
+                  <span class="stat-num" id="topOneCount">0</span>
+                  <span class="stat-title">Cúp Top 1</span>
+                </div>
               </div>
             </div>
           </div>
@@ -113,19 +127,19 @@
         <div class="catalog-controls" role="region" aria-label="Bộ lọc và tìm kiếm trò chơi">
           <div class="category-tabs" id="categoryTabs" role="tablist">
             <button type="button" class="cat-tab active" data-cat="all" role="tab" aria-selected="true">
-              ✨ Tất cả <span class="cat-count">15</span>
+              🌈 Tất cả <span class="cat-count">15</span>
             </button>
             <button type="button" class="cat-tab" data-cat="kids" role="tab" aria-selected="false">
               🎈 Luyện Phím &amp; Chuột <span class="cat-count">4</span>
             </button>
             <button type="button" class="cat-tab" data-cat="puzzle" role="tab" aria-selected="false">
-              🧩 Giải Đố Hành Động <span class="cat-count">6</span>
+              🧩 Giải Đố Vui <span class="cat-count">6</span>
             </button>
             <button type="button" class="cat-tab" data-cat="strategy" role="tab" aria-selected="false">
-              ♟️ Trí Tuệ &amp; Cờ Bàn <span class="cat-count">3</span>
+              ♟️ Đấu Trí &amp; Cờ <span class="cat-count">3</span>
             </button>
             <button type="button" class="cat-tab" data-cat="action" role="tab" aria-selected="false">
-              🔥 Bắn Súng &amp; Đua Xe <span class="cat-count">2</span>
+              🚀 Hành Động <span class="cat-count">2</span>
             </button>
           </div>
 
@@ -135,7 +149,7 @@
               type="search"
               id="gameSearchInput"
               class="game-search-input"
-              placeholder="Tìm tên game, kỹ năng (toán, gõ phím, mê cung...)"
+              placeholder="Tìm trò chơi bé thích (gõ phím, cá lớn, mê cung...)"
               autocomplete="off"
               aria-label="Tìm kiếm trò chơi"
             />
@@ -156,7 +170,7 @@
           <div class="game-stage-header">
             <div class="stage-left">
               <button id="backToHomeBtn" class="back-btn" type="button" title="Quay về danh sách trò chơi" aria-label="Quay về trang chủ">
-                <span class="back-arrow" aria-hidden="true">←</span><span class="btn-text">Trang chủ</span>
+                <span class="back-arrow" aria-hidden="true">←</span><span class="btn-text">Chọn trò khác</span>
               </button>
               <div class="stage-title-group">
                 <h2 id="activeGameTitle">Tên Game</h2>
@@ -166,16 +180,16 @@
 
             <div class="stage-center" id="stageStatusBar">
               <div class="hud-chip player-hud-chip">
-                <span class="hud-label">Người chơi</span>
+                <span class="hud-label">Bé chơi</span>
                 <strong id="hudPlayerName">---</strong>
               </div>
               <div class="hud-chip score-chip" id="hudScoreChip">
-                <span class="hud-label">Điểm</span>
+                <span class="hud-label">Điểm số</span>
                 <strong id="hudCurrentScore">0</strong>
                 <span id="hudScoreDelta" class="hud-score-delta" aria-hidden="true"></span>
               </div>
               <div class="hud-chip best-chip">
-                <span class="hud-label">Top 1</span>
+                <span class="hud-label">Kỷ lục</span>
                 <strong id="hudBestScore">---</strong>
               </div>
             </div>
@@ -191,7 +205,7 @@
                 <span class="btn-ico" aria-hidden="true">🏆</span><span class="btn-text">Top 3</span>
               </button>
               <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình" aria-label="Toàn màn hình">
-                <span class="btn-ico" aria-hidden="true" id="stageFullscreenIcon">⛶</span><span class="btn-text" id="stageFullscreenText">Full màn hình</span>
+                <span class="btn-ico" aria-hidden="true" id="stageFullscreenIcon">⛶</span><span class="btn-text" id="stageFullscreenText">Phóng to</span>
               </button>
             </div>
           </div>
@@ -206,38 +220,38 @@
     </main>
 
     <footer class="site-footer">
-      <span>Mini Game • Chạy trực tiếp trên trình duyệt • Kỷ lục được lưu trên thiết bị của bạn</span>
-      <span class="footer-hint">Mẹo: nhấn <kbd>Esc</kbd> để tạm dừng các game hành động</span>
+      <span>🎈 Sân Chơi Nhí • Vừa chơi vừa học • Kỷ lục của bé được lưu ngay trên máy</span>
+      <span class="footer-hint">Mẹo nhỏ: bấm phím <kbd>Esc</kbd> để tạm dừng trò chơi</span>
     </footer>
 
     <!-- PLAYER NAME MODAL -->
     <div id="nameModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
       <div class="modal-card">
         <div class="modal-header">
-          <div class="modal-badge">👤 HỒ SƠ NGƯỜI CHƠI</div>
-          <h3 id="nameModalTitle">Chào mừng đến với Mini Game!</h3>
-          <p id="nameModalDesc">Nhập tên của bạn để lưu thành tích vào bảng xếp hạng Top 3 của các trò chơi.</p>
+          <div class="modal-badge">🎈 THẺ TÊN CỦA BÉ</div>
+          <h3 id="nameModalTitle">Chào mừng bé đến Sân Chơi Nhí!</h3>
+          <p id="nameModalDesc">Bé hãy nhập tên hoặc biệt danh đáng yêu để ghi danh vào Bảng Vàng Top 3 nhé!</p>
         </div>
         <form id="playerNameForm" class="modal-form" autocomplete="off">
-          <label for="playerNameInput" class="input-label">Tên hiển thị (2 - 18 ký tự)</label>
+          <label for="playerNameInput" class="input-label">Tên của bé (2 - 18 ký tự)</label>
           <input
             id="playerNameInput"
             type="text"
             class="text-input"
             maxlength="18"
-            placeholder="VD: Minh Pro, Siêu Nhân Nhí..."
+            placeholder="VD: Bé Minh, Siêu Nhân Nhí, Mèo Con..."
             required
           />
-          <p id="nameInputError" class="input-error" hidden>Vui lòng nhập tên hợp lệ (tối thiểu 2 ký tự).</p>
+          <p id="nameInputError" class="input-error" hidden>Bé ơi, hãy nhập tên từ 2 ký tự trở lên nhé!</p>
           <div class="quick-names">
-            <span>Gợi ý nhanh:</span>
-            <button type="button" class="quick-name-chip" data-name="Siêu Nhân Nhí">Siêu Nhân Nhí</button>
-            <button type="button" class="quick-name-chip" data-name="Kỳ Thủ Số 1">Kỳ Thủ Số 1</button>
-            <button type="button" class="quick-name-chip" data-name="Xạ Thủ Bất Bại">Xạ Thủ Bất Bại</button>
+            <span>Chọn nhanh:</span>
+            <button type="button" class="quick-name-chip" data-name="Siêu Nhân Nhí">🦸 Siêu Nhân Nhí</button>
+            <button type="button" class="quick-name-chip" data-name="Mèo Thông Thái">🐱 Mèo Thông Thái</button>
+            <button type="button" class="quick-name-chip" data-name="Thần Đồng Toán">🌟 Thần Đồng Toán</button>
           </div>
           <div class="modal-actions">
-            <button type="button" id="cancelNameModalBtn" class="btn-secondary" hidden>Hủy</button>
-            <button type="submit" class="btn-primary">Lưu Tên &amp; Bắt Đầu Chơi</button>
+            <button type="button" id="cancelNameModalBtn" class="btn-secondary" hidden>Để sau</button>
+            <button type="submit" class="btn-primary">Vào Chơi Thôi! ▶</button>
           </div>
         </form>
       </div>
@@ -247,13 +261,13 @@
     <div id="leaderboardModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lbModalTitle">
       <div class="modal-card leaderboard-modal-card">
         <div class="modal-header">
-          <div class="modal-badge">🏆 BẢNG VÀNG DANH DỰ</div>
-          <h3 id="lbModalTitle">Top 3 Cao Thủ</h3>
+          <div class="modal-badge">🏆 BẢNG VÀNG SIÊU SAO</div>
+          <h3 id="lbModalTitle">Top 3 Cao Thủ Nhí</h3>
           <p id="lbModalBanner" class="lb-modal-banner"></p>
         </div>
         <div id="lbModalList" class="lb-modal-list"></div>
         <div class="modal-actions">
-          <button type="button" id="closeLbModalBtn" class="btn-primary">Tiếp tục</button>
+          <button type="button" id="closeLbModalBtn" class="btn-primary">Chơi Tiếp Nào!</button>
         </div>
       </div>
     </div>
@@ -262,13 +276,13 @@
     <div id="helpModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
       <div class="modal-card help-modal-card">
         <div class="modal-header">
-          <div class="modal-badge">🎮 HƯỚNG DẪN &amp; MẸO CHƠI</div>
+          <div class="modal-badge">💡 BÍ KÍP CHƠI GIỎI</div>
           <h3 id="helpModalTitle">Cách chơi</h3>
-          <p id="helpModalSubtitle">Làm chủ thao tác điều khiển để đạt điểm kỷ lục Top 1!</p>
+          <p id="helpModalSubtitle">Xem hướng dẫn nhanh để lấy Cúp Vàng Top 1 nhé!</p>
         </div>
         <div id="helpModalBody" class="help-modal-body"></div>
         <div class="modal-actions">
-          <button type="button" id="closeHelpModalBtn" class="btn-primary">Đã hiểu • Vào chơi tiếp</button>
+          <button type="button" id="closeHelpModalBtn" class="btn-primary">Đã hiểu • Vào chơi ngay!</button>
         </div>
       </div>
     </div>

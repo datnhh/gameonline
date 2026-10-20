@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#311042"/>
+    </linearGradient>
+    <linearGradient id="padGrad" x1="8" y1="14" x2="56" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="52%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#9333ea"/>
+    </linearGradient>
+    <linearGradient id="crownGrad" x1="20" y1="5" x2="44" y2="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded App Icon Base -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad)" stroke="#38bdf8" stroke-width="3"/>
+
+  <!-- Golden Arcade Crown at Top -->
+  <path d="M21 16L24 9L32 14L40 9L43 16H21Z" fill="url(#crownGrad)" stroke="#fef08a" stroke-width="1.2" stroke-linejoin="round"/>
+
+  <!-- Gamepad Body -->
+  <path d="M14 20H50C54.4 20 58 23.6 58 28V39C58 45.6 52.6 51 46 51C42.2 51 39 48.8 36.8 45.5L35.2 43H28.8L27.2 45.5C25 48.8 21.8 51 18 51C11.4 51 6 45.6 6 39V28C6 23.6 9.6 20 14 20Z" fill="url(#padGrad)" stroke="#7dd3fc" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Top Gloss Highlight -->
+  <path d="M15 23.5H49C51.5 23.5 53.5 25 54 27" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Left D-Pad -->
+  <path d="M19 27V39M13 33H25" stroke="#ffffff" stroke-width="4.6" stroke-linecap="round"/>
+
+  <!-- Right 4 Arcade Action Buttons -->
+  <circle cx="44" cy="27.5" r="3.6" fill="#f43f5e" stroke="#ffffff" stroke-width="1.2"/>
+  <circle cx="50" cy="33.5" r="3.6" fill="#22c55e" stroke="#ffffff" stroke-width="1.2"/>
+  <circle cx="38" cy="33.5" r="3.6" fill="#facc15" stroke="#ffffff" stroke-width="1.2"/>
+  <circle cx="44" cy="39.5" r="3.6" fill="#38bdf8" stroke="#ffffff" stroke-width="1.2"/>
+</svg>
