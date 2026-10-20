@@ -229,20 +229,19 @@
             }
           });
 
-          recalculateLaser();
-          if (!robotCharged) {
+          if (!recalculateLaser(true)) {
             return;
           }
           // If still accidentally solved, flip first mirror
           const m0 = mirrorCells[0];
           grid[m0.r][m0.c].state = 1 - grid[m0.r][m0.c].state;
-          recalculateLaser();
+          recalculateLaser(true);
           return;
         }
       }
     }
 
-    function recalculateLaser() {
+    function recalculateLaser(silentCheck) {
       laserPath = [{ r: emitter.r, c: emitter.c }];
       let r = emitter.r;
       let c = emitter.c;
@@ -282,6 +281,10 @@
         statusBadge.textContent = `Màn ${level} • Sao sáng: ${litStars}/${totalStars} ⭐ • Xoay gương: ${moves} lần`;
       }
 
+      if (silentCheck) {
+        return hitRobot;
+      }
+
       if (hitRobot && !robotCharged) {
         robotCharged = true;
         winTimer = 1.65;
@@ -311,6 +314,7 @@
           ctx.submitHighScore(score, `Màn ${level} (${cfg.label})`);
         }
       }
+      return hitRobot;
     }
 
     function getBoardGeometry() {

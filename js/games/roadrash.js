@@ -411,6 +411,11 @@
             });
             ArcadeHub.sound.hit();
             addComicPopup(width * 0.5, height - 150, 'BAM!', '-6% GIÁP', '#f43f5e');
+            if (bikeHp <= 0 && !isGameOver) {
+              isGameOver = true;
+              ArcadeHub.sound.gameOver();
+              ctx.submitHighScore(score, `${distanceKm.toFixed(1)} km • ${knockouts} K.O.`);
+            }
           }
         }
 

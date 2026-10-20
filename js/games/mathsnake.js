@@ -273,9 +273,13 @@
       } else {
         if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) {
           loseLife('💥 Đụng tường đá! -1 ❤️');
-          // Bounce direction back inside
-          nextDir = { x: -dir.x, y: -dir.y };
-          dir = { x: nextDir.x, y: nextDir.y };
+          if (!isGameOver) {
+            const len = Math.min(snake.length, 5);
+            snake = Array.from({ length: len }, (_, idx) => ({ x: 6 - idx, y: 5 }));
+            prevSnake = snake.map((p) => ({ x: p.x, y: p.y }));
+            dir = { x: 1, y: 0 };
+            nextDir = { x: 1, y: 0 };
+          }
           return;
         }
       }

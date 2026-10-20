@@ -151,6 +151,7 @@
     }
 
     function setupBoss(lvl) {
+      projectiles = [];
       const template = BOSSES[(lvl - 1) % BOSSES.length];
       currentBoss = template;
       bossMaxHp = Math.round(template.maxHp + (lvl - 1) * 35);
@@ -405,6 +406,7 @@
             bossLevel++;
             heroHp = Math.min(heroMaxHp, heroHp + 30);
             setupBoss(bossLevel);
+            break;
           } else {
             checkDeckCleared();
           }

@@ -1352,6 +1352,9 @@
 
     return {
       restart() {
+        sessionScore = 0;
+        roundsWon = 0;
+        ctx.updateScore(0);
         startNewRound();
       },
       destroy() {

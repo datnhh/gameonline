@@ -2809,6 +2809,10 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .hero-featured-bar {
+    display: none;
+  }
+
   .hero-showcase {
     order: -1;
     min-height: 0;

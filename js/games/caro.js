@@ -820,6 +820,9 @@
 
     return {
       restart() {
+        winStreak = 0;
+        currentScore = 0;
+        ctx.updateScore(0);
         initBoard();
       },
       destroy() {
