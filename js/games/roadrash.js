@@ -655,45 +655,70 @@
     // ====================================================
     // MARVEL COMIC CEL-SHADED DRAWING HELPERS
     // ====================================================
+    // Buildings nearer than this scale are painted live (crisp, few of them); the rest come
+    // from sprites painted at this scale.
+    const BUILDING_SPRITE_SCALE = 0.7;
+
     function drawComicBuilding(x, y, scale, prop, isLeft) {
+      if (scale > BUILDING_SPRITE_SCALE) {
+        paintComicBuilding(g2d, x, y, scale, prop, isLeft);
+        return;
+      }
+      // Bounds in unit-scale pixels: facade, cornice lip (4 wide, 7 high), side wall, ink
+      const w = 135;
+      const h = 85 + prop.floors * 38;
+      const depthW = 36;
+      const bounds = isLeft
+        ? { x0: -w - 7, y0: -h - 10, x1: depthW + 3, y1: 3 }
+        : { x0: -depthW - 3, y0: -h - 10, x1: w + 7, y1: 3 };
+      const sprite = getCachedSprite(
+        `building|${prop.palette.wall}|${prop.floors}|${isLeft ? 'L' : 'R'}`,
+        bounds,
+        BUILDING_SPRITE_SCALE,
+        (g) => paintComicBuilding(g, 0, 0, 1, prop, isLeft)
+      );
+      blitSprite(sprite, x, y, scale, false, 0);
+    }
+
+    function paintComicBuilding(g, x, y, scale, prop, isLeft) {
       const w = 135 * scale;
       const h = (85 + prop.floors * 38) * scale;
       const depthW = 36 * scale;
       const pal = prop.palette;
 
-      g2d.save();
+      g.save();
       const frontX = isLeft ? x - w : x;
       const frontY = y - h;
 
       // 3D Side Wall (hướng về phía mặt đường)
-      g2d.fillStyle = pal.side;
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = Math.max(1.2, 2.8 * scale);
-      g2d.beginPath();
+      g.fillStyle = pal.side;
+      g.strokeStyle = '#090d16';
+      g.lineWidth = Math.max(1.2, 2.8 * scale);
+      g.beginPath();
       if (isLeft) {
-        g2d.moveTo(frontX + w, frontY);
-        g2d.lineTo(frontX + w + depthW, frontY + depthW * 0.45);
-        g2d.lineTo(frontX + w + depthW, y);
-        g2d.lineTo(frontX + w, y);
+        g.moveTo(frontX + w, frontY);
+        g.lineTo(frontX + w + depthW, frontY + depthW * 0.45);
+        g.lineTo(frontX + w + depthW, y);
+        g.lineTo(frontX + w, y);
       } else {
-        g2d.moveTo(frontX, frontY);
-        g2d.lineTo(frontX - depthW, frontY + depthW * 0.45);
-        g2d.lineTo(frontX - depthW, y);
-        g2d.lineTo(frontX, y);
+        g.moveTo(frontX, frontY);
+        g.lineTo(frontX - depthW, frontY + depthW * 0.45);
+        g.lineTo(frontX - depthW, y);
+        g.lineTo(frontX, y);
       }
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      g.closePath();
+      g.fill();
+      g.stroke();
 
       // Main Front Facade
-      g2d.fillStyle = pal.wall;
-      g2d.fillRect(frontX, frontY, w, h);
-      g2d.strokeRect(frontX, frontY, w, h);
+      g.fillStyle = pal.wall;
+      g.fillRect(frontX, frontY, w, h);
+      g.strokeRect(frontX, frontY, w, h);
 
       // Rooftop cornice lip
-      g2d.fillStyle = pal.roof;
-      g2d.fillRect(frontX - 4 * scale, frontY - 7 * scale, w + 8 * scale, 8 * scale);
-      g2d.strokeRect(frontX - 4 * scale, frontY - 7 * scale, w + 8 * scale, 8 * scale);
+      g.fillStyle = pal.roof;
+      g.fillRect(frontX - 4 * scale, frontY - 7 * scale, w + 8 * scale, 8 * scale);
+      g.strokeRect(frontX - 4 * scale, frontY - 7 * scale, w + 8 * scale, 8 * scale);
 
       // Lit Comic Windows
       const cols = 3;
@@ -706,33 +731,33 @@
       // Windows never overlap, so they are batched: one fill per colour, then one outline pass
       // (outlines are skipped on far buildings where the ink would be wider than the window).
       ['#fef08a', '#38bdf8'].forEach((color, parity) => {
-        g2d.beginPath();
+        g.beginPath();
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
             if ((r + c) % 2 !== parity) continue;
-            g2d.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
+            g.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
           }
         }
-        g2d.fillStyle = color;
-        g2d.fill();
+        g.fillStyle = color;
+        g.fill();
       });
       if (winW >= 5) {
-        g2d.beginPath();
+        g.beginPath();
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
-            g2d.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
+            g.rect(frontX + gapX + c * (winW + gapX), frontY + 12 * scale + r * (winH + gapY), winW, winH);
           }
         }
-        g2d.stroke();
+        g.stroke();
       }
 
       // Ground Floor Storefront Awning
       const awnH = 14 * scale;
-      g2d.fillStyle = pal.awning;
-      g2d.fillRect(frontX + 6 * scale, y - awnH * 1.9, w - 12 * scale, awnH);
-      g2d.strokeRect(frontX + 6 * scale, y - awnH * 1.9, w - 12 * scale, awnH);
+      g.fillStyle = pal.awning;
+      g.fillRect(frontX + 6 * scale, y - awnH * 1.9, w - 12 * scale, awnH);
+      g.strokeRect(frontX + 6 * scale, y - awnH * 1.9, w - 12 * scale, awnH);
 
-      g2d.restore();
+      g.restore();
     }
 
     // Static roadside props are painted once into sprites at the largest on-screen size and
@@ -742,7 +767,6 @@
       palm: { x0: -45, y0: -185, x1: 70, y1: 15 },
       lamp: { x0: -10, y0: -165, x1: 62, y1: 8 }
     };
-    const propSprites = new Map();
 
     function paintPalmTree(g) {
       // Curved Trunk with bold comic outline
@@ -808,33 +832,49 @@
       g.fill();
     }
 
-    function getPropSprite(kind) {
-      const key = `${kind}@${canvasDpr}`;
-      let sprite = propSprites.get(key);
-      if (sprite) return sprite;
-      const bounds = PROP_BOUNDS[kind];
-      const k = PROP_REF_SCALE * canvasDpr;
+
+    // Static road art (palms, lamps, rival bikers, traffic cars, far buildings) is painted once
+    // into sprites and blitted. A sprite is painted at `refScale` times the screen pixel ratio
+    // and only ever drawn at that size or smaller, so it stays sharp. Least recently used
+    // sprites are dropped beyond SPRITE_CACHE_MAX (2 props + 3 bikers + 3 cars + ~20 buildings).
+    const SPRITE_CACHE_MAX = 28;
+    const spriteCache = new Map();
+
+    function getCachedSprite(key, bounds, refScale, paint) {
+      const fullKey = `${key}@${canvasDpr}`;
+      let sprite = spriteCache.get(fullKey);
+      if (sprite) {
+        spriteCache.delete(fullKey);
+        spriteCache.set(fullKey, sprite);
+        return sprite;
+      }
+      const k = refScale * canvasDpr;
       const cv = document.createElement('canvas');
-      cv.width = Math.ceil((bounds.x1 - bounds.x0) * k);
-      cv.height = Math.ceil((bounds.y1 - bounds.y0) * k);
-      const pg = cv.getContext('2d');
-      pg.scale(k, k);
-      pg.translate(-bounds.x0, -bounds.y0);
-      if (kind === 'palm') paintPalmTree(pg);
-      else paintStreetLamp(pg);
+      cv.width = Math.max(1, Math.ceil((bounds.x1 - bounds.x0) * k));
+      cv.height = Math.max(1, Math.ceil((bounds.y1 - bounds.y0) * k));
+      const sg = cv.getContext('2d');
+      sg.scale(k, k);
+      sg.translate(-bounds.x0, -bounds.y0);
+      paint(sg);
       sprite = { canvas: cv, x: bounds.x0, y: bounds.y0, w: cv.width / k, h: cv.height / k };
-      propSprites.set(key, sprite);
+      spriteCache.set(fullKey, sprite);
+      if (spriteCache.size > SPRITE_CACHE_MAX) spriteCache.delete(spriteCache.keys().next().value);
       return sprite;
     }
 
-    function drawPropSprite(kind, x, y, scale, isLeft) {
-      const sprite = getPropSprite(kind);
+    function blitSprite(sprite, x, y, scale, mirror, rotation) {
       g2d.save();
       g2d.translate(x, y);
-      g2d.scale(scale * (isLeft ? 1 : -1), scale);
+      g2d.scale(mirror ? -scale : scale, scale);
+      if (rotation) g2d.rotate(rotation);
       g2d.imageSmoothingQuality = 'high';
       g2d.drawImage(sprite.canvas, sprite.x, sprite.y, sprite.w, sprite.h);
       g2d.restore();
+    }
+
+    function drawPropSprite(kind, x, y, scale, isLeft) {
+      const sprite = getCachedSprite(kind, PROP_BOUNDS[kind], PROP_REF_SCALE, kind === 'palm' ? paintPalmTree : paintStreetLamp);
+      blitSprite(sprite, x, y, scale, !isLeft, 0);
     }
 
     function drawComicPalmTree(x, y, scale, isLeft) {
@@ -884,94 +924,273 @@
       g2d.restore();
     }
 
-    function drawDetailedTrafficCar(car, proj) {
-      g2d.save();
-      g2d.translate(proj.x, proj.y);
-      g2d.scale(proj.scale, proj.scale);
+    const VEHICLE_REF_SCALE = 1.4; // >= the largest entity scale (about 1.3)
+    const CAR_BOUNDS = { x0: -52, y0: -70, x1: 52, y1: 10 };
+
+    function paintTrafficCar(g, car) {
 
       // Ground Shadow
-      g2d.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      g2d.beginPath();
-      g2d.ellipse(0, -2, 48, 10, 0, 0, Math.PI * 2);
-      g2d.fill();
+      g.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      g.beginPath();
+      g.ellipse(0, -2, 48, 10, 0, 0, Math.PI * 2);
+      g.fill();
 
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 3.2;
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 3.2;
 
       // Left & Right Tires
-      g2d.fillStyle = '#0f172a';
-      g2d.beginPath();
-      g2d.roundRect(-44, -18, 16, 18, 4);
-      g2d.roundRect(28, -18, 16, 18, 4);
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = '#0f172a';
+      g.beginPath();
+      g.roundRect(-44, -18, 16, 18, 4);
+      g.roundRect(28, -18, 16, 18, 4);
+      g.fill();
+      g.stroke();
 
       // Lower Chassis Body
-      g2d.fillStyle = car.bodyColor;
-      g2d.beginPath();
-      g2d.roundRect(-46, -42, 92, 28, 7);
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = car.bodyColor;
+      g.beginPath();
+      g.roundRect(-46, -42, 92, 28, 7);
+      g.fill();
+      g.stroke();
 
       // Cel-shaded highlight band on body
-      g2d.fillStyle = 'rgba(255,255,255,0.24)';
-      g2d.fillRect(-42, -40, 84, 7);
+      g.fillStyle = 'rgba(255,255,255,0.24)';
+      g.fillRect(-42, -40, 84, 7);
 
       // Upper Cabin / Roof
-      g2d.fillStyle = car.roofColor;
-      g2d.beginPath();
-      g2d.moveTo(-30, -42);
-      g2d.lineTo(-22, -66);
-      g2d.lineTo(22, -66);
-      g2d.lineTo(30, -42);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = car.roofColor;
+      g.beginPath();
+      g.moveTo(-30, -42);
+      g.lineTo(-22, -66);
+      g.lineTo(22, -66);
+      g.lineTo(30, -42);
+      g.closePath();
+      g.fill();
+      g.stroke();
 
       // Rear Windshield with comic reflection slash
-      g2d.fillStyle = '#1e293b';
-      g2d.beginPath();
-      g2d.moveTo(-24, -44);
-      g2d.lineTo(-18, -62);
-      g2d.lineTo(18, -62);
-      g2d.lineTo(24, -44);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = '#1e293b';
+      g.beginPath();
+      g.moveTo(-24, -44);
+      g.lineTo(-18, -62);
+      g.lineTo(18, -62);
+      g.lineTo(24, -44);
+      g.closePath();
+      g.fill();
+      g.stroke();
 
-      g2d.strokeStyle = 'rgba(186, 230, 253, 0.65)';
-      g2d.lineWidth = 2.5;
-      g2d.beginPath();
-      g2d.moveTo(-12, -46);
-      g2d.lineTo(-4, -60);
-      g2d.moveTo(-2, -46);
-      g2d.lineTo(6, -60);
-      g2d.stroke();
+      g.strokeStyle = 'rgba(186, 230, 253, 0.65)';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(-12, -46);
+      g.lineTo(-4, -60);
+      g.moveTo(-2, -46);
+      g.lineTo(6, -60);
+      g.stroke();
 
       // Glowing Tail Lights & License Plate
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2;
-      g2d.fillStyle = '#ff1e42';
-      g2d.fillRect(-41, -33, 18, 9);
-      g2d.strokeRect(-41, -33, 18, 9);
-      g2d.fillRect(23, -33, 18, 9);
-      g2d.strokeRect(23, -33, 18, 9);
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 2;
+      g.fillStyle = '#ff1e42';
+      g.fillRect(-41, -33, 18, 9);
+      g.strokeRect(-41, -33, 18, 9);
+      g.fillRect(23, -33, 18, 9);
+      g.strokeRect(23, -33, 18, 9);
 
       // License plate
-      g2d.fillStyle = '#facc15';
-      g2d.fillRect(-11, -31, 22, 9);
-      g2d.strokeRect(-11, -31, 22, 9);
+      g.fillStyle = '#facc15';
+      g.fillRect(-11, -31, 22, 9);
+      g.strokeRect(-11, -31, 22, 9);
 
       // Rear Bumper
-      g2d.fillStyle = '#334155';
-      g2d.beginPath();
-      g2d.roundRect(-48, -19, 96, 7, 3);
-      g2d.fill();
-      g2d.stroke();
+      g.fillStyle = '#334155';
+      g.beginPath();
+      g.roundRect(-48, -19, 96, 7, 3);
+      g.fill();
+      g.stroke();
 
-      g2d.restore();
     }
 
+    function drawDetailedTrafficCar(car, proj) {
+      const sprite = getCachedSprite(`car|${car.bodyColor}|${car.roofColor}`, CAR_BOUNDS, VEHICLE_REF_SCALE, (g) =>
+        paintTrafficCar(g, car)
+      );
+      blitSprite(sprite, proj.x, proj.y, proj.scale, false, 0);
+    }
+
+    const BIKER_BOUNDS = { x0: -50, y0: -126, x1: 50, y1: 12 };
+
+    function paintBiker(g, opts) {
+      // Ground Shadow
+      g.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      g.beginPath();
+      g.ellipse(0, -2, 32, 9, 0, 0, Math.PI * 2);
+      g.fill();
+
+      // Kick Action Leg + Comic Motion Arc
+      if (opts.kicking) {
+        const dir = opts.kickSide || 1;
+        g.fillStyle = 'rgba(250, 204, 21, 0.45)';
+        g.beginPath();
+        g.arc(dir * 26, -54, 34, -0.7, 0.7, dir < 0);
+        g.fill();
+
+        g.strokeStyle = '#090d16';
+        g.lineWidth = 3.2;
+        g.fillStyle = opts.suitColor;
+        g.beginPath();
+        g.roundRect(dir > 0 ? 8 : -54, -60, 46, 15, 6);
+        g.fill();
+        g.stroke();
+
+        // Armored Boot
+        g.fillStyle = opts.accentColor;
+        g.beginPath();
+        g.roundRect(dir > 0 ? 46 : -64, -67, 18, 24, 5);
+        g.fill();
+        g.stroke();
+      }
+
+      // Nitro Flame Exhausts
+      if (opts.nitroActive) {
+        [-16, 16].forEach((ex) => {
+          g.fillStyle = '#38bdf8';
+          g.beginPath();
+          g.moveTo(ex - 6, -18);
+          g.lineTo(ex + 6, -18);
+          g.lineTo(ex, 16 + Math.random() * 18);
+          g.closePath();
+          g.fill();
+
+          g.fillStyle = '#fef08a';
+          g.beginPath();
+          g.moveTo(ex - 3, -18);
+          g.lineTo(ex + 3, -18);
+          g.lineTo(ex, 4 + Math.random() * 8);
+          g.closePath();
+          g.fill();
+        });
+      }
+
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 3.2;
+
+      // Dual Chrome Exhaust Pipes
+      g.fillStyle = '#94a3b8';
+      g.beginPath();
+      g.roundRect(-22, -34, 9, 18, 4);
+      g.roundRect(13, -34, 9, 18, 4);
+      g.fill();
+      g.stroke();
+
+      // Wide Racing Rear Tire with Treads
+      g.fillStyle = '#0f172a';
+      g.beginPath();
+      g.roundRect(-14, -42, 28, 42, 8);
+      g.fill();
+      g.stroke();
+
+      g.strokeStyle = '#334155';
+      g.lineWidth = 2;
+      for (let ty = -34; ty <= -8; ty += 7) {
+        g.beginPath();
+        g.moveTo(-10, ty);
+        g.lineTo(10, ty);
+        g.stroke();
+      }
+
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 3.2;
+
+      // Rider Legs / Knee Guards gripping bike
+      g.fillStyle = '#1e293b';
+      g.beginPath();
+      g.ellipse(-20, -48, 8, 18, 0.2, 0, Math.PI * 2);
+      g.ellipse(20, -48, 8, 18, -0.2, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // Sportbike Sculpted Tail Fairing
+      g.fillStyle = opts.bikeColor;
+      g.beginPath();
+      g.moveTo(-24, -44);
+      g.lineTo(-18, -68);
+      g.lineTo(18, -68);
+      g.lineTo(24, -44);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // Glowing LED Tail Light
+      g.fillStyle = '#ff1e42';
+      g.beginPath();
+      g.roundRect(-11, -62, 22, 8, 3);
+      g.fill();
+      g.stroke();
+
+      // Handlebars & Side Mirrors
+      g.strokeStyle = '#090d16';
+      g.lineWidth = 4;
+      g.beginPath();
+      g.moveTo(-34, -82);
+      g.lineTo(34, -82);
+      g.stroke();
+
+      g.fillStyle = '#38bdf8';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.ellipse(-36, -88, 7, 4, -0.3, 0, Math.PI * 2);
+      g.ellipse(36, -88, 7, 4, 0.3, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // Rider Muscular Marvel-Style Armored Torso
+      g.fillStyle = opts.suitColor;
+      g.lineWidth = 3.2;
+      g.beginPath();
+      g.moveTo(-16, -64);
+      g.lineTo(-26, -94);
+      g.lineTo(26, -94);
+      g.lineTo(16, -64);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // Shoulder Armor Pads & Heroic Emblem on Back
+      g.fillStyle = opts.accentColor;
+      g.beginPath();
+      g.ellipse(-25, -90, 9, 6, -0.4, 0, Math.PI * 2);
+      g.ellipse(25, -90, 9, 6, 0.4, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // Spine Star / Chevron Emblem
+      g.fillStyle = opts.accentColor;
+      g.beginPath();
+      g.moveTo(0, -89);
+      g.lineTo(9, -78);
+      g.lineTo(0, -69);
+      g.lineTo(-9, -78);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // Aerodynamic Racing Helmet with Glossy Visor Rim
+      g.fillStyle = opts.helmetColor || opts.suitColor;
+      g.beginPath();
+      g.arc(0, -105, 15, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // Helmet Comic Highlight Stripe
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(-5, -110, 4.5, 0, Math.PI * 2);
+      g.fill();
+
+    }
+
+    // The player bike is painted live (lean, kick, nitro flames)
     function drawDetailedBiker(projX, projY, scale, opts) {
       g2d.save();
       g2d.translate(projX, projY);
@@ -979,175 +1198,24 @@
       if (opts.lean) {
         g2d.rotate(opts.lean);
       }
-
-      // Ground Shadow
-      g2d.fillStyle = 'rgba(0, 0, 0, 0.55)';
-      g2d.beginPath();
-      g2d.ellipse(0, -2, 32, 9, 0, 0, Math.PI * 2);
-      g2d.fill();
-
-      // Kick Action Leg + Comic Motion Arc
-      if (opts.kicking) {
-        const dir = opts.kickSide || 1;
-        g2d.fillStyle = 'rgba(250, 204, 21, 0.45)';
-        g2d.beginPath();
-        g2d.arc(dir * 26, -54, 34, -0.7, 0.7, dir < 0);
-        g2d.fill();
-
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 3.2;
-        g2d.fillStyle = opts.suitColor;
-        g2d.beginPath();
-        g2d.roundRect(dir > 0 ? 8 : -54, -60, 46, 15, 6);
-        g2d.fill();
-        g2d.stroke();
-
-        // Armored Boot
-        g2d.fillStyle = opts.accentColor;
-        g2d.beginPath();
-        g2d.roundRect(dir > 0 ? 46 : -64, -67, 18, 24, 5);
-        g2d.fill();
-        g2d.stroke();
-      }
-
-      // Nitro Flame Exhausts
-      if (opts.nitroActive) {
-        [-16, 16].forEach((ex) => {
-          g2d.fillStyle = '#38bdf8';
-          g2d.beginPath();
-          g2d.moveTo(ex - 6, -18);
-          g2d.lineTo(ex + 6, -18);
-          g2d.lineTo(ex, 16 + Math.random() * 18);
-          g2d.closePath();
-          g2d.fill();
-
-          g2d.fillStyle = '#fef08a';
-          g2d.beginPath();
-          g2d.moveTo(ex - 3, -18);
-          g2d.lineTo(ex + 3, -18);
-          g2d.lineTo(ex, 4 + Math.random() * 8);
-          g2d.closePath();
-          g2d.fill();
-        });
-      }
-
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 3.2;
-
-      // Dual Chrome Exhaust Pipes
-      g2d.fillStyle = '#94a3b8';
-      g2d.beginPath();
-      g2d.roundRect(-22, -34, 9, 18, 4);
-      g2d.roundRect(13, -34, 9, 18, 4);
-      g2d.fill();
-      g2d.stroke();
-
-      // Wide Racing Rear Tire with Treads
-      g2d.fillStyle = '#0f172a';
-      g2d.beginPath();
-      g2d.roundRect(-14, -42, 28, 42, 8);
-      g2d.fill();
-      g2d.stroke();
-
-      g2d.strokeStyle = '#334155';
-      g2d.lineWidth = 2;
-      for (let ty = -34; ty <= -8; ty += 7) {
-        g2d.beginPath();
-        g2d.moveTo(-10, ty);
-        g2d.lineTo(10, ty);
-        g2d.stroke();
-      }
-
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 3.2;
-
-      // Rider Legs / Knee Guards gripping bike
-      g2d.fillStyle = '#1e293b';
-      g2d.beginPath();
-      g2d.ellipse(-20, -48, 8, 18, 0.2, 0, Math.PI * 2);
-      g2d.ellipse(20, -48, 8, 18, -0.2, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Sportbike Sculpted Tail Fairing
-      g2d.fillStyle = opts.bikeColor;
-      g2d.beginPath();
-      g2d.moveTo(-24, -44);
-      g2d.lineTo(-18, -68);
-      g2d.lineTo(18, -68);
-      g2d.lineTo(24, -44);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
-
-      // Glowing LED Tail Light
-      g2d.fillStyle = '#ff1e42';
-      g2d.beginPath();
-      g2d.roundRect(-11, -62, 22, 8, 3);
-      g2d.fill();
-      g2d.stroke();
-
-      // Handlebars & Side Mirrors
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 4;
-      g2d.beginPath();
-      g2d.moveTo(-34, -82);
-      g2d.lineTo(34, -82);
-      g2d.stroke();
-
-      g2d.fillStyle = '#38bdf8';
-      g2d.lineWidth = 2.5;
-      g2d.beginPath();
-      g2d.ellipse(-36, -88, 7, 4, -0.3, 0, Math.PI * 2);
-      g2d.ellipse(36, -88, 7, 4, 0.3, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Rider Muscular Marvel-Style Armored Torso
-      g2d.fillStyle = opts.suitColor;
-      g2d.lineWidth = 3.2;
-      g2d.beginPath();
-      g2d.moveTo(-16, -64);
-      g2d.lineTo(-26, -94);
-      g2d.lineTo(26, -94);
-      g2d.lineTo(16, -64);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
-
-      // Shoulder Armor Pads & Heroic Emblem on Back
-      g2d.fillStyle = opts.accentColor;
-      g2d.beginPath();
-      g2d.ellipse(-25, -90, 9, 6, -0.4, 0, Math.PI * 2);
-      g2d.ellipse(25, -90, 9, 6, 0.4, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Spine Star / Chevron Emblem
-      g2d.fillStyle = opts.accentColor;
-      g2d.beginPath();
-      g2d.moveTo(0, -89);
-      g2d.lineTo(9, -78);
-      g2d.lineTo(0, -69);
-      g2d.lineTo(-9, -78);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
-
-      // Aerodynamic Racing Helmet with Glossy Visor Rim
-      g2d.fillStyle = opts.helmetColor || opts.suitColor;
-      g2d.beginPath();
-      g2d.arc(0, -105, 15, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Helmet Comic Highlight Stripe
-      g2d.fillStyle = '#ffffff';
-      g2d.beginPath();
-      g2d.arc(-5, -110, 4.5, 0, Math.PI * 2);
-      g2d.fill();
-
+      paintBiker(g2d, opts);
       g2d.restore();
+    }
+
+    // Rival bikers never kick or use nitro: one sprite per rider, rotated when knocked over
+    function drawRivalBiker(rv, proj) {
+      const sprite = getCachedSprite(`biker|${rv.suitColor}|${rv.accentColor}|${rv.bikeColor}`, BIKER_BOUNDS, VEHICLE_REF_SCALE, (g) =>
+        paintBiker(g, {
+          suitColor: rv.suitColor,
+          accentColor: rv.accentColor,
+          bikeColor: rv.bikeColor,
+          helmetColor: '#f8fafc',
+          kicking: false,
+          nitroActive: false
+        })
+      );
+      const lean = rv.knocked > 0 ? 0.85 * (rv.vxKnock > 0 ? 1 : -1) : 0;
+      blitSprite(sprite, proj.x, proj.y, proj.scale, false, lean);
     }
 
     // ====================================================
@@ -1631,16 +1699,7 @@
         if (item.kind === 'car') {
           drawDetailedTrafficCar(item.data, item.proj);
         } else {
-          const rv = item.data;
-          drawDetailedBiker(item.proj.x, item.proj.y, item.proj.scale, {
-            suitColor: rv.suitColor,
-            accentColor: rv.accentColor,
-            bikeColor: rv.bikeColor,
-            helmetColor: '#f8fafc',
-            lean: rv.knocked > 0 ? 0.85 * (rv.vxKnock > 0 ? 1 : -1) : 0,
-            kicking: false,
-            nitroActive: false
-          });
+          drawRivalBiker(item.data, item.proj);
         }
       });
 
