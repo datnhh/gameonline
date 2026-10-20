@@ -77,6 +77,31 @@
     let spawnTimer = 0;
     let pearlTimer = 5;
 
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const shade = fx.shade;
+    const sparks = fx.createParticles(260);
+    const camShake = fx.createShake(9);
+    let sceneTime = 0;
+    let overlayT = 0;
+    let overlayKey = '';
+    let hurtTimer = 0;
+    let evolveT = 10;
+    const motes = Array.from({ length: 36 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      vy: 0.008 + Math.random() * 0.02,
+      r: 1 + Math.random() * 1.6,
+      a: 0.25 + Math.random() * 0.45
+    }));
+    const corals = [
+      { x: 0.07, kind: 'fan', s: 46, color: '#fb7185' },
+      { x: 0.24, kind: 'brain', s: 40, color: '#f97316' },
+      { x: 0.46, kind: 'fan', s: 36, color: '#c084fc' },
+      { x: 0.68, kind: 'brain', s: 34, color: '#f472b6' },
+      { x: 0.9, kind: 'fan', s: 50, color: '#facc15' }
+    ];
+
     const shell = document.createElement('div');
     shell.className = 'game-shell';
     shell.innerHTML = `
@@ -90,7 +115,7 @@
           <span style="font-size:0.8rem;color:#38bdf8;font-weight:600;">
             🖱 Di chuyển chuột để dẫn đường cho cá • Bấm chuột trái để bơi vọt nhanh!
           </span>
-          <button type="button" class="pill-btn" id="ffPauseBtn">⏸ Tạm dừng</button>
+          <button type="button" class="pill-btn" id="ffPauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
         </div>
       </div>
 
@@ -157,8 +182,25 @@
       for (let i = 0; i < 8; i++) {
         spawnNpcFish(true);
       }
+      sparks.clear();
+      camShake.reset();
+      hurtTimer = 0;
+      evolveT = 10;
       ctx.updateScore(0);
-      pauseBtn.textContent = '⏸ Tạm dừng';
+      syncPauseBtn();
+    }
+
+    function syncPauseBtn() {
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    function setPaused(next) {
+      const value = !!next && !isGameOver;
+      if (value === isPaused) return;
+      isPaused = value;
+      syncPauseBtn();
     }
 
     function resizeCanvas() {
@@ -323,6 +365,8 @@
           ctx.updateScore(score);
           ArcadeHub.sound.win();
           addPopup(pr.x, pr.y - 15, `🦪 NGỌC TRAI +${pts}!`, '#38bdf8', 18);
+          sparks.burst(pr.x, pr.y, { count: 14, kind: 'star', speed: [60, 180], size: [3, 6], colors: ['#f0abfc', '#ffffff', '#fde047'] });
+          sparks.ring(pr.x, pr.y, { to: 48, color: '#f0abfc' });
         }
       }
 
@@ -361,6 +405,7 @@
             ctx.updateScore(score);
             ArcadeHub.sound.move();
             addPopup(f.x, f.y, `+${gained}`, '#4ade80', 16);
+            sparks.burst(f.x, f.y, { count: 10, speed: [40, 150], size: [2, 4.5], colors: [f.bodyColor, f.stripeColor, '#ffffff'] });
 
             for (let b = 0; b < 4; b++) {
               spawnBubble(f.x, f.y, 2 + Math.random() * 4);
@@ -374,19 +419,27 @@
               currentTierIdx += 1;
               const newTier = getCurrentTier();
               ArcadeHub.sound.win();
-              addPopup(
-                player.x,
-                player.y - 35,
-                `🌟 TIẾN HÓA CẤP ${newTier.tier}: ${newTier.name.toUpperCase()}!`,
-                '#facc15',
-                20
-              );
+              evolveT = 0;
+              sparks.burst(player.x, player.y, {
+                count: 40,
+                kind: 'confetti',
+                speed: [120, 300],
+                life: [0.8, 1.4],
+                size: [4, 7],
+                gravity: 120,
+                drag: 1.4,
+                colors: [newTier.bodyColor, newTier.stripeColor, '#facc15', '#ffffff']
+              });
+              sparks.ring(player.x, player.y, { to: newTier.radius * 3, color: newTier.bodyColor });
             }
           } else if (player.invincibleTimer <= 0) {
             // Bitten by a bigger predator fish
             lives -= 1;
             player.invincibleTimer = 2.4;
             ArcadeHub.sound.hit();
+            hurtTimer = 0.5;
+            camShake.add(0.55);
+            sparks.burst(player.x, player.y, { count: 12, speed: [60, 180], colors: ['#f43f5e', '#fecaca'] });
             addPopup(player.x, player.y - 25, '💥 CÁ LỚN CẮN! -1 TIM', '#f43f5e', 18);
 
             // Gentle knockback away from predator
@@ -414,7 +467,7 @@
       for (let i = bubbles.length - 1; i >= 0; i--) {
         const b = bubbles[i];
         b.y += b.vy * dt;
-        b.x += Math.sin(performance.now() * 0.004 + b.wobble) * 15 * dt;
+        b.x += Math.sin(sceneTime * 4 + b.wobble) * 15 * dt;
         if (b.y < 55) bubbles.splice(i, 1);
       }
 
@@ -427,8 +480,31 @@
     }
 
     // =========================================================
-    // CARTOON OCEAN & FISH DRAWING
+    // CARTOON OCEAN & FISH DRAWING (render-only)
     // =========================================================
+    // Each size tier gets its own silhouette so kids can read "big vs small" at a glance.
+    const FISH_SHAPES = [
+      { rx: 1.0, ry: 0.82, tail: 'round', dorsal: 'normal', pattern: 'bands' }, // clownfish
+      { rx: 1.12, ry: 0.68, tail: 'fork', dorsal: 'normal', pattern: 'scales' }, // goldfish
+      { rx: 0.92, ry: 0.92, tail: 'round', dorsal: 'tall', pattern: 'bands' }, // angelfish
+      { rx: 1.0, ry: 0.9, tail: 'round', dorsal: 'normal', pattern: 'spots' }, // puffer
+      { rx: 1.25, ry: 0.6, tail: 'fork', dorsal: 'shark', pattern: 'belly', snout: true } // shark
+    ];
+
+    function fishBodyPath(rx, ry, shape) {
+      g2d.beginPath();
+      if (shape.snout) {
+        g2d.moveTo(rx * 1.12, ry * 0.12);
+        g2d.quadraticCurveTo(rx * 0.75, -ry * 1.15, -rx * 0.4, -ry * 0.92);
+        g2d.quadraticCurveTo(-rx * 1.05, -ry * 0.45, -rx * 1.0, 0);
+        g2d.quadraticCurveTo(-rx * 1.05, ry * 0.5, -rx * 0.4, ry * 0.88);
+        g2d.quadraticCurveTo(rx * 0.75, ry * 1.0, rx * 1.12, ry * 0.12);
+        g2d.closePath();
+      } else {
+        g2d.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      }
+    }
+
     function drawCartoonFish(opts) {
       const {
         x,
@@ -442,8 +518,15 @@
         finColor,
         mouthOpen,
         isPlayer,
-        helperRingColor
+        helperRingColor,
+        tier,
+        danger
       } = opts;
+      const R = radius;
+      const shape = FISH_SHAPES[(tier || 1) - 1] || FISH_SHAPES[0];
+      const rx = R * shape.rx;
+      const ry = R * shape.ry;
+      const outline = '#0b1220';
 
       g2d.save();
       g2d.translate(x, y);
@@ -453,8 +536,9 @@
         g2d.strokeStyle = helperRingColor;
         g2d.lineWidth = 2;
         g2d.setLineDash([5, 4]);
+        g2d.lineDashOffset = -sceneTime * 12;
         g2d.beginPath();
-        g2d.arc(0, 0, radius * 1.28, 0, Math.PI * 2);
+        g2d.arc(0, 0, R * 1.32, 0, Math.PI * 2);
         g2d.stroke();
         g2d.setLineDash([]);
       }
@@ -462,207 +546,368 @@
       g2d.scale(facingRight ? 1 : -1, 1);
       if (angle) g2d.rotate(angle);
 
-      const wag = Math.sin(tailPhase) * radius * 0.22;
-
-      // 1. Wagging Tail Fin
-      g2d.fillStyle = finColor;
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2.4;
-      g2d.beginPath();
-      g2d.moveTo(-radius * 0.85, 0);
-      g2d.lineTo(-radius * 1.55, -radius * 0.65 + wag);
-      g2d.quadraticCurveTo(-radius * 1.25, wag * 0.5, -radius * 1.55, radius * 0.65 + wag);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
-
-      // 2. Dorsal Fin (Top)
-      g2d.fillStyle = finColor;
-      g2d.beginPath();
-      g2d.moveTo(-radius * 0.35, -radius * 0.68);
-      g2d.quadraticCurveTo(0, -radius * 1.18, radius * 0.35, -radius * 0.65);
-      g2d.closePath();
-      g2d.fill();
-      g2d.stroke();
-
-      // 3. Plump Glossy Fish Body
-      const bodyGrad = g2d.createRadialGradient(
-        -radius * 0.2,
-        -radius * 0.25,
-        radius * 0.15,
-        0,
-        0,
-        radius * 1.15
-      );
-      bodyGrad.addColorStop(0, stripeColor);
-      bodyGrad.addColorStop(0.35, bodyColor);
-      bodyGrad.addColorStop(1, finColor);
-
-      g2d.fillStyle = bodyGrad;
-      g2d.beginPath();
-      g2d.ellipse(0, 0, radius * 1.08, radius * 0.78, 0, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      // Decorative Stripes
-      g2d.strokeStyle = stripeColor;
-      g2d.lineWidth = Math.max(2, radius * 0.14);
+      const wag = Math.sin(tailPhase) * R * 0.22;
+      g2d.lineJoin = 'round';
       g2d.lineCap = 'round';
-      g2d.beginPath();
-      g2d.arc(-radius * 0.1, 0, radius * 0.55, -0.85, 0.85);
-      g2d.stroke();
+      g2d.strokeStyle = outline;
+      g2d.lineWidth = Math.max(1.6, R * 0.075);
 
-      // 4. Mouth (opens when eating)
-      g2d.fillStyle = '#7f1d1d';
-      g2d.strokeStyle = '#090d16';
-      g2d.lineWidth = 2;
-      if (mouthOpen && mouthOpen > 0.1) {
-        g2d.beginPath();
-        g2d.arc(radius * 0.78, radius * 0.12, radius * 0.24 * mouthOpen, 0, Math.PI * 2);
-        g2d.fill();
-        g2d.stroke();
-      } else {
-        g2d.beginPath();
-        g2d.arc(radius * 0.7, radius * 0.1, radius * 0.16, 0.2, 1.3);
-        g2d.stroke();
-      }
-
-      // 5. Big Expressive Cartoon Eye
-      const eyeX = radius * 0.48;
-      const eyeY = -radius * 0.2;
-      const eyeR = Math.max(4, radius * 0.24);
-      g2d.fillStyle = '#ffffff';
-      g2d.beginPath();
-      g2d.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.stroke();
-
-      g2d.fillStyle = '#090d16';
-      g2d.beginPath();
-      g2d.arc(eyeX + eyeR * 0.22, eyeY, eyeR * 0.52, 0, Math.PI * 2);
-      g2d.fill();
-
-      g2d.fillStyle = '#ffffff';
-      g2d.beginPath();
-      g2d.arc(eyeX + eyeR * 0.35, eyeY - eyeR * 0.25, eyeR * 0.22, 0, Math.PI * 2);
-      g2d.fill();
-
-      // 6. Side Pectoral Fin
+      // 1. Tail fin
+      const tx = -rx * 0.88;
       g2d.fillStyle = finColor;
       g2d.beginPath();
-      g2d.ellipse(-radius * 0.08, radius * 0.22, radius * 0.28, radius * 0.16, 0.45, 0, Math.PI * 2);
+      g2d.moveTo(tx + R * 0.12, 0);
+      if (shape.tail === 'fork') {
+        g2d.lineTo(tx - R * 0.72, -R * 0.66 + wag);
+        g2d.lineTo(tx - R * 0.42, wag * 0.4);
+        g2d.lineTo(tx - R * 0.72, R * 0.66 + wag);
+      } else {
+        g2d.lineTo(tx - R * 0.68, -R * 0.6 + wag);
+        g2d.quadraticCurveTo(tx - R * 0.38, wag * 0.5, tx - R * 0.68, R * 0.6 + wag);
+      }
+      g2d.closePath();
       g2d.fill();
       g2d.stroke();
 
-      // Crown for Player Fish
-      if (isPlayer) {
-        g2d.fillStyle = '#facc15';
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 1.8;
-        const cy = -radius * 0.85;
+      // 2. Dorsal (and ventral) fins
+      g2d.beginPath();
+      if (shape.dorsal === 'shark') {
+        g2d.moveTo(-rx * 0.3, -ry * 0.88);
+        g2d.lineTo(-rx * 0.05, -ry * 1.8);
+        g2d.quadraticCurveTo(rx * 0.08, -ry * 1.15, rx * 0.32, -ry * 0.85);
+      } else if (shape.dorsal === 'tall') {
+        g2d.moveTo(-rx * 0.5, -ry * 0.7);
+        g2d.quadraticCurveTo(-rx * 0.35, -ry * 2.0 + wag * 0.3, rx * 0.25, -ry * 0.86);
+      } else {
+        g2d.moveTo(-rx * 0.38, -ry * 0.84);
+        g2d.quadraticCurveTo(0, -ry * 1.5, rx * 0.36, -ry * 0.8);
+      }
+      g2d.closePath();
+      g2d.fill();
+      g2d.stroke();
+      if (shape.dorsal === 'tall') {
         g2d.beginPath();
-        g2d.moveTo(-10, cy);
-        g2d.lineTo(-12, cy - 11);
-        g2d.lineTo(-4, cy - 5);
-        g2d.lineTo(0, cy - 13);
-        g2d.lineTo(4, cy - 5);
-        g2d.lineTo(12, cy - 11);
-        g2d.lineTo(10, cy);
+        g2d.moveTo(-rx * 0.5, ry * 0.7);
+        g2d.quadraticCurveTo(-rx * 0.35, ry * 1.9 - wag * 0.3, rx * 0.2, ry * 0.86);
         g2d.closePath();
         g2d.fill();
         g2d.stroke();
       }
 
+      // 3. Glossy body
+      const bodyGrad = g2d.createRadialGradient(-rx * 0.25, -ry * 0.4, R * 0.1, 0, 0, R * 1.2);
+      bodyGrad.addColorStop(0, stripeColor);
+      bodyGrad.addColorStop(0.4, bodyColor);
+      bodyGrad.addColorStop(1, finColor);
+      fishBodyPath(rx, ry, shape);
+      g2d.fillStyle = bodyGrad;
+      g2d.fill();
+
+      // Pattern clipped to the body
+      g2d.save();
+      g2d.clip();
+      if (shape.pattern === 'bands') {
+        [-0.38, 0.22].forEach((bx) => {
+          g2d.fillStyle = 'rgba(11, 18, 32, 0.55)';
+          g2d.fillRect(rx * bx - R * 0.13, -ry, R * 0.26, ry * 2);
+          g2d.fillStyle = stripeColor;
+          g2d.fillRect(rx * bx - R * 0.09, -ry, R * 0.18, ry * 2);
+        });
+      } else if (shape.pattern === 'scales') {
+        g2d.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+        g2d.lineWidth = Math.max(1, R * 0.05);
+        const step = R * 0.32;
+        for (let sx = -rx * 0.6; sx < rx * 0.4; sx += step) {
+          for (let sy = -ry; sy < ry; sy += step) {
+            g2d.beginPath();
+            g2d.arc(sx, sy, step * 0.5, -1.2, 1.2);
+            g2d.stroke();
+          }
+        }
+      } else if (shape.pattern === 'spots') {
+        g2d.fillStyle = shade(finColor, -0.25);
+        [
+          [-0.45, -0.35, 0.13],
+          [-0.1, 0.45, 0.11],
+          [0.15, -0.5, 0.09],
+          [-0.6, 0.2, 0.1],
+          [0.35, 0.35, 0.08]
+        ].forEach(([sx, sy, sr]) => {
+          g2d.beginPath();
+          g2d.arc(rx * sx, ry * sy, R * sr, 0, Math.PI * 2);
+          g2d.fill();
+        });
+      } else if (shape.pattern === 'belly') {
+        g2d.fillStyle = '#f1f5f9';
+        g2d.beginPath();
+        g2d.ellipse(rx * 0.1, ry * 0.75, rx * 1.1, ry * 0.55, 0, 0, Math.PI * 2);
+        g2d.fill();
+      }
+      // Top sheen
+      g2d.fillStyle = 'rgba(255, 255, 255, 0.24)';
+      g2d.beginPath();
+      g2d.ellipse(-rx * 0.05, -ry * 0.52, rx * 0.62, ry * 0.2, -0.08, 0, Math.PI * 2);
+      g2d.fill();
+      g2d.restore();
+
+      fishBodyPath(rx, ry, shape);
+      g2d.strokeStyle = outline;
+      g2d.lineWidth = Math.max(1.6, R * 0.075);
+      g2d.stroke();
+
+      // Gill line
+      g2d.strokeStyle = 'rgba(11, 18, 32, 0.35)';
+      g2d.lineWidth = Math.max(1, R * 0.05);
+      g2d.beginPath();
+      g2d.arc(rx * 0.2, 0, ry * 0.62, -0.9, 0.9);
+      g2d.stroke();
+
+      // 4. Side pectoral fin (flaps with the tail)
+      g2d.fillStyle = finColor;
+      g2d.strokeStyle = outline;
+      g2d.lineWidth = Math.max(1.4, R * 0.06);
+      g2d.beginPath();
+      g2d.ellipse(-rx * 0.08, ry * 0.3, R * 0.28, R * 0.15, 0.45 + Math.sin(tailPhase) * 0.2, 0, Math.PI * 2);
+      g2d.fill();
+      g2d.stroke();
+
+      // 5. Mouth (opens when eating); predators show little teeth
+      const mouthX = shape.snout ? rx * 0.8 : rx * 0.78;
+      const mouthY = shape.snout ? ry * 0.35 : ry * 0.14;
+      g2d.lineWidth = Math.max(1.4, R * 0.06);
+      if (mouthOpen && mouthOpen > 0.1) {
+        g2d.fillStyle = '#7f1d1d';
+        g2d.beginPath();
+        g2d.arc(mouthX, mouthY, R * 0.24 * mouthOpen, 0, Math.PI * 2);
+        g2d.fill();
+        g2d.stroke();
+      } else {
+        g2d.beginPath();
+        g2d.arc(mouthX - R * 0.08, mouthY - R * 0.02, R * 0.15, 0.2, 1.3);
+        g2d.stroke();
+      }
+      if (danger) {
+        g2d.fillStyle = '#ffffff';
+        for (let k = 0; k < 3; k++) {
+          const tx2 = mouthX - R * 0.22 + k * R * 0.1;
+          g2d.beginPath();
+          g2d.moveTo(tx2, mouthY);
+          g2d.lineTo(tx2 + R * 0.05, mouthY + R * 0.1);
+          g2d.lineTo(tx2 + R * 0.1, mouthY);
+          g2d.closePath();
+          g2d.fill();
+        }
+      }
+
+      // 6. Big expressive eye
+      const eyeX = rx * (shape.snout ? 0.55 : 0.45);
+      const eyeY = -ry * 0.24;
+      const eyeR = Math.max(4, R * (shape.snout ? 0.17 : 0.24));
+      g2d.fillStyle = '#ffffff';
+      g2d.strokeStyle = outline;
+      g2d.lineWidth = Math.max(1.4, R * 0.06);
+      g2d.beginPath();
+      g2d.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2);
+      g2d.fill();
+      g2d.stroke();
+      g2d.fillStyle = '#0b1220';
+      g2d.beginPath();
+      g2d.arc(eyeX + eyeR * 0.22, eyeY, eyeR * 0.54, 0, Math.PI * 2);
+      g2d.fill();
+      g2d.fillStyle = '#ffffff';
+      g2d.beginPath();
+      g2d.arc(eyeX + eyeR * 0.36, eyeY - eyeR * 0.26, eyeR * 0.22, 0, Math.PI * 2);
+      g2d.fill();
+      if (danger) {
+        // Angry brow: "this one is bigger than you"
+        g2d.strokeStyle = outline;
+        g2d.lineWidth = Math.max(2, R * 0.09);
+        g2d.beginPath();
+        g2d.moveTo(eyeX - eyeR * 1.1, eyeY - eyeR * 1.45);
+        g2d.lineTo(eyeX + eyeR * 0.95, eyeY - eyeR * 0.85);
+        g2d.stroke();
+      } else if (isPlayer) {
+        g2d.fillStyle = 'rgba(244, 114, 182, 0.45)';
+        g2d.beginPath();
+        g2d.ellipse(eyeX - eyeR * 0.2, eyeY + eyeR * 1.5, eyeR * 0.6, eyeR * 0.32, 0, 0, Math.PI * 2);
+        g2d.fill();
+      }
+
+      // Crown for the player fish (scales with size)
+      if (isPlayer) {
+        const k = Math.max(0.8, R / 24);
+        const cy = -ry - (shape.dorsal === 'shark' ? R * 0.35 : R * 0.1);
+        g2d.save();
+        g2d.translate(-rx * 0.05, cy);
+        g2d.scale(k, k);
+        g2d.fillStyle = '#facc15';
+        g2d.strokeStyle = outline;
+        g2d.lineWidth = 1.8;
+        g2d.beginPath();
+        g2d.moveTo(-10, 0);
+        g2d.lineTo(-12, -11);
+        g2d.lineTo(-4, -5);
+        g2d.lineTo(0, -13);
+        g2d.lineTo(4, -5);
+        g2d.lineTo(12, -11);
+        g2d.lineTo(10, 0);
+        g2d.closePath();
+        g2d.fill();
+        g2d.stroke();
+        g2d.fillStyle = '#f43f5e';
+        g2d.beginPath();
+        g2d.arc(0, -5, 1.8, 0, Math.PI * 2);
+        g2d.fill();
+        g2d.restore();
+      }
+
+      g2d.restore();
+    }
+
+    function drawHudHeart(x, y, s, empty) {
+      g2d.save();
+      g2d.translate(x, y);
+      g2d.scale(s / 20, s / 20);
+      g2d.beginPath();
+      g2d.moveTo(0, 6);
+      g2d.bezierCurveTo(-12, -2, -10, -14, 0, -7);
+      g2d.bezierCurveTo(10, -14, 12, -2, 0, 6);
+      g2d.closePath();
+      g2d.fillStyle = empty ? 'rgba(148, 163, 184, 0.25)' : '#f43f5e';
+      g2d.fill();
+      if (!empty) {
+        g2d.fillStyle = 'rgba(255,255,255,0.65)';
+        g2d.beginPath();
+        g2d.ellipse(-4.5, -6, 2.4, 1.6, -0.6, 0, Math.PI * 2);
+        g2d.fill();
+      }
       g2d.restore();
     }
 
     function drawInGameHud() {
       const pTier = getCurrentTier();
       const nextTier = EVOLUTION_TIERS[currentTierIdx + 1];
+      const compact = width < 640;
 
       g2d.save();
-      // Top translucent HUD Bar
-      g2d.fillStyle = 'rgba(7, 18, 38, 0.78)';
-      g2d.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.roundRect(14, 10, width - 28, 52, 12);
+      fx.roundRectPath(g2d, 12, 10, width - 24, 52, 14);
+      g2d.fillStyle = 'rgba(4, 20, 40, 0.74)';
       g2d.fill();
+      g2d.strokeStyle = 'rgba(125, 211, 252, 0.45)';
+      g2d.lineWidth = 1.5;
       g2d.stroke();
 
-      // Hearts (Mạng)
-      g2d.font = '800 18px "Segoe UI", sans-serif';
-      g2d.textAlign = 'left';
-      const heartsStr = '❤️'.repeat(Math.max(0, lives)) + '🖤'.repeat(Math.max(0, getCfg().maxLives - lives));
-      g2d.fillText(heartsStr, 28, 42);
+      const maxLives = getCfg().maxLives;
+      const hs = compact ? 14 : 18;
+      for (let i = 0; i < maxLives; i++) {
+        drawHudHeart(30 + i * (hs + 4), 36, hs, i >= lives);
+      }
+      const heartsW = maxLives * (hs + 4) + 24;
 
-      // Evolution Progress Bar
-      const barX = 185;
-      const barY = 22;
-      const barW = 240;
-      const barH = 14;
+      const scoreSize = compact ? 16 : 20;
+      const scoreText = compact ? `🏆 ${score.toLocaleString('vi-VN')}` : `🏆 ${score.toLocaleString('vi-VN')} ĐIỂM`;
+      g2d.font = fx.font(scoreSize, 900);
+      const scoreW = g2d.measureText(scoreText).width;
+      fx.outlinedText(g2d, scoreText, width - 26, 36, { size: scoreSize, color: '#facc15', align: 'right' });
+
+      // Evolution progress bar fills the space between hearts and score
+      const barX = 14 + heartsW;
+      const barW = Math.max(60, Math.min(280, width - barX - scoreW - 48));
+      const barY = 19;
+      const barH = 12;
       let progress = 1;
       if (nextTier) {
         const prevNeed = pTier.needEat;
         progress = (eatenCount - prevNeed) / Math.max(1, nextTier.needEat - prevNeed);
       }
-
-      g2d.fillStyle = '#e2e8f0';
-      g2d.font = '700 12px "Segoe UI", sans-serif';
-      g2d.fillText(
-        nextTier
-          ? `🐟 Cấp ${pTier.tier}: ${pTier.name} (${eatenCount}/${nextTier.needEat} để lên Cấp ${nextTier.tier})`
-          : `👑 CẤP TỐI ĐA: ${pTier.name} (Nuốt mọi loài cá!)`,
-        barX,
-        barY + 28
-      );
-
-      g2d.fillStyle = '#1e293b';
-      g2d.beginPath();
-      g2d.roundRect(barX, barY, barW, barH, 7);
+      progress = Math.max(0.04, Math.min(1, progress));
+      fx.roundRectPath(g2d, barX, barY, barW, barH, 6);
+      g2d.fillStyle = 'rgba(15, 23, 42, 0.9)';
       g2d.fill();
-
       const progGrad = g2d.createLinearGradient(barX, 0, barX + barW, 0);
       progGrad.addColorStop(0, '#22c55e');
       progGrad.addColorStop(1, '#facc15');
+      fx.roundRectPath(g2d, barX, barY, barW * progress, barH, 6);
       g2d.fillStyle = progGrad;
-      g2d.beginPath();
-      g2d.roundRect(barX, barY, barW * Math.max(0.05, Math.min(1, progress)), barH, 7);
       g2d.fill();
+      g2d.fillStyle = 'rgba(255,255,255,0.35)';
+      g2d.fillRect(barX + 4, barY + 2, Math.max(0, barW * progress - 8), 2);
 
-      // Score on Right
-      g2d.textAlign = 'right';
-      g2d.fillStyle = '#facc15';
-      g2d.font = '900 20px "Segoe UI", sans-serif';
-      g2d.fillText(`🏆 ${score.toLocaleString('vi-VN')} ĐIỂM`, width - 28, 43);
-
+      const label = nextTier
+        ? compact
+          ? `Cấp ${pTier.tier} • ${eatenCount}/${nextTier.needEat}`
+          : `🐟 Cấp ${pTier.tier}: ${pTier.name} (${eatenCount}/${nextTier.needEat} để lên Cấp ${nextTier.tier})`
+        : compact
+        ? `👑 Cấp tối đa`
+        : `👑 CẤP TỐI ĐA: ${pTier.name} (Nuốt mọi loài cá!)`;
+      const ls = fx.fitFontSize(g2d, label, barW + 40, 12, 9, 700);
+      g2d.font = fx.font(ls, 700);
+      g2d.textAlign = 'left';
+      g2d.textBaseline = 'middle';
+      g2d.fillStyle = '#e0f2fe';
+      g2d.fillText(label, barX, barY + barH + 12);
       g2d.restore();
     }
 
-    function drawScene() {
-      const cfg = getCfg();
-      const pTier = getCurrentTier();
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused || isGameOver) {
+        // Particles still settle on the game-over screen; nothing moves while paused
+        if (isGameOver) sparks.update(dt);
+        return;
+      }
+      sceneTime += dt;
+      sparks.update(dt);
+      camShake.update(dt);
+      if (hurtTimer > 0) hurtTimer = Math.max(0, hurtTimer - dt);
+      if (evolveT < 10) evolveT += dt;
+      motes.forEach((m) => {
+        m.y -= m.vy * dt;
+        if (m.y < -0.02) {
+          m.y = 1.02;
+          m.x = Math.random();
+        }
+      });
+    }
 
-      // 1. Deep Ocean Gradient Background
+    function drawBackdrop() {
+      // Ocean: bright surface to deep blue
       const oceanGrad = g2d.createLinearGradient(0, 0, 0, height);
-      oceanGrad.addColorStop(0, '#0284c7');
-      oceanGrad.addColorStop(0.35, '#0369a1');
-      oceanGrad.addColorStop(0.85, '#0c4a6e');
-      oceanGrad.addColorStop(1, '#082f49');
+      oceanGrad.addColorStop(0, '#22d3ee');
+      oceanGrad.addColorStop(0.18, '#0ea5e9');
+      oceanGrad.addColorStop(0.6, '#0369a1');
+      oceanGrad.addColorStop(1, '#0b2545');
       g2d.fillStyle = oceanGrad;
       g2d.fillRect(0, 0, width, height);
 
-      // Shimmering Sunbeams (God Rays)
+      // Surface caustics: wavy light lines near the top
       g2d.save();
+      g2d.strokeStyle = 'rgba(224, 242, 254, 0.18)';
+      g2d.lineWidth = 2;
+      for (let row = 0; row < 3; row++) {
+        g2d.beginPath();
+        const baseY = 70 + row * 18;
+        for (let x = 0; x <= width; x += 16) {
+          const yy = baseY + Math.sin(x * 0.035 + sceneTime * (1.4 + row * 0.3) + row) * 4;
+          if (x === 0) g2d.moveTo(x, yy);
+          else g2d.lineTo(x, yy);
+        }
+        g2d.stroke();
+      }
+      g2d.restore();
+
+      // God rays
+      g2d.save();
+      g2d.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 5; i++) {
-        const rx = width * (0.15 + i * 0.18) + Math.sin(performance.now() * 0.0006 + i) * 30;
+        const rx = width * (0.12 + i * 0.19) + Math.sin(sceneTime * 0.6 + i) * 30;
         const rayGrad = g2d.createLinearGradient(rx, 0, rx + 60, height * 0.85);
-        rayGrad.addColorStop(0, 'rgba(186, 230, 253, 0.22)');
+        rayGrad.addColorStop(0, 'rgba(186, 230, 253, 0.16)');
         rayGrad.addColorStop(1, 'rgba(186, 230, 253, 0)');
         g2d.fillStyle = rayGrad;
         g2d.beginPath();
-        g2d.moveTo(rx - 28, 0);
-        g2d.lineTo(rx + 28, 0);
+        g2d.moveTo(rx - 26, 0);
+        g2d.lineTo(rx + 26, 0);
         g2d.lineTo(rx + 120, height * 0.85);
         g2d.lineTo(rx - 40, height * 0.85);
         g2d.closePath();
@@ -670,88 +915,201 @@
       }
       g2d.restore();
 
-      // 2. Sandy Seabed & Swaying Seaweeds
-      const sandGrad = g2d.createLinearGradient(0, height - 42, 0, height);
-      sandGrad.addColorStop(0, '#fcd34d');
-      sandGrad.addColorStop(1, '#d97706');
+      // Distant fish school silhouettes (pure decoration, behind everything)
+      g2d.save();
+      g2d.fillStyle = 'rgba(8, 47, 73, 0.35)';
+      for (let s = 0; s < 2; s++) {
+        const span = width + 260;
+        const dir = s === 0 ? 1 : -1;
+        const baseX = (((sceneTime * (18 + s * 8) + s * 400) % span) + span) % span - 130;
+        const sx = dir > 0 ? baseX : width - baseX;
+        const sy = height * (0.35 + s * 0.2);
+        for (let k = 0; k < 9; k++) {
+          const fxp = sx - dir * (k % 3) * 16 - dir * Math.floor(k / 3) * 9;
+          const fyp = sy + (Math.floor(k / 3) - 1) * 12 + Math.sin(sceneTime * 2 + k) * 2;
+          g2d.beginPath();
+          g2d.ellipse(fxp, fyp, 6, 2.6, 0, 0, Math.PI * 2);
+          g2d.moveTo(fxp - dir * 5, fyp);
+          g2d.lineTo(fxp - dir * 10, fyp - 3);
+          g2d.lineTo(fxp - dir * 10, fyp + 3);
+          g2d.fill();
+        }
+      }
+      g2d.restore();
+
+      // Far reef silhouettes
+      g2d.fillStyle = 'rgba(8, 47, 73, 0.55)';
+      g2d.beginPath();
+      g2d.moveTo(0, height);
+      for (let x = 0; x <= width + 40; x += 40) {
+        g2d.lineTo(x, height - 70 - (Math.sin(x * 0.011) + 1) * 22 - (x % 120 === 0 ? 14 : 0));
+      }
+      g2d.lineTo(width, height);
+      g2d.closePath();
+      g2d.fill();
+
+      // Plankton motes
+      g2d.fillStyle = 'rgba(224, 242, 254, 0.5)';
+      motes.forEach((m) => {
+        g2d.globalAlpha = m.a;
+        g2d.fillRect(m.x * width + Math.sin(sceneTime + m.x * 10) * 6, m.y * height, m.r, m.r);
+      });
+      g2d.globalAlpha = 1;
+
+      // Sandy seabed
+      const sandGrad = g2d.createLinearGradient(0, height - 44, 0, height);
+      sandGrad.addColorStop(0, '#fde68a');
+      sandGrad.addColorStop(1, '#b45309');
       g2d.fillStyle = sandGrad;
       g2d.beginPath();
       g2d.moveTo(0, height - 28);
       for (let sx = 0; sx <= width; sx += 80) {
-        g2d.quadraticCurveTo(
-          sx + 40,
-          height - 36 - Math.sin(sx * 0.02) * 6,
-          sx + 80,
-          height - 28
-        );
+        g2d.quadraticCurveTo(sx + 40, height - 38 - Math.sin(sx * 0.02) * 6, sx + 80, height - 28);
       }
       g2d.lineTo(width, height);
       g2d.lineTo(0, height);
       g2d.closePath();
       g2d.fill();
-
-      // Swaying Seaweed Plants
-      const nowSec = performance.now() * 0.0025;
-      seaweeds.forEach((sw) => {
-        g2d.save();
-        g2d.strokeStyle = sw.color;
-        g2d.lineWidth = 9;
-        g2d.lineCap = 'round';
+      // Pebbles
+      for (let i = 0; i < Math.floor(width / 38); i++) {
+        const px = (i * 97.3) % width;
+        const py = height - 14 + ((i * 7) % 9) - 4;
+        g2d.fillStyle = i % 3 === 0 ? 'rgba(120, 53, 15, 0.45)' : 'rgba(255, 251, 235, 0.45)';
         g2d.beginPath();
+        g2d.ellipse(px, py, 3 + (i % 3), 2, 0, 0, Math.PI * 2);
+        g2d.fill();
+      }
+
+      // Corals
+      corals.forEach((c) => {
+        const cx = c.x * width;
+        const cy = height - 26;
+        g2d.save();
+        g2d.translate(cx, cy);
+        if (c.kind === 'fan') {
+          g2d.strokeStyle = c.color;
+          g2d.lineWidth = 3;
+          g2d.lineCap = 'round';
+          for (let k = -3; k <= 3; k++) {
+            const a = -Math.PI / 2 + k * 0.28 + Math.sin(sceneTime * 1.2 + c.x * 9) * 0.04;
+            g2d.beginPath();
+            g2d.moveTo(0, 0);
+            g2d.quadraticCurveTo(Math.cos(a) * c.s * 0.5, Math.sin(a) * c.s * 0.6, Math.cos(a) * c.s, Math.sin(a) * c.s);
+            g2d.stroke();
+          }
+        } else {
+          g2d.fillStyle = c.color;
+          g2d.strokeStyle = 'rgba(11, 18, 32, 0.5)';
+          g2d.lineWidth = 2;
+          g2d.beginPath();
+          g2d.ellipse(0, -c.s * 0.3, c.s * 0.6, c.s * 0.42, 0, Math.PI, 0);
+          g2d.closePath();
+          g2d.fill();
+          g2d.stroke();
+          g2d.strokeStyle = 'rgba(255,255,255,0.35)';
+          g2d.lineWidth = 1.5;
+          for (let k = 0; k < 3; k++) {
+            g2d.beginPath();
+            g2d.arc(0, -c.s * 0.3, c.s * (0.18 + k * 0.13), Math.PI * 1.1, Math.PI * 1.9);
+            g2d.stroke();
+          }
+        }
+        g2d.restore();
+      });
+
+      // Swaying seaweed with tapered two-tone strands
+      seaweeds.forEach((sw) => {
+        const pts = [];
         let cx = sw.x;
         let cy = height - 22;
-        g2d.moveTo(cx, cy);
+        pts.push([cx, cy]);
         for (let s = 1; s <= sw.segments; s++) {
-          cx += Math.sin(nowSec + sw.phase + s * 0.6) * 7;
+          cx += Math.sin(sceneTime * 2.5 + sw.phase + s * 0.6) * 7;
           cy -= sw.segLen;
-          g2d.lineTo(cx, cy);
+          pts.push([cx, cy]);
         }
-        g2d.stroke();
+        g2d.save();
+        g2d.lineCap = 'round';
+        g2d.lineJoin = 'round';
+        [
+          [10, shade(sw.color, -0.35)],
+          [6, sw.color],
+          [2, 'rgba(187, 247, 208, 0.6)']
+        ].forEach(([lw, col]) => {
+          g2d.strokeStyle = col;
+          g2d.lineWidth = lw;
+          g2d.beginPath();
+          pts.forEach(([px, py], idx) => (idx === 0 ? g2d.moveTo(px, py) : g2d.lineTo(px, py)));
+          g2d.stroke();
+        });
         g2d.restore();
       });
+    }
 
-      // Bonus Glowing Pearls on Seabed
+    function drawScene() {
+      const cfg = getCfg();
+      const pTier = getCurrentTier();
+
+      drawBackdrop();
+
+      g2d.save();
+      camShake.apply(g2d);
+
+      // Bonus pearls in open clam shells
       pearls.forEach((pr) => {
+        const blink = pr.life < 2.5 && Math.floor(sceneTime * 6) % 2 === 0;
         g2d.save();
-        g2d.fillStyle = '#7e22ce';
-        g2d.strokeStyle = '#090d16';
+        g2d.globalAlpha = blink ? 0.45 : 1;
+        fx.glow(g2d, pr.x, pr.y - 2, 34, '#f0abfc', 0.45 + Math.sin(sceneTime * 4) * 0.15);
+        g2d.strokeStyle = '#0b1220';
         g2d.lineWidth = 2;
+        // Lower shell
+        g2d.fillStyle = '#7e22ce';
         g2d.beginPath();
-        g2d.ellipse(pr.x, pr.y + 5, 18, 8, 0, 0, Math.PI * 2);
+        g2d.ellipse(pr.x, pr.y + 5, 19, 8, 0, 0, Math.PI);
+        g2d.closePath();
         g2d.fill();
         g2d.stroke();
-
-        const pGrad = g2d.createRadialGradient(pr.x - 3, pr.y - 3, 2, pr.x, pr.y, pr.r);
+        // Upper shell (open lid)
+        g2d.fillStyle = '#a855f7';
+        g2d.beginPath();
+        g2d.ellipse(pr.x, pr.y - 6, 18, 9, 0, Math.PI, 0);
+        g2d.closePath();
+        g2d.fill();
+        g2d.stroke();
+        const pGrad = g2d.createRadialGradient(pr.x - 3, pr.y - 1, 1, pr.x, pr.y + 2, pr.r * 0.75);
         pGrad.addColorStop(0, '#ffffff');
-        pGrad.addColorStop(0.6, '#f0abfc');
-        pGrad.addColorStop(1, '#c084fc');
+        pGrad.addColorStop(0.6, '#fbcfe8');
+        pGrad.addColorStop(1, '#e879f9');
         g2d.fillStyle = pGrad;
         g2d.beginPath();
-        g2d.arc(pr.x, pr.y - 2, pr.r, 0, Math.PI * 2);
+        g2d.arc(pr.x, pr.y + 2, pr.r * 0.7, 0, Math.PI * 2);
         g2d.fill();
-        g2d.stroke();
         g2d.restore();
       });
 
-      // 3. Draw Target Cursor Ring (helps kids see where their mouse is guiding the fish)
-      g2d.save();
-      g2d.strokeStyle = 'rgba(250, 204, 21, 0.65)';
-      g2d.lineWidth = 2;
-      g2d.beginPath();
-      g2d.arc(player.targetX, player.targetY, 12, 0, Math.PI * 2);
-      g2d.stroke();
-      g2d.fillStyle = '#facc15';
-      g2d.beginPath();
-      g2d.arc(player.targetX, player.targetY, 3.5, 0, Math.PI * 2);
-      g2d.fill();
-      g2d.restore();
+      // Target cursor (helps kids see where they are guiding the fish)
+      if (!isGameOver) {
+        const pulse = 1 + Math.sin(sceneTime * 5) * 0.12;
+        g2d.save();
+        g2d.strokeStyle = 'rgba(250, 204, 21, 0.7)';
+        g2d.lineWidth = 2;
+        g2d.beginPath();
+        g2d.arc(player.targetX, player.targetY, 12 * pulse, 0, Math.PI * 2);
+        g2d.stroke();
+        g2d.fillStyle = '#facc15';
+        g2d.beginPath();
+        g2d.arc(player.targetX, player.targetY, 3.5, 0, Math.PI * 2);
+        g2d.fill();
+        g2d.restore();
+      }
 
-      // 4. Draw NPC Fishes
+      // NPC fishes
       npcFishes.forEach((f) => {
         const canEat = pTier.tier >= f.tier;
         let ringCol = null;
         if (cfg.showHelperRings) {
-          ringCol = canEat ? 'rgba(74, 222, 128, 0.55)' : 'rgba(248, 113, 113, 0.45)';
+          ringCol = canEat ? 'rgba(74, 222, 128, 0.6)' : 'rgba(248, 113, 113, 0.5)';
         }
         drawCartoonFish({
           x: f.x,
@@ -765,14 +1123,19 @@
           finColor: f.tailColor,
           mouthOpen: 0,
           isPlayer: false,
-          helperRingColor: ringCol
+          helperRingColor: ringCol,
+          tier: f.tier,
+          danger: !canEat
         });
       });
 
-      // 5. Draw Player Fish
+      // Player fish
       g2d.save();
-      if (player.invincibleTimer > 0 && Math.floor(performance.now() / 90) % 2 === 0) {
+      if (player.invincibleTimer > 0 && Math.floor(sceneTime * 11) % 2 === 0) {
         g2d.globalAlpha = 0.55;
+      }
+      if (player.boostTimer > 0) {
+        fx.glow(g2d, player.x, player.y, pTier.radius * 2, '#fde047', 0.35);
       }
       drawCartoonFish({
         x: player.x,
@@ -786,60 +1149,84 @@
         finColor: pTier.finColor,
         mouthOpen: player.mouthOpen,
         isPlayer: true,
-        helperRingColor: null
+        helperRingColor: null,
+        tier: pTier.tier,
+        danger: false
       });
       g2d.restore();
 
-      // 6. Rising Air Bubbles
+      // Rising air bubbles with a highlight
       bubbles.forEach((b) => {
-        g2d.save();
         g2d.strokeStyle = 'rgba(224, 242, 254, 0.75)';
-        g2d.fillStyle = 'rgba(224, 242, 254, 0.18)';
-        g2d.lineWidth = 1.4;
+        g2d.fillStyle = 'rgba(224, 242, 254, 0.14)';
+        g2d.lineWidth = 1.3;
         g2d.beginPath();
         g2d.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         g2d.fill();
         g2d.stroke();
-        g2d.restore();
+        g2d.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        g2d.beginPath();
+        g2d.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, Math.max(0.8, b.r * 0.25), 0, Math.PI * 2);
+        g2d.fill();
       });
 
-      // 7. Score Popups
+      sparks.draw(g2d);
+
+      // Score popups
       popups.forEach((pp) => {
         g2d.save();
-        g2d.globalAlpha = Math.max(0, pp.alpha);
-        g2d.fillStyle = pp.color;
-        g2d.strokeStyle = '#090d16';
-        g2d.lineWidth = 3;
-        g2d.font = `900 ${pp.size}px "Segoe UI", sans-serif`;
-        g2d.textAlign = 'center';
-        g2d.strokeText(pp.text, pp.x, pp.y);
-        g2d.fillText(pp.text, pp.x, pp.y);
+        g2d.globalAlpha = Math.max(0, Math.min(1, pp.alpha));
+        fx.outlinedText(g2d, pp.text, pp.x, pp.y, { size: pp.size, color: pp.color });
         g2d.restore();
       });
+      g2d.restore();
 
-      // 8. In-Game Top HUD
+      // Depth vignette + hurt flash
+      fx.vignette(g2d, width, height, 0.35);
+      if (hurtTimer > 0) {
+        fx.vignette(g2d, width, height, 0, `rgba(239, 68, 68, ${hurtTimer * 0.9})`);
+      }
+
       drawInGameHud();
 
-      if (isGameOver || isPaused) {
-        g2d.fillStyle = 'rgba(7, 15, 32, 0.82)';
-        g2d.fillRect(0, 0, width, height);
-        g2d.fillStyle = '#facc15';
-        g2d.font = '800 30px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText(
-          isGameOver ? '🐳 KẾT THÚC CHUYẾN PHIÊU LƯU ĐẠI DƯƠNG!' : '⏸ ĐANG TẠM DỪNG',
-          width / 2,
-          height / 2 - 20
-        );
-        g2d.fillStyle = '#38bdf8';
-        g2d.font = '700 18px "Segoe UI", sans-serif';
-        g2d.fillText(
-          isGameOver
-            ? `Điểm của bé: ${score.toLocaleString('vi-VN')} • Đã ăn: ${eatenCount} cá — Bấm chuột vào màn hình để chơi lại!`
-            : 'Bấm nút Tiếp tục để bơi tiếp',
-          width / 2,
-          height / 2 + 22
-        );
+      if (evolveT < 2 && !isGameOver) {
+        fx.drawBanner(g2d, width, height, `🌟 TIẾN HÓA CẤP ${pTier.tier}!`, {
+          t: evolveT,
+          duration: 2,
+          accent: pTier.bodyColor,
+          sub: pTier.name,
+          size: Math.min(40, width * 0.075)
+        });
+      }
+
+      const overlay = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (overlay !== overlayKey) {
+        overlayKey = overlay;
+        overlayT = 0;
+      }
+      if (isGameOver) {
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '🐳',
+          title: 'KẾT THÚC CHUYẾN PHIÊU LƯU!',
+          subtitle: 'Bé bơi giỏi lắm — cùng lặn tiếp nhé!',
+          lines: [
+            `Điểm của bé|${score.toLocaleString('vi-VN')}`,
+            `Cá đã ăn|${eatenCount}`,
+            `Cấp đạt được|${pTier.tier} • ${pTier.name}`
+          ],
+          hint: 'Bấm vào màn hình để chơi lại',
+          accent: '#38bdf8',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để bơi tiếp.',
+          accent: '#38bdf8',
+          t: overlayT,
+          backdrop: 0.55
+        });
       }
     }
 
@@ -861,6 +1248,7 @@
         resetGame();
         return;
       }
+      if (isPaused) return;
       updateTargetFromPointer(evt);
       player.boostTimer = 0.42;
       ArcadeHub.sound.boost();
@@ -877,14 +1265,14 @@
     });
 
     pauseBtn.addEventListener('click', () => {
-      isPaused = !isPaused;
       ArcadeHub.sound.click();
-      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      setPaused(!isPaused);
     });
 
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       updateGame(dt);
       drawScene();
       animId = requestAnimationFrame(loop);
@@ -901,6 +1289,15 @@
     return {
       restart() {
         resetGame();
+      },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
