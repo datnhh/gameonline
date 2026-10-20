@@ -40,6 +40,7 @@
     let difficulty = 'easy';
     let level = 1;
     let score = 0;
+    let runId = ctx.newRunId();
     let moves = 0;
     let animId = null;
     let lastTime = performance.now();
@@ -232,13 +233,17 @@
           if (!recalculateLaser(true)) {
             return;
           }
-          // If still accidentally solved, flip first mirror
-          const m0 = mirrorCells[0];
-          grid[m0.r][m0.c].state = 1 - grid[m0.r][m0.c].state;
-          recalculateLaser(true);
-          return;
+          // Still solved after scrambling: flip one solution mirror at a time until the
+          // beam misses the robot; if no single flip breaks it, build a new puzzle.
+          for (const mc of mirrorCells) {
+            grid[mc.r][mc.c].state = 1 - grid[mc.r][mc.c].state;
+            if (!recalculateLaser(true)) return;
+            grid[mc.r][mc.c].state = 1 - grid[mc.r][mc.c].state;
+          }
         }
       }
+      // Keep the beam/stars in sync with whatever grid the last attempt left behind
+      recalculateLaser(true);
     }
 
     function recalculateLaser(silentCheck) {
@@ -310,9 +315,8 @@
         });
         sparks.ring(rx, ry, { from: 10, to: geom.cell * 2, color: '#4ade80', life: 0.5 });
 
-        if (level % 3 === 0) {
-          ctx.submitHighScore(score, `Màn ${level} (${cfg.label})`);
-        }
+        // Laser Mirror never ends, so record the run after every cleared level
+        ctx.submitHighScore(score, `Màn ${level} (${cfg.label})`, runId);
       }
       return hitRobot;
     }
@@ -809,6 +813,7 @@
         ArcadeHub.sound.click();
         level = 1;
         score = 0;
+        runId = ctx.newRunId();
         ctx.updateScore(0);
         generateGuaranteedPuzzle();
       });
@@ -830,6 +835,7 @@
       restart() {
         level = 1;
         score = 0;
+        runId = ctx.newRunId();
         ctx.updateScore(0);
         generateGuaranteedPuzzle();
       },
