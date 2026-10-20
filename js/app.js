@@ -1225,6 +1225,10 @@
       updateScore(scoreVal) {
         animateScoreHud(scoreVal);
       },
+      /** Unique id for one multi-round run; pass it to submitHighScore to keep a single entry. */
+      newRunId() {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      },
       submitHighScore(scoreVal, detailText, runId) {
         const result = ArcadeHub.storage.submitScore(gameId, scoreVal, detailText, runId);
         const newBest = ArcadeHub.storage.getBestScore(gameId);

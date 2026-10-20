@@ -26,6 +26,7 @@
     let hoverCell = null;
     let winStreak = 0;
     let currentScore = 0;
+    let runId = ctx.newRunId();
     let aiTimeout = null;
     let animFrame = null;
     let pulsePhase = 0;
@@ -683,14 +684,15 @@
         );
         ctx.submitHighScore(
           currentScore,
-          `Độ khó ${cfg.label} • Chuỗi ${winStreak} thắng`
+          `Độ khó ${cfg.label} • Chuỗi ${winStreak} thắng`,
+          runId
         );
       } else {
         ArcadeHub.sound.gameOver();
         winStreak = 0;
         endBannerText = '💥 MÁY (O) ĐÃ CHIẾN THẮNG!';
         endBannerSub = 'Bấm vào bàn cờ để phục thù ngay!';
-        updateStatusText('💥 Máy (O) đã chiến thắng! Hãy bấm Chơi lại.', '#f43f5e');
+        updateStatusText('💥 Máy (O) đã chiến thắng! Bấm vào bàn cờ để phục thù (giữ nguyên điểm).', '#f43f5e');
       }
     }
 
@@ -739,6 +741,14 @@
       }
     });
 
+    // A new run starts on restart or when mode/difficulty changes (one leaderboard entry per run)
+    function resetRun() {
+      winStreak = 0;
+      currentScore = 0;
+      runId = ctx.newRunId();
+      ctx.updateScore(0);
+    }
+
     // Mode & Difficulty Toolbar Events
     shell.querySelectorAll('[data-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -747,9 +757,7 @@
         btn.classList.add('active');
         gameMode = btn.getAttribute('data-mode');
         diffGroupEl.style.display = gameMode === 'ai' ? 'flex' : 'none';
-        winStreak = 0;
-        currentScore = 0;
-        ctx.updateScore(0);
+        resetRun();
         initBoard();
       });
     });
@@ -760,6 +768,7 @@
         shell.querySelectorAll('[data-diff]').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         difficulty = btn.getAttribute('data-diff');
+        resetRun();
         initBoard();
       });
     });
@@ -820,9 +829,7 @@
 
     return {
       restart() {
-        winStreak = 0;
-        currentScore = 0;
-        ctx.updateScore(0);
+        resetRun();
         initBoard();
       },
       destroy() {

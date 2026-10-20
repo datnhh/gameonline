@@ -143,6 +143,7 @@
     let consecutivePasses = 0;
     let isRoundOver = false;
     let sessionScore = 0;
+    let runId = ctx.newRunId();
     let roundsWon = 0;
     let aiTimer = null;
 
@@ -621,15 +622,12 @@
 
         statusTextEl.textContent = `🎉 Bạn thắng ván này (${reason})! +${roundBonus} điểm`;
         statusTextEl.style.color = '#fbbf24';
-        ctx.submitHighScore(sessionScore, `${roundsWon} ván thắng Domino`);
+        ctx.submitHighScore(sessionScore, `${roundsWon} ván thắng Domino`, runId);
       } else {
         ArcadeHub.sound.gameOver();
         roundResult = { winner, reason, gained: 0 };
-        statusTextEl.textContent = `💥 ${reason} Bấm "Chơi lại" trên thanh trên để sang ván tiếp.`;
+        statusTextEl.textContent = `💥 ${reason} Bấm vào bàn để sang ván tiếp (giữ nguyên điểm).`;
         statusTextEl.style.color = '#f43f5e';
-        if (sessionScore > 0) {
-          ctx.submitHighScore(sessionScore, `${roundsWon} ván thắng Domino`);
-        }
       }
 
       roundOverAt = performance.now() / 1000;
@@ -1354,6 +1352,7 @@
       restart() {
         sessionScore = 0;
         roundsWon = 0;
+        runId = ctx.newRunId();
         ctx.updateScore(0);
         startNewRound();
       },
