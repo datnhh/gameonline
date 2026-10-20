@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#060914" />
   <title>Mini Game — Cổng Game Online Miễn Phí Không Quảng Cáo</title>
   <link rel="stylesheet" href="styles/main.css" />
 </head>
@@ -13,13 +14,14 @@
     <div class="ambient-orb orb-2"></div>
     <div class="ambient-orb orb-3"></div>
     <div class="ambient-grid"></div>
+    <div class="ambient-noise"></div>
   </div>
 
   <div id="appRoot" class="app-root">
     <!-- Top Navigation Bar -->
     <header class="top-navbar">
-      <div class="brand" id="brandHomeBtn" title="Về trang chủ">
-        <div class="brand-logo">
+      <button type="button" class="brand" id="brandHomeBtn" title="Về trang chủ" aria-label="Mini Game — về trang chủ">
+        <span class="brand-logo" aria-hidden="true">
           <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="2" y="6" width="36" height="28" rx="9" fill="url(#logoGrad)" stroke="#60a5fa" stroke-width="2"/>
             <path d="M12 16V24M8 20H16" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
@@ -35,32 +37,32 @@
               </linearGradient>
             </defs>
           </svg>
-        </div>
-        <div class="brand-text">
-          <h1>MINI<span>GAME</span></h1>
-          <p>Online Web Game • Ad-Free Arcade</p>
-        </div>
-      </div>
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">MINI<span>GAME</span></span>
+          <span class="brand-tagline">Online Web Game • Ad-Free Arcade</span>
+        </span>
+      </button>
 
       <div class="navbar-actions">
         <!-- Player Profile Pill -->
         <button id="changeNameBtn" class="player-pill" type="button" title="Bấm để đổi tên người chơi">
           <span class="player-avatar" id="playerAvatar">P</span>
-          <div class="player-info">
+          <span class="player-info">
             <span class="player-label">Người chơi</span>
             <strong class="player-name" id="currentPlayerName">Khách</strong>
-          </div>
+          </span>
           <span class="edit-icon" aria-hidden="true">✎</span>
         </button>
 
         <!-- Sound Toggle -->
         <button id="soundToggleBtn" class="icon-btn" type="button" title="Bật / Tắt âm thanh" aria-label="Bật hoặc tắt âm thanh">
-          <span id="soundIcon">🔊</span>
+          <span id="soundIcon" aria-hidden="true">🔊</span>
         </button>
 
         <!-- Fullscreen Toggle -->
         <button id="globalFullscreenBtn" class="icon-btn fullscreen-btn" type="button" title="Toàn màn hình (Fullscreen)" aria-label="Toàn màn hình">
-          <span id="fullscreenIcon">⛶</span>
+          <span id="fullscreenIcon" aria-hidden="true">⛶</span>
           <span class="btn-label-desktop">Full màn hình</span>
         </button>
       </div>
@@ -68,41 +70,43 @@
 
     <!-- Main Content Container -->
     <main class="main-container">
-      <!-- HOME VIEW: Featured Spotlight, Filter Bar & Game Catalog -->
+      <!-- HOME VIEW: Hero Showcase, Filter Bar & Game Catalog -->
       <section id="homeView" class="home-view active-view">
-        <!-- Hero Banner & Featured Game Spotlight -->
         <div class="hero-banner">
           <div class="hero-content">
             <div class="hero-badges-row">
-              <span class="hero-badge">⚡ MIỄN PHÍ 100% • KHÔNG QUẢNG CÁO</span>
-              <span class="hero-badge badge-emerald">🖥️ MÁY TÍNH &amp; 📱 ĐIỆN THOẠI</span>
+              <span class="hero-badge">⚡ Miễn phí 100% • Không quảng cáo</span>
+              <span class="hero-badge badge-emerald">🖥️ Máy tính &amp; 📱 Điện thoại</span>
             </div>
-            <h2>Chơi Game Online Miễn Phí — Vừa Chơi Vừa Học Vui Thú Cho Thiếu Nhi</h2>
-            <p>Khám phá 15 tựa game giải đố, luyện phản xạ chuột phím, toán học và hành động đặc sắc. Không quảng cáo, điều khiển mượt mà 60 FPS, lưu bảng vàng Top 3 trực tiếp trên thiết bị.</p>
+            <h1 class="hero-title">Chơi Game Online Miễn Phí — <span class="hero-title-accent">Vừa Chơi Vừa Học</span> Cho Thiếu Nhi</h1>
+            <p class="hero-lead">Khám phá <strong id="heroGamesCount">15</strong> tựa game giải đố, luyện phản xạ chuột phím, toán học và hành động. Không quảng cáo, lưu bảng vàng Top 3 trực tiếp trên thiết bị của bạn.</p>
 
             <!-- Featured Game Quick Launch Spotlight -->
             <div class="hero-featured-bar" id="heroFeaturedBar">
               <!-- Populated dynamically by js/app.js -->
             </div>
+
+            <div class="hero-stats" id="heroStats">
+              <div class="stat-box">
+                <span class="stat-icon" aria-hidden="true">🎮</span>
+                <span class="stat-num" id="totalGamesCount">15</span>
+                <span class="stat-title">Tựa Game</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-icon" aria-hidden="true">🏅</span>
+                <span class="stat-num" id="totalRecordsCount">0</span>
+                <span class="stat-title">Kỷ Lục Đã Lập</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-icon" aria-hidden="true">👑</span>
+                <span class="stat-num" id="topOneCount">0</span>
+                <span class="stat-title">Danh Hiệu Top 1</span>
+              </div>
+            </div>
           </div>
 
-          <div class="hero-stats" id="heroStats">
-            <div class="stat-box">
-              <span class="stat-icon">🎮</span>
-              <span class="stat-num" id="totalGamesCount">15</span>
-              <span class="stat-title">Tựa Game</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-icon">🏅</span>
-              <span class="stat-num" id="totalRecordsCount">0</span>
-              <span class="stat-title">Kỷ Lục Đã Lập</span>
-            </div>
-            <div class="stat-box">
-              <span class="stat-icon">👑</span>
-              <span class="stat-num" id="topOneCount">0</span>
-              <span class="stat-title">Danh Hiệu Top 1</span>
-            </div>
-          </div>
+          <!-- Featured Game Showcase Art (populated by js/app.js) -->
+          <div class="hero-showcase" id="heroShowcase" aria-live="polite"></div>
         </div>
 
         <!-- Catalog Filter & Search Controls -->
@@ -135,7 +139,7 @@
               autocomplete="off"
               aria-label="Tìm kiếm trò chơi"
             />
-            <button type="button" id="clearSearchBtn" class="clear-search-btn" hidden title="Xóa tìm kiếm">✕</button>
+            <button type="button" id="clearSearchBtn" class="clear-search-btn" hidden title="Xóa tìm kiếm" aria-label="Xóa tìm kiếm">✕</button>
           </div>
         </div>
 
@@ -151,8 +155,8 @@
           <!-- In-Game Header Bar -->
           <div class="game-stage-header">
             <div class="stage-left">
-              <button id="backToHomeBtn" class="back-btn" type="button" title="Quay về danh sách trò chơi">
-                <span class="back-arrow">←</span> Trang chủ
+              <button id="backToHomeBtn" class="back-btn" type="button" title="Quay về danh sách trò chơi" aria-label="Quay về trang chủ">
+                <span class="back-arrow" aria-hidden="true">←</span><span class="btn-text">Trang chủ</span>
               </button>
               <div class="stage-title-group">
                 <h2 id="activeGameTitle">Tên Game</h2>
@@ -162,32 +166,32 @@
 
             <div class="stage-center" id="stageStatusBar">
               <div class="hud-chip player-hud-chip">
-                <span class="hud-label">Người chơi:</span>
+                <span class="hud-label">Người chơi</span>
                 <strong id="hudPlayerName">---</strong>
               </div>
               <div class="hud-chip score-chip" id="hudScoreChip">
-                <span class="hud-label">Điểm:</span>
+                <span class="hud-label">Điểm</span>
                 <strong id="hudCurrentScore">0</strong>
                 <span id="hudScoreDelta" class="hud-score-delta" aria-hidden="true"></span>
               </div>
               <div class="hud-chip best-chip">
-                <span class="hud-label">Top 1:</span>
+                <span class="hud-label">Top 1</span>
                 <strong id="hudBestScore">---</strong>
               </div>
             </div>
 
             <div class="stage-right">
-              <button id="stageHelpBtn" class="stage-action-btn" type="button" title="Xem hướng dẫn cách chơi">
-                ❓ Cách chơi
+              <button id="stageHelpBtn" class="stage-action-btn" type="button" title="Xem hướng dẫn cách chơi" aria-label="Cách chơi">
+                <span class="btn-ico" aria-hidden="true">❓</span><span class="btn-text">Cách chơi</span>
               </button>
-              <button id="restartGameBtn" class="stage-action-btn" type="button" title="Chơi ván mới">
-                ↻ Chơi lại
+              <button id="restartGameBtn" class="stage-action-btn" type="button" title="Chơi ván mới" aria-label="Chơi lại">
+                <span class="btn-ico" aria-hidden="true">↻</span><span class="btn-text">Chơi lại</span>
               </button>
-              <button id="stageLeaderboardBtn" class="stage-action-btn" type="button" title="Xem Top 3 của game này">
-                🏆 Top 3
+              <button id="stageLeaderboardBtn" class="stage-action-btn" type="button" title="Xem Top 3 của game này" aria-label="Top 3">
+                <span class="btn-ico" aria-hidden="true">🏆</span><span class="btn-text">Top 3</span>
               </button>
-              <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình">
-                ⛶ Full màn hình
+              <button id="stageFullscreenBtn" class="stage-action-btn primary-stage-btn" type="button" title="Phóng to toàn màn hình" aria-label="Toàn màn hình">
+                <span class="btn-ico" aria-hidden="true" id="stageFullscreenIcon">⛶</span><span class="btn-text" id="stageFullscreenText">Full màn hình</span>
               </button>
             </div>
           </div>
@@ -200,6 +204,11 @@
         </div>
       </section>
     </main>
+
+    <footer class="site-footer">
+      <span>Mini Game • Chạy trực tiếp trên trình duyệt • Kỷ lục được lưu trên thiết bị của bạn</span>
+      <span class="footer-hint">Mẹo: nhấn <kbd>Esc</kbd> để tạm dừng các game hành động</span>
+    </footer>
 
     <!-- PLAYER NAME MODAL -->
     <div id="nameModalOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="nameModalTitle">
@@ -235,7 +244,7 @@
     </div>
 
     <!-- TOP 3 LEADERBOARD MODAL (In-Game Quick View & Result Notification) -->
-    <div id="leaderboardModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true">
+    <div id="leaderboardModalOverlay" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="lbModalTitle">
       <div class="modal-card leaderboard-modal-card">
         <div class="modal-header">
           <div class="modal-badge">🏆 BẢNG VÀNG DANH DỰ</div>
@@ -272,6 +281,7 @@
   <script defer src="js/core/storage.js"></script>
   <script defer src="js/core/sound.js"></script>
   <script defer src="js/core/fullscreen.js"></script>
+  <script defer src="js/core/fx.js"></script>
 
   <!-- Game Modules -->
   <script defer src="js/games/caro.js"></script>

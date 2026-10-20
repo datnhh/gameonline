@@ -497,6 +497,8 @@
   const gameMount = document.getElementById('gameMount');
   const inGameTop3Bar = document.getElementById('inGameTop3Bar');
   const heroFeaturedBar = document.getElementById('heroFeaturedBar');
+  const heroShowcase = document.getElementById('heroShowcase');
+  const heroGamesCountEl = document.getElementById('heroGamesCount');
 
   const categoryTabsEl = document.getElementById('categoryTabs');
   const gameSearchInput = document.getElementById('gameSearchInput');
@@ -527,6 +529,8 @@
   const restartGameBtn = document.getElementById('restartGameBtn');
   const stageLeaderboardBtn = document.getElementById('stageLeaderboardBtn');
   const stageFullscreenBtn = document.getElementById('stageFullscreenBtn');
+  const stageFullscreenIcon = document.getElementById('stageFullscreenIcon');
+  const stageFullscreenText = document.getElementById('stageFullscreenText');
 
   // Name Modal Elements
   const nameModalOverlay = document.getElementById('nameModalOverlay');
@@ -558,6 +562,7 @@
   let pendingGameLaunchId = null;
   let lastNumericScore = 0;
   let scoreDeltaTimer = null;
+  let hostPausedGame = false;
 
   // Filter & Spotlight State
   let selectedCategory = 'all';
@@ -569,9 +574,14 @@
     item.className = 'toast-item';
     item.textContent = message;
     toastContainer.appendChild(item);
+    // Keep at most 3 toasts on screen.
+    while (toastContainer.children.length > 3) {
+      toastContainer.firstElementChild.remove();
+    }
     setTimeout(() => {
-      item.remove();
-    }, 3200);
+      item.classList.add('is-leaving');
+      setTimeout(() => item.remove(), 260);
+    }, 3000);
   }
 
   function escapeHtml(str) {
@@ -645,7 +655,65 @@
     `;
   }
 
-  function renderFeaturedSpotlight() {
+  function setFeaturedIndex(nextIndex) {
+    const len = GAME_CATALOG.length;
+    featuredIndex = ((nextIndex % len) + len) % len;
+    renderFeaturedSpotlight(true);
+    syncFeaturedCardBadge();
+  }
+
+  // Card art is drawn for a wide 400x158 banner with the subject on the right;
+  // the taller showcase frames just that subject instead of slicing it.
+  function toShowcaseArt(svgArt) {
+    return svgArt
+      .replace('viewBox="0 0 400 158"', 'viewBox="150 0 240 158"')
+      .replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="xMidYMid meet"');
+  }
+
+  function renderShowcase(game, animate) {
+    if (!heroShowcase) return;
+    heroShowcase.innerHTML = `
+      <div class="showcase-stage${animate ? ' is-entering' : ''}" role="button" tabindex="0"
+        aria-label="Chơi ngay ${escapeHtml(game.title)}"
+        style="background: ${game.gradient}; --card-accent: ${game.accentColor || '#38bdf8'};">
+        <div class="showcase-floor" aria-hidden="true"></div>
+        <div class="showcase-light" aria-hidden="true"></div>
+        <div class="showcase-art" aria-hidden="true">${toShowcaseArt(game.svgArt)}</div>
+        <div class="showcase-caption">
+          <span class="showcase-genre">${escapeHtml(game.genre)}</span>
+          <strong>${escapeHtml(game.title)}</strong>
+          <small>${escapeHtml(game.subtitle)}</small>
+        </div>
+      </div>
+      <div class="showcase-dots" role="group" aria-label="Chọn game gợi ý">
+        ${GAME_CATALOG.map(
+          (g, idx) =>
+            `<button type="button" class="showcase-dot" data-feature-index="${idx}" aria-label="${escapeHtml(g.title)}" aria-current="${idx === featuredIndex ? 'true' : 'false'}"></button>`
+        ).join('')}
+      </div>
+    `;
+
+    const stage = heroShowcase.querySelector('.showcase-stage');
+    const launch = () => {
+      ArcadeHub.sound.click();
+      requestLaunchGame(game.id);
+    };
+    stage.addEventListener('click', launch);
+    stage.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter' || evt.key === ' ') {
+        evt.preventDefault();
+        launch();
+      }
+    });
+    heroShowcase.querySelectorAll('[data-feature-index]').forEach((dot) => {
+      dot.addEventListener('click', () => {
+        ArcadeHub.sound.click();
+        setFeaturedIndex(Number(dot.getAttribute('data-feature-index')));
+      });
+    });
+  }
+
+  function renderFeaturedSpotlight(animate) {
     if (!heroFeaturedBar) return;
     const game = GAME_CATALOG[featuredIndex % GAME_CATALOG.length];
     if (!game) return;
@@ -655,7 +723,7 @@
 
     heroFeaturedBar.innerHTML = `
       <div class="featured-left">
-        <span class="featured-tag">🔥 GỢI Ý HÔM NAY</span>
+        <span class="featured-tag">🔥 Gợi ý hôm nay</span>
         <div class="featured-info">
           <strong>${escapeHtml(game.title)} — ${escapeHtml(game.subtitle)}</strong>
           <span>${escapeHtml(game.genre)} • ${escapeHtml(game.devices)}${escapeHtml(recordText)}</span>
@@ -668,30 +736,30 @@
       </div>
     `;
 
-    const prevBtn = heroFeaturedBar.querySelector('#featPrevBtn');
-    const nextBtn = heroFeaturedBar.querySelector('#featNextBtn');
-    const launchBtn = heroFeaturedBar.querySelector('#featLaunchBtn');
+    heroFeaturedBar.querySelector('#featPrevBtn').addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      setFeaturedIndex(featuredIndex - 1);
+    });
+    heroFeaturedBar.querySelector('#featNextBtn').addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      setFeaturedIndex(featuredIndex + 1);
+    });
+    heroFeaturedBar.querySelector('#featLaunchBtn').addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      requestLaunchGame(game.id);
+    });
 
-    if (prevBtn) {
-      prevBtn.addEventListener('click', () => {
-        ArcadeHub.sound.click();
-        featuredIndex = (featuredIndex - 1 + GAME_CATALOG.length) % GAME_CATALOG.length;
-        renderFeaturedSpotlight();
-      });
-    }
-    if (nextBtn) {
-      nextBtn.addEventListener('click', () => {
-        ArcadeHub.sound.click();
-        featuredIndex = (featuredIndex + 1) % GAME_CATALOG.length;
-        renderFeaturedSpotlight();
-      });
-    }
-    if (launchBtn) {
-      launchBtn.addEventListener('click', () => {
-        ArcadeHub.sound.click();
-        requestLaunchGame(game.id);
-      });
-    }
+    renderShowcase(game, animate);
+  }
+
+  function syncFeaturedCardBadge() {
+    const featuredId = GAME_CATALOG[featuredIndex] && GAME_CATALOG[featuredIndex].id;
+    gamesGrid.querySelectorAll('.game-card').forEach((card) => {
+      const isFeatured = card.getAttribute('data-game-id') === featuredId;
+      card.classList.toggle('is-featured', isFeatured);
+      const badge = card.querySelector('.card-featured-badge');
+      if (badge) badge.hidden = !isFeatured;
+    });
   }
 
   function getFilteredGames() {
@@ -709,6 +777,7 @@
   function renderHomeCatalog() {
     const stats = ArcadeHub.storage.getStatsSummary(GAME_CATALOG.map((g) => g.id));
     if (totalGamesCountEl) totalGamesCountEl.textContent = String(GAME_CATALOG.length);
+    if (heroGamesCountEl) heroGamesCountEl.textContent = String(GAME_CATALOG.length);
     totalRecordsCountEl.textContent = String(stats.totalRecords);
     topOneCountEl.textContent = String(stats.topOneForCurrentPlayer);
 
@@ -727,7 +796,7 @@
       return;
     }
 
-    filtered.forEach((game) => {
+    filtered.forEach((game, idx) => {
       const best = ArcadeHub.storage.getBestScore(game.id);
       const personalBestHtml =
         best > 0
@@ -736,12 +805,18 @@
 
       const card = document.createElement('article');
       card.className = 'game-card';
+      card.setAttribute('data-game-id', game.id);
+      card.style.setProperty('--card-accent', game.accentColor || '#38bdf8');
+      card.style.setProperty('--i', String(idx));
       card.innerHTML = `
         <div class="card-banner" style="background: ${game.gradient};">
           <span class="game-genre-tag">${escapeHtml(game.genre)}</span>
           <span class="game-device-tag">${escapeHtml(game.devices)}</span>
-          <div class="card-banner-art">${game.svgArt}</div>
-          ${personalBestHtml}
+          <div class="card-banner-art" aria-hidden="true">${game.svgArt}</div>
+          <div class="card-badges">
+            <span class="card-featured-badge" hidden>🔥 Gợi ý hôm nay</span>
+            ${personalBestHtml}
+          </div>
         </div>
         <div class="card-body">
           <div class="card-title-row">
@@ -750,22 +825,64 @@
           </div>
           <p class="card-desc">${escapeHtml(game.description)}</p>
           <div class="card-actions">
-            <button type="button" class="play-now-btn" data-launch="${game.id}">
+            <button type="button" class="play-now-btn" data-launch="${game.id}" aria-label="Chơi ngay ${escapeHtml(game.title)}">
               ▶ Chơi Ngay
             </button>
           </div>
         </div>
       `;
 
-      const playBtn = card.querySelector('[data-launch]');
-      playBtn.addEventListener('click', () => {
+      // The whole card is a launch target; the button stays the keyboard/AT entry point.
+      card.addEventListener('click', () => {
         ArcadeHub.sound.click();
         requestLaunchGame(game.id);
       });
 
       gamesGrid.appendChild(card);
     });
+    syncFeaturedCardBadge();
   }
+
+  // Subtle 3D tilt + spotlight that follows the pointer (mouse only, never on touch).
+  let tiltCard = null;
+  let tiltFrame = 0;
+  let tiltEvt = null;
+
+  function resetTilt(card) {
+    if (!card) return;
+    card.classList.remove('is-tilting');
+    card.style.setProperty('--rx', '0deg');
+    card.style.setProperty('--ry', '0deg');
+  }
+
+  gamesGrid.addEventListener('pointermove', (evt) => {
+    if (evt.pointerType !== 'mouse' || ArcadeHub.fx.isReducedMotion()) return;
+    const card = evt.target.closest('.game-card');
+    if (card !== tiltCard) {
+      resetTilt(tiltCard);
+      tiltCard = card;
+    }
+    if (!card) return;
+    tiltEvt = evt;
+    if (tiltFrame) return;
+    tiltFrame = requestAnimationFrame(() => {
+      tiltFrame = 0;
+      if (!tiltCard || !tiltEvt) return;
+      const rect = tiltCard.getBoundingClientRect();
+      const px = (tiltEvt.clientX - rect.left) / rect.width;
+      const py = (tiltEvt.clientY - rect.top) / rect.height;
+      tiltCard.classList.add('is-tilting');
+      tiltCard.style.setProperty('--ry', `${((px - 0.5) * 7).toFixed(2)}deg`);
+      tiltCard.style.setProperty('--rx', `${((0.5 - py) * 6).toFixed(2)}deg`);
+      tiltCard.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
+      tiltCard.style.setProperty('--my', `${(py * 100).toFixed(1)}%`);
+    });
+  });
+
+  gamesGrid.addEventListener('pointerleave', () => {
+    resetTilt(tiltCard);
+    tiltCard = null;
+  });
 
   // Filter Tabs & Search Listeners
   if (categoryTabsEl) {
@@ -881,6 +998,39 @@
     mountGame(gameId);
   }
 
+  // Games may expose pause()/resume()/isPaused(); the host uses them for the Esc key,
+  // tab switches and dialogs. Games without them simply ignore these calls.
+  function gameSupportsPause() {
+    return Boolean(
+      activeGameInstance &&
+        typeof activeGameInstance.pause === 'function' &&
+        typeof activeGameInstance.resume === 'function' &&
+        typeof activeGameInstance.isPaused === 'function'
+    );
+  }
+
+  function hostPauseGame() {
+    if (!gameSupportsPause() || activeGameInstance.isPaused()) return;
+    activeGameInstance.pause();
+    hostPausedGame = activeGameInstance.isPaused();
+  }
+
+  function hostResumeGame() {
+    if (!hostPausedGame) return;
+    hostPausedGame = false;
+    if (gameSupportsPause() && activeGameInstance.isPaused()) {
+      activeGameInstance.resume();
+    }
+  }
+
+  function toggleGamePause() {
+    if (!gameSupportsPause()) return false;
+    hostPausedGame = false;
+    if (activeGameInstance.isPaused()) activeGameInstance.resume();
+    else activeGameInstance.pause();
+    return true;
+  }
+
   function unmountActiveGame() {
     if (activeGameInstance && typeof activeGameInstance.destroy === 'function') {
       try {
@@ -891,6 +1041,7 @@
     }
     activeGameInstance = null;
     activeGameId = null;
+    hostPausedGame = false;
     gameMount.innerHTML = '';
   }
 
@@ -998,7 +1149,9 @@
     lbModalTitle.textContent = `Top 3 — ${gameMeta.title}`;
     lbModalBanner.textContent = bannerText || 'Danh sách 3 kỷ lục cao nhất trên thiết bị này';
     lbModalList.innerHTML = buildTop3RowsHtml(gameId, gameMeta.unit);
+    hostPauseGame();
     leaderboardModalOverlay.hidden = false;
+    closeLbModalBtn.focus();
   }
 
   function showHelpModal(gameId) {
@@ -1022,7 +1175,9 @@
       )
       .join('');
 
+    hostPauseGame();
     helpModalOverlay.hidden = false;
+    if (closeHelpModalBtn) closeHelpModalBtn.focus();
   }
 
   // Global Navbar & Stage Buttons
@@ -1054,6 +1209,7 @@
     closeHelpModalBtn.addEventListener('click', () => {
       ArcadeHub.sound.click();
       helpModalOverlay.hidden = true;
+      hostResumeGame();
     });
   }
 
@@ -1078,6 +1234,7 @@
   closeLbModalBtn.addEventListener('click', () => {
     ArcadeHub.sound.click();
     leaderboardModalOverlay.hidden = true;
+    hostResumeGame();
   });
 
   function updateSoundButtonUI() {
@@ -1103,7 +1260,9 @@
   });
 
   ArcadeHub.fullscreen.onChange((isFull) => {
-    stageFullscreenBtn.textContent = isFull ? '🗗 Thoát Full' : '⛶ Full màn hình';
+    if (stageFullscreenIcon) stageFullscreenIcon.textContent = isFull ? '🗗' : '⛶';
+    if (stageFullscreenText) stageFullscreenText.textContent = isFull ? 'Thoát Full' : 'Full màn hình';
+    stageFullscreenBtn.setAttribute('aria-label', isFull ? 'Thoát toàn màn hình' : 'Toàn màn hình');
   });
 
   // Khóa nút Back của trình duyệt & thao tác vuốt cạnh màn hình trên điện thoại khi đang trong game
@@ -1144,13 +1303,42 @@
   global.addEventListener(
     'keydown',
     (evt) => {
+      if (evt.key === 'Escape') {
+        if (!helpModalOverlay.hidden) {
+          evt.stopPropagation();
+          closeHelpModalBtn.click();
+          return;
+        }
+        if (!leaderboardModalOverlay.hidden) {
+          evt.stopPropagation();
+          closeLbModalBtn.click();
+          return;
+        }
+        if (!nameModalOverlay.hidden && !cancelNameModalBtn.hidden) {
+          evt.stopPropagation();
+          cancelNameModalBtn.click();
+          return;
+        }
+      }
       if (!activeGameId) return;
       if (isEditableTarget(evt.target) || isAnyModalOpen()) {
+        evt.stopPropagation();
+        return;
+      }
+      if (evt.key === 'Escape' && !evt.repeat && toggleGamePause()) {
+        evt.preventDefault();
         evt.stopPropagation();
       }
     },
     true
   );
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden || !activeGameId) return;
+    hostPauseGame();
+    // Stay paused after returning to the tab; the player resumes explicitly.
+    hostPausedGame = false;
+  });
 
   // Initial Boot
   function initApp() {

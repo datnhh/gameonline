@@ -128,6 +128,24 @@
     boost() {
       playTone(260, 'sawtooth', 0.18, 0.08, 620);
     },
+    pop() {
+      playTone(620, 'sine', 0.09, 0.1, 1180);
+    },
+    coin() {
+      playTone(988, 'square', 0.05, 0.05);
+      setTimeout(() => playTone(1318, 'square', 0.09, 0.05), 55);
+    },
+    whoosh() {
+      playNoise(0.16, 0.08);
+    },
+    levelUp() {
+      const notes = [392, 523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((n, idx) => {
+        setTimeout(() => {
+          playTone(n, 'square', 0.12, 0.06, n * 1.01);
+        }, idx * 70);
+      });
+    },
     win() {
       const notes = [523.25, 659.25, 783.99, 1046.5];
       notes.forEach((n, idx) => {
