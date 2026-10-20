@@ -40,9 +40,11 @@
     let streak = 0;
     let lives = 5;
     let isGameOver = false;
+    let isPaused = false;
     let animId = null;
     let lastTime = performance.now();
     let stepTimer = 0;
+    let wingPhase = 0;
 
     let snake = [];
     let dir = { x: 1, y: 0 };
@@ -61,6 +63,7 @@
             <button type="button" class="pill-btn" data-diff="hard">🔥 Khó (Cộng Trừ Nhân • Tường Đá)</button>
           </div>
           <div class="toolbar-group">
+            <button type="button" class="pill-btn" id="msPauseBtn">⏸ Tạm dừng</button>
             <span id="msPromptBadge" style="font-size:0.9rem;color:#facc15;font-weight:800;">🐉 Điều khiển Rồng Con ăn quả táo có kết quả đúng!</span>
           </div>
         </div>
@@ -84,6 +87,7 @@
     const canvas = container.querySelector('#mathSnakeCanvas');
     const g = canvas.getContext('2d');
     const promptBadge = container.querySelector('#msPromptBadge');
+    const pauseBtn = container.querySelector('#msPauseBtn');
     const diffBtns = container.querySelectorAll('[data-diff]');
 
     function generateMathQuestion() {
@@ -177,6 +181,8 @@
       streak = 0;
       lives = cfg.lives;
       isGameOver = false;
+      isPaused = false;
+      if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
       stepTimer = 0;
       ctx.updateScore(0);
 
@@ -305,7 +311,8 @@
     }
 
     function update(dt) {
-      if (isGameOver) return;
+      if (isGameOver || isPaused) return;
+      wingPhase += dt * 10;
 
       const cfg = DIFFICULTY_CFG[difficulty];
       stepTimer += dt;
@@ -445,6 +452,15 @@
           g.arc(6 + dir.x * 1.5, -3 + dir.y * 1.5, 2.2, 0, Math.PI * 2);
           g.fill();
         } else {
+          if (i === 1) {
+            // Cute flapping dragon wings on shoulders
+            const flap = Math.sin(wingPhase) * 5;
+            g.fillStyle = '#fde047';
+            g.beginPath();
+            g.ellipse(-14, -8 + flap * 0.4, 9, 5, -0.5, 0, Math.PI * 2);
+            g.ellipse(14, -8 + flap * 0.4, 9, 5, 0.5, 0, Math.PI * 2);
+            g.fill();
+          }
           const ratio = 1 - (i / (snake.length + 4)) * 0.35;
           g.fillStyle = i % 2 === 0 ? '#4ade80' : '#16a34a';
           g.strokeStyle = '#052e16';
@@ -478,6 +494,15 @@
         g.fillText(ft.text, ft.x, ft.y);
         g.restore();
       });
+
+      if (isPaused && !isGameOver) {
+        g.fillStyle = 'rgba(9, 13, 22, 0.8)';
+        g.fillRect(0, HEADER_H, W, ROWS * CELL);
+        g.fillStyle = '#38bdf8';
+        g.font = '900 32px sans-serif';
+        g.textAlign = 'center';
+        g.fillText('⏸ ĐANG TẠM DỪNG', W / 2, H / 2);
+      }
 
       if (isGameOver) {
         g.fillStyle = 'rgba(9, 13, 22, 0.84)';
@@ -561,6 +586,15 @@
       { passive: false }
     );
     global.addEventListener('keydown', onKeyDown);
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        if (isGameOver) return;
+        isPaused = !isPaused;
+        pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+        ArcadeHub.sound.click();
+      });
+    }
 
     diffBtns.forEach((btn) => {
       btn.addEventListener('click', () => {

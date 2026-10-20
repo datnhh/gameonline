@@ -51,6 +51,8 @@
     let score = 0;
     let lives = 5;
     let isGameOver = false;
+    let isPaused = false;
+    let shakeTimer = 0;
     let animId = null;
     let lastTime = performance.now();
 
@@ -88,6 +90,7 @@
             <button type="button" class="pill-btn" data-diff="hard">🔥 Khó (Tốc Độ Cao • 3 Tim)</button>
           </div>
           <div class="toolbar-group">
+            <button type="button" class="pill-btn" id="bbPauseBtn">⏸ Tạm dừng</button>
             <span id="bbStatusText" style="font-size:0.82rem;color:#facc15;font-weight:700;">Bấm Chuột hoặc Phím Space để phóng bóng!</span>
           </div>
         </div>
@@ -109,6 +112,7 @@
     const canvas = container.querySelector('#brickCanvas');
     const g = canvas.getContext('2d');
     const statusText = container.querySelector('#bbStatusText');
+    const pauseBtn = container.querySelector('#bbPauseBtn');
     const diffBtns = container.querySelectorAll('[data-diff]');
 
     function resetBallOnPaddle() {
@@ -118,7 +122,8 @@
           y: PADDLE_Y - BALL_R - 2,
           vx: 0,
           vy: 0,
-          stuck: true
+          stuck: true,
+          trail: []
         }
       ];
     }
@@ -184,6 +189,9 @@
       level = 1;
       lives = cfg.lives;
       isGameOver = false;
+      isPaused = false;
+      shakeTimer = 0;
+      if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
       ctx.updateScore(0);
       paddle.x = W / 2;
       paddle.w = cfg.paddleWidth;
@@ -259,6 +267,7 @@
       const cfg = DIFFICULTY_CFG[difficulty];
       const pts = Math.round((br.theme.pts + (br.hasStar ? 50 : 0)) * cfg.scoreMult);
       score += pts;
+      shakeTimer = 0.14;
       ctx.updateScore(score);
       spawnBurst(br.x + br.w / 2, br.y + br.h / 2, br.theme.fill, 12);
       ArcadeHub.sound.explosion();
@@ -291,7 +300,8 @@
     }
 
     function update(dt) {
-      if (isGameOver) return;
+      if (isGameOver || isPaused) return;
+      if (shakeTimer > 0) shakeTimer = Math.max(0, shakeTimer - dt);
 
       const cfg = DIFFICULTY_CFG[difficulty];
       const moveSpeed = 560;
@@ -346,6 +356,10 @@
           b.y = PADDLE_Y - BALL_R - 2;
           continue;
         }
+
+        if (!b.trail) b.trail = [];
+        b.trail.push({ x: b.x, y: b.y });
+        if (b.trail.length > 7) b.trail.shift();
 
         b.x += b.vx * dt;
         b.y += b.vy * dt;
@@ -544,8 +558,20 @@
       }
       g.restore();
 
-      // Balls
+      // Balls & Comet Trails
       balls.forEach((b) => {
+        if (b.trail && b.trail.length > 1) {
+          b.trail.forEach((pt, idx) => {
+            const ratio = (idx + 1) / b.trail.length;
+            g.save();
+            g.globalAlpha = ratio * 0.36;
+            g.fillStyle = '#38bdf8';
+            g.beginPath();
+            g.arc(pt.x, pt.y, BALL_R * ratio * 0.85, 0, Math.PI * 2);
+            g.fill();
+            g.restore();
+          });
+        }
         g.save();
         const bGrad = g.createRadialGradient(b.x - 3, b.y - 3, 2, b.x, b.y, BALL_R);
         bGrad.addColorStop(0, '#ffffff');
@@ -568,6 +594,18 @@
         g.fill();
         g.restore();
       });
+
+      if (isPaused && !isGameOver) {
+        g.fillStyle = 'rgba(9, 13, 22, 0.78)';
+        g.fillRect(0, 0, W, H);
+        g.fillStyle = '#38bdf8';
+        g.font = '900 32px sans-serif';
+        g.textAlign = 'center';
+        g.fillText('⏸ ĐANG TẠM DỪNG', W / 2, H / 2 - 10);
+        g.fillStyle = '#e2e8f0';
+        g.font = '700 16px sans-serif';
+        g.fillText('Bấm nút Tiếp tục để giải cứu hành tinh!', W / 2, H / 2 + 28);
+      }
 
       if (isGameOver) {
         g.fillStyle = 'rgba(9, 13, 22, 0.82)';
@@ -636,6 +674,15 @@
     canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     global.addEventListener('keydown', onKeyDown);
     global.addEventListener('keyup', onKeyUp);
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        if (isGameOver) return;
+        isPaused = !isPaused;
+        pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+        ArcadeHub.sound.click();
+      });
+    }
 
     diffBtns.forEach((btn) => {
       btn.addEventListener('click', () => {

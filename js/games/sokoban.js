@@ -111,10 +111,11 @@
     let switches = [];
     let boxes = [];
     let chestPos = { r: 1, c: 1 };
-    let player = { r: 1, c: 1, facing: 1 };
+    let player = { r: 1, c: 1, visR: 1, visC: 1, facing: 1 };
     let undoStack = [];
     let chestOpened = false;
     let transitionTimer = 0;
+    let runeAngle = 0;
     let particles = [];
 
     container.innerHTML = `
@@ -178,10 +179,10 @@
           walls[r][c] = ch === '#';
           switches[r][c] = ch === 'S' || ch === '*';
           if (ch === 'B' || ch === '*') {
-            boxes.push({ r, c });
+            boxes.push({ r, c, visR: r, visC: c });
           }
           if (ch === 'P') {
-            player = { r, c, facing: 1 };
+            player = { r, c, visR: r, visC: c, facing: 1 };
           }
           if (ch === 'C') {
             chestPos = { r, c };
@@ -208,8 +209,10 @@
       const prev = undoStack.pop();
       player.r = prev.player.r;
       player.c = prev.player.c;
+      player.visR = prev.player.r;
+      player.visC = prev.player.c;
       player.facing = prev.player.facing;
-      boxes = prev.boxes.map((b) => ({ r: b.r, c: b.c }));
+      boxes = prev.boxes.map((b) => ({ r: b.r, c: b.c, visR: b.r, visC: b.c }));
       movesCount = Math.max(0, movesCount - 1);
       ArcadeHub.sound.click();
       updateBadge();
@@ -296,6 +299,18 @@
     }
 
     function update(dt) {
+      runeAngle += dt * 1.8;
+      // Smooth slide interpolation for player & crystal boxes
+      const lerpRate = Math.min(1, dt * 16);
+      player.visR += (player.r - player.visR) * lerpRate;
+      player.visC += (player.c - player.visC) * lerpRate;
+      boxes.forEach((b) => {
+        if (b.visR == null) b.visR = b.r;
+        if (b.visC == null) b.visC = b.c;
+        b.visR += (b.r - b.visR) * lerpRate;
+        b.visC += (b.c - b.visC) * lerpRate;
+      });
+
       if (chestOpened) {
         transitionTimer -= dt;
         if (transitionTimer <= 0) {
@@ -347,14 +362,17 @@
             g.fillRect(x, y, cell, cell);
 
             if (switches[r][c]) {
-              // Glowing magic rune switch
+              // Glowing rotating magic rune switch
               g.save();
               g.translate(x + cell / 2, y + cell / 2);
+              g.rotate(runeAngle);
               g.strokeStyle = '#38bdf8';
-              g.lineWidth = 3;
+              g.lineWidth = 2.5;
+              g.setLineDash([6, 4]);
               g.beginPath();
-              g.arc(0, 0, cell * 0.28, 0, Math.PI * 2);
+              g.arc(0, 0, cell * 0.3, 0, Math.PI * 2);
               g.stroke();
+              g.setLineDash([]);
               g.fillStyle = 'rgba(56, 189, 248, 0.28)';
               g.fill();
               g.restore();
@@ -383,10 +401,12 @@
         g.restore();
       }
 
-      // Draw Magic Stones (Boxes)
+      // Draw Magic Stones (Boxes) with smooth sliding position
       boxes.forEach((b) => {
-        const x = startX + b.c * cell + cell / 2;
-        const y = startY + b.r * cell + cell / 2;
+        const vr = b.visR != null ? b.visR : b.r;
+        const vc = b.visC != null ? b.visC : b.c;
+        const x = startX + vc * cell + cell / 2;
+        const y = startY + vr * cell + cell / 2;
         const onSwitch = switches[b.r][b.c];
 
         g.save();
@@ -407,10 +427,12 @@
         g.restore();
       });
 
-      // Draw Hero Knight
+      // Draw Hero Knight with smooth sliding position
       {
-        const px = startX + player.c * cell + cell / 2;
-        const py = startY + player.r * cell + cell / 2;
+        const vr = player.visR != null ? player.visR : player.r;
+        const vc = player.visC != null ? player.visC : player.c;
+        const px = startX + vc * cell + cell / 2;
+        const py = startY + vr * cell + cell / 2;
         g.save();
         g.translate(px, py);
 

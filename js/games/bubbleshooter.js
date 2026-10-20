@@ -54,6 +54,7 @@
     let score = 0;
     let shotsUntilDrop = DIFFICULTY_CFG.easy.shotsPerDrop;
     let isGameOver = false;
+    let isPaused = false;
     let animId = null;
     let lastTime = performance.now();
 
@@ -68,6 +69,7 @@
     let activeShot = null; // { x, y, vx, vy, color }
     let fallingBubbles = []; // { x, y, vx, vy, color }
     let particles = [];
+    let shockwaves = []; // { x, y, r, maxR, color, alpha }
     let floatingTexts = [];
     let keys = { left: false, right: false };
 
@@ -82,6 +84,7 @@
           </div>
           <div class="toolbar-group">
             <button type="button" class="pill-btn" id="bsSwapBtn" title="Đổi trứng đang cầm với trứng dự bị (Phím Space)">🔄 Đổi Trứng (Space)</button>
+            <button type="button" class="pill-btn" id="bsPauseBtn">⏸ Tạm dừng</button>
             <span id="bsInfoBadge" style="font-size:0.82rem;color:#38bdf8;font-weight:700;">Màn 1 • Ghép 3 trứng cùng màu!</span>
           </div>
         </div>
@@ -105,6 +108,7 @@
     const g = canvas.getContext('2d');
     const infoBadge = container.querySelector('#bsInfoBadge');
     const swapBtn = container.querySelector('#bsSwapBtn');
+    const pauseBtn = container.querySelector('#bsPauseBtn');
     const diffBtns = container.querySelectorAll('[data-diff]');
 
     function isOddRow(r) {
@@ -151,9 +155,12 @@
         ctx.updateScore(0);
       }
       isGameOver = false;
+      isPaused = false;
+      if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
       activeShot = null;
       fallingBubbles = [];
       particles = [];
+      shockwaves = [];
       floatingTexts = [];
       rowParityOffset = 0;
       shotsUntilDrop = cfg.shotsPerDrop;
@@ -192,6 +199,7 @@
     }
 
     function fireBubble() {
+      if (isPaused) return;
       if (isGameOver) {
         initLevel(true);
         return;
@@ -243,6 +251,14 @@
     }
 
     function spawnBurst(x, y, hexColor, count) {
+      shockwaves.push({
+        x,
+        y,
+        r: RADIUS * 0.4,
+        maxR: RADIUS * 2.4,
+        color: hexColor,
+        alpha: 0.85
+      });
       for (let i = 0; i < count; i++) {
         const ang = Math.random() * Math.PI * 2;
         const spd = 60 + Math.random() * 180;
@@ -451,7 +467,7 @@
     }
 
     function update(dt) {
-      if (isGameOver) return;
+      if (isGameOver || isPaused) return;
 
       if (keys.left) {
         aimAngle = Math.max(-Math.PI + 0.18, aimAngle - 1.8 * dt);
@@ -523,6 +539,14 @@
         p.y += p.vy * dt;
         p.life -= dt;
         if (p.life <= 0) particles.splice(i, 1);
+      }
+
+      // Shockwaves
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.r += (sw.maxR - sw.r) * 9 * dt;
+        sw.alpha -= 2.2 * dt;
+        if (sw.alpha <= 0) shockwaves.splice(i, 1);
       }
 
       // Floating texts
@@ -783,6 +807,18 @@
         drawEggBubble(LAUNCHER_X, LAUNCHER_Y, currentColor, 1);
       }
 
+      // Shockwaves
+      shockwaves.forEach((sw) => {
+        g.save();
+        g.globalAlpha = Math.max(0, sw.alpha);
+        g.strokeStyle = sw.color;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+        g.stroke();
+        g.restore();
+      });
+
       // Particles
       particles.forEach((p) => {
         g.save();
@@ -794,6 +830,14 @@
         g.restore();
       });
 
+      // Shockwaves
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.r += (sw.maxR - sw.r) * 9 * dt;
+        sw.alpha -= 2.2 * dt;
+        if (sw.alpha <= 0) shockwaves.splice(i, 1);
+      }
+
       // Floating texts
       floatingTexts.forEach((ft) => {
         g.save();
@@ -804,6 +848,18 @@
         g.fillText(ft.text, ft.x, ft.y);
         g.restore();
       });
+
+      if (isPaused && !isGameOver) {
+        g.fillStyle = 'rgba(9, 13, 22, 0.78)';
+        g.fillRect(PLAY_LEFT, PLAY_TOP, PLAY_RIGHT - PLAY_LEFT, PLAY_BOTTOM - PLAY_TOP);
+        g.fillStyle = '#38bdf8';
+        g.font = '900 32px sans-serif';
+        g.textAlign = 'center';
+        g.fillText('⏸ ĐANG TẠM DỪNG', LAUNCHER_X, H / 2 - 10);
+        g.fillStyle = '#e2e8f0';
+        g.font = '700 16px sans-serif';
+        g.fillText('Bấm nút Tiếp tục để bắn trứng tiếp nhé!', LAUNCHER_X, H / 2 + 28);
+      }
 
       if (isGameOver) {
         g.fillStyle = 'rgba(9, 13, 22, 0.82)';
@@ -893,6 +949,14 @@
     global.addEventListener('keyup', onKeyUp);
 
     swapBtn.addEventListener('click', swapBubbles);
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        if (isGameOver) return;
+        isPaused = !isPaused;
+        pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+        ArcadeHub.sound.click();
+      });
+    }
 
     diffBtns.forEach((btn) => {
       btn.addEventListener('click', () => {

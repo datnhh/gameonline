@@ -122,6 +122,16 @@
             Chọn ô trống và điền số từ 1 đến 9
           </div>
 
+          <div style="background:rgba(9,14,28,0.75);border-radius:8px;padding:6px 10px;border:1px solid rgba(148,163,184,0.18);">
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#cbd5e1;margin-bottom:4px;">
+              <span>Tiến độ giải bảng</span>
+              <strong id="sudokuProgressText" style="color:#34d399;">0/81 (0%)</strong>
+            </div>
+            <div style="height:6px;background:#0f172a;border-radius:999px;overflow:hidden;">
+              <div id="sudokuProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#38bdf8,#10b981);transition:width 0.25s ease;"></div>
+            </div>
+          </div>
+
           <div class="numpad-grid" id="sudokuNumpad">
             <button type="button" class="numpad-btn" data-num="1">1</button>
             <button type="button" class="numpad-btn" data-num="2">2</button>
@@ -160,6 +170,8 @@
     const noteBtn = shell.querySelector('#sudokuNoteBtn');
     const eraseBtn = shell.querySelector('#sudokuEraseBtn');
     const hintBtn = shell.querySelector('#sudokuHintBtn');
+    const progressTextEl = shell.querySelector('#sudokuProgressText');
+    const progressBarEl = shell.querySelector('#sudokuProgressBar');
 
     function startNewGame() {
       if (timerId) clearInterval(timerId);
@@ -269,6 +281,28 @@
           boardEl.appendChild(cell);
         }
       }
+
+      // Update progress bar & numpad remaining counts
+      let solvedCells = 0;
+      const digitCounts = Array(10).fill(0);
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (board[r][c] !== 0 && board[r][c] === solution[r][c]) {
+            solvedCells++;
+            digitCounts[board[r][c]]++;
+          }
+        }
+      }
+      const pct = Math.round((solvedCells / 81) * 100);
+      if (progressTextEl) progressTextEl.textContent = `${solvedCells}/81 (${pct}%)`;
+      if (progressBarEl) progressBarEl.style.width = `${pct}%`;
+
+      shell.querySelectorAll('[data-num]').forEach((btn) => {
+        const n = Number(btn.getAttribute('data-num'));
+        const rem = Math.max(0, 9 - digitCounts[n]);
+        btn.innerHTML = `${n}<span style="position:absolute;bottom:3px;right:6px;font-size:0.62rem;font-weight:700;color:${rem === 0 ? '#34d399' : '#94a3b8'};">${rem === 0 ? '✓' : rem}</span>`;
+        btn.style.opacity = rem === 0 ? '0.5' : '1';
+      });
     }
 
     function clearPeerNotes(row, col, num) {

@@ -54,6 +54,7 @@
     let totalStars = 0;
     let robotCharged = false;
     let winTimer = 0;
+    let laserPulsePhase = 0;
     let particles = [];
 
     container.innerHTML = `
@@ -314,6 +315,18 @@
     }
 
     function update(dt) {
+      laserPulsePhase += dt * 6;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const item = grid[r] && grid[r][c];
+          if (item && item.type === 'mirror') {
+            const targetAng = item.state === 0 ? -Math.PI / 4 : Math.PI / 4;
+            if (item.visAngle == null) item.visAngle = targetAng;
+            item.visAngle += (targetAng - item.visAngle) * Math.min(1, dt * 16);
+          }
+        }
+      }
+
       if (robotCharged) {
         winTimer -= dt;
         if (winTimer <= 0) {
@@ -393,6 +406,18 @@
         g.strokeStyle = '#ffffff';
         g.lineWidth = 2.2;
         g.stroke();
+
+        // Glowing reflection nodes at mirrors along the beam
+        laserPath.forEach((pt, idx) => {
+          if (idx > 0 && idx < laserPath.length - 1 && grid[pt.r][pt.c].type === 'mirror') {
+            const px = startX + pt.c * cell + cell / 2;
+            const py = startY + pt.r * cell + cell / 2;
+            g.fillStyle = '#fef08a';
+            g.beginPath();
+            g.arc(px, py, 5 + Math.sin(laserPulsePhase + idx) * 1.8, 0, Math.PI * 2);
+            g.fill();
+          }
+        });
         g.restore();
       }
 
@@ -441,20 +466,15 @@
           } else if (item.type === 'mirror') {
             g.save();
             g.translate(cx, cy);
-            const len = cell * 0.34;
+            const ang = item.visAngle != null ? item.visAngle : item.state === 0 ? -Math.PI / 4 : Math.PI / 4;
+            g.rotate(ang);
+            const len = cell * 0.36;
             g.strokeStyle = '#38bdf8';
             g.lineWidth = 7;
             g.lineCap = 'round';
             g.beginPath();
-            if (item.state === 0) {
-              // '/'
-              g.moveTo(-len, len);
-              g.lineTo(len, -len);
-            } else {
-              // '\'
-              g.moveTo(-len, -len);
-              g.lineTo(len, len);
-            }
+            g.moveTo(-len, 0);
+            g.lineTo(len, 0);
             g.stroke();
 
             g.strokeStyle = '#e0f2fe';

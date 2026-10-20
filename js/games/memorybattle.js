@@ -71,6 +71,7 @@
     let floatingTexts = [];
     let bossShake = 0;
     let heroShake = 0;
+    let breathPhase = 0;
 
     container.innerHTML = `
       <div class="game-shell">
@@ -122,7 +123,8 @@
         index,
         info,
         flipped: true,
-        matched: false
+        matched: false,
+        flipAnim: 1
       }));
       flippedIndices = [];
       lockTimer = 0;
@@ -302,6 +304,13 @@
 
       if (bossShake > 0) bossShake = Math.max(0, bossShake - dt);
       if (heroShake > 0) heroShake = Math.max(0, heroShake - dt);
+      breathPhase += dt * 3.2;
+
+      cards.forEach((c) => {
+        const target = c.flipped || c.matched ? 1 : 0;
+        if (c.flipAnim == null) c.flipAnim = target;
+        c.flipAnim += (target - c.flipAnim) * Math.min(1, dt * 14);
+      });
 
       // Projectiles
       for (let i = projectiles.length - 1; i >= 0; i--) {
@@ -408,8 +417,9 @@
 
       // Right: Space Boss
       const bx = W - 95 + (bossShake > 0 ? Math.sin(bossShake * 50) * 7 : 0);
+      const by = 60 + Math.sin(breathPhase) * 3.5;
       g.font = '50px sans-serif';
-      g.fillText(currentBoss.icon, bx, 60);
+      g.fillText(currentBoss.icon, bx, by);
       drawHpBar(W - 258, 102, 220, 22, bossHp, bossMaxHp, '#ef4444', currentBoss.name.toUpperCase());
 
       // Projectiles
@@ -428,15 +438,21 @@
         g.restore();
       });
 
-      // Cards Grid
+      // Cards Grid with 3D Flip Animation
       const rects = getCardRects();
       rects.forEach(({ x, y, w, h, card }) => {
         g.save();
         if (card.matched) {
-          g.globalAlpha = 0.38;
+          g.globalAlpha = 0.42;
         }
 
-        if (card.flipped || card.matched) {
+        const anim = card.flipAnim != null ? card.flipAnim : card.flipped ? 1 : 0;
+        const scaleX = Math.max(0.06, Math.abs(Math.cos(anim * Math.PI)));
+        g.translate(x + w / 2, y + h / 2);
+        g.scale(scaleX, 1);
+        g.translate(-(x + w / 2), -(y + h / 2));
+
+        if (anim >= 0.5) {
           g.fillStyle = '#1e293b';
           g.strokeStyle = card.info.color;
           g.lineWidth = 3;
