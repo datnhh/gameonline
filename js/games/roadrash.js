@@ -27,7 +27,20 @@
     let distanceKm = 0;
     let knockouts = 0;
     let isGameOver = false;
+    let isPaused = false;
     let autoThrottle = true;
+
+    // Presentation-only state (never read by gameplay)
+    const fx = ArcadeHub.fx;
+    const sparks = fx.createParticles(360);
+    const camShake = fx.createShake(14);
+    let sceneTime = 0;
+    let overlayT = 0;
+    let exhaustTimer = 0;
+    const skyStars = [];
+    for (let i = 0; i < 60; i++) {
+      skyStars.push({ x: Math.random(), y: Math.random() * 0.55, r: Math.random() * 1.3 + 0.4, tw: Math.random() * 6.28 });
+    }
 
     // Combat & Comic Effects
     let leanAngle = 0;
@@ -62,7 +75,8 @@
         <div class="touch-cluster">
           <button type="button" class="touch-btn" id="rrBtnLeft">◀ RẼ TRÁI</button>
           <button type="button" class="touch-btn" id="rrBtnRight">RẼ PHẢI ▶</button>
-          <button type="button" class="pill-btn active" id="rrAutoGasBtn" style="height:52px;">⚙ Tự giữ ga: BẬT</button>
+          <button type="button" class="pill-btn active" id="rrAutoGasBtn" style="height:50px;">⚙ Tự giữ ga: BẬT</button>
+          <button type="button" class="pill-btn" id="rrPauseBtn" style="height:50px;" aria-label="Tạm dừng / Tiếp tục">⏸ Dừng</button>
         </div>
         <div class="touch-cluster">
           <button type="button" class="touch-btn action-danger" id="rrBtnKick">🦵 TUNG CÚ ĐÁ (SPACE)</button>
@@ -81,6 +95,22 @@
     const btnRight = shell.querySelector('#rrBtnRight');
     const btnKick = shell.querySelector('#rrBtnKick');
     const btnNitro = shell.querySelector('#rrBtnNitro');
+    const pauseBtn = shell.querySelector('#rrPauseBtn');
+
+    function releaseAllKeys() {
+      Object.keys(keys).forEach((k) => {
+        keys[k] = false;
+      });
+      shell.querySelectorAll('.touch-btn.pressed').forEach((b) => b.classList.remove('pressed'));
+    }
+
+    function setPaused(next) {
+      if (isGameOver && next) return;
+      isPaused = next;
+      if (isPaused) releaseAllKeys();
+      pauseBtn.textContent = isPaused ? '▶ Chạy' : '⏸ Dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+    }
 
     function buildSkyline() {
       skylineBuildings = [];
@@ -91,7 +121,7 @@
         const spire = Math.random() < 0.35;
         const tint =
           Math.random() < 0.5 ? '#1e1b4b' : Math.random() < 0.5 ? '#172554' : '#311042';
-        skylineBuildings.push({ x: curX, w: bw, h: bh, spire, tint });
+        skylineBuildings.push({ x: curX, w: bw, h: bh, spire, tint, seed: Math.floor(Math.random() * 1000) });
         curX += bw - 4;
       }
     }
@@ -179,6 +209,9 @@
       kickTimer = 0;
       hurtFlash = 0;
       comicPopups = [];
+      sparks.clear();
+      camShake.reset();
+      if (pauseBtn) setPaused(false);
       statusBanner = '🏁 ÁP SÁT ĐỐI THỦ & BẤM SPACE ĐỂ TUNG CÚ ĐÁ MARVEL SMASH!';
       bannerTimer = 3.5;
 
@@ -238,7 +271,7 @@
     }
 
     function triggerKick() {
-      if (isGameOver || kickTimer > 0) return;
+      if (isGameOver || isPaused || kickTimer > 0) return;
       kickTimer = 0.36;
       ArcadeHub.sound.shoot();
 
@@ -255,6 +288,15 @@
           knockouts += 1;
           score += 350;
           ArcadeHub.sound.explosion();
+          camShake.add(0.45);
+          sparks.burst(width * 0.5 + kickSide * 70, height - 90, {
+            kind: 'star',
+            count: 14,
+            speed: [160, 420],
+            life: [0.3, 0.6],
+            size: [2, 4],
+            colors: ['#fde047', '#ffffff', '#fb923c']
+          });
           addComicPopup(
             width * 0.5 + kickSide * 120,
             height - 155,
@@ -271,7 +313,7 @@
     }
 
     function updateGame(dt) {
-      if (isGameOver) return;
+      if (isGameOver || isPaused) return;
 
       if (kickTimer > 0) kickTimer = Math.max(0, kickTimer - dt);
       if (hurtFlash > 0) hurtFlash = Math.max(0, hurtFlash - dt * 2.5);
@@ -358,6 +400,15 @@
             rv.x -= pushDir * 0.25;
             bikeHp = Math.max(0, bikeHp - 6);
             hurtFlash = 0.65;
+            camShake.add(0.3);
+            sparks.burst(width * 0.5 - pushDir * 30, height - 60, {
+              kind: 'spark',
+              count: 12,
+              speed: [180, 420],
+              life: [0.2, 0.45],
+              gravity: 600,
+              colors: ['#fde047', '#fb923c', '#ffffff']
+            });
             ArcadeHub.sound.hit();
             addComicPopup(width * 0.5, height - 150, 'BAM!', '-6% GIÁP', '#f43f5e');
           }
@@ -381,6 +432,23 @@
           speed = Math.max(55, speed * 0.35);
           bikeHp = Math.max(0, bikeHp - 22);
           hurtFlash = 1.0;
+          camShake.add(0.85);
+          sparks.burst(width * 0.5, height - 70, {
+            kind: 'spark',
+            count: 26,
+            speed: [220, 560],
+            life: [0.25, 0.6],
+            gravity: 700,
+            colors: ['#fef3c7', '#fde047', '#f97316']
+          });
+          sparks.burst(width * 0.5, height - 70, {
+            kind: 'smoke',
+            count: 10,
+            speed: [30, 110],
+            life: [0.6, 1.1],
+            size: [10, 18],
+            colors: ['#334155', '#1e293b']
+          });
           car.zOffset = 1650 + Math.random() * 500;
           addComicPopup(width * 0.5, height * 0.52, 'CRASH!!', '-22% ĐỘ BỀN XE', '#ef4444');
 
@@ -400,6 +468,65 @@
       });
 
       ctx.updateScore(score);
+    }
+
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      camShake.update(dt);
+      sparks.update(dt);
+      if (isGameOver) return;
+
+      // Exhaust: grey puffs normally, blue flame sparks with nitro, dust when off-road
+      const nitroOn = keys.nitro && nitroFuel > 4;
+      exhaustTimer -= dt;
+      if (exhaustTimer <= 0 && speed > 20) {
+        exhaustTimer = nitroOn ? 0.016 : 0.07;
+        const lean = leanAngle * 0.28;
+        [-18, 18].forEach((ex) => {
+          const px = width * 0.5 + Math.cos(lean) * ex + Math.sin(lean) * 20;
+          const py = height - 18 - 21;
+          if (nitroOn) {
+            sparks.spawn({
+              kind: 'dot',
+              x: px,
+              y: py + 6,
+              vx: (Math.random() - 0.5) * 50,
+              vy: 160 + Math.random() * 120,
+              life: 0.22,
+              size: 4 + Math.random() * 3,
+              endSize: 0.5,
+              color: Math.random() < 0.5 ? '#38bdf8' : '#a855f7'
+            });
+          } else {
+            sparks.spawn({
+              kind: 'smoke',
+              x: px,
+              y: py + 4,
+              vx: (Math.random() - 0.5) * 30,
+              vy: 40 + Math.random() * 30,
+              life: 0.5,
+              size: 3,
+              endSize: 11,
+              color: '#94a3b8',
+              alpha: 0.5
+            });
+          }
+        });
+        if (Math.abs(playerX) > 1.04) {
+          sparks.burst(width * 0.5, height - 22, {
+            kind: 'smoke',
+            count: 2,
+            speed: [40, 120],
+            life: [0.4, 0.8],
+            size: [6, 10],
+            angle: Math.PI / 2,
+            spread: 1.6,
+            colors: ['#a16207', '#78716c']
+          });
+        }
+      }
     }
 
     // ====================================================
@@ -578,7 +705,7 @@
       g2d.fillStyle = '#ffffff';
       g2d.strokeStyle = '#090d16';
       g2d.lineWidth = 3;
-      g2d.font = '900 18px "Segoe UI", sans-serif';
+      g2d.font = `900 18px ${fx.FONT_STACK}`;
       g2d.textAlign = 'center';
       g2d.strokeText('MARVEL SPEED', 0, -78);
       g2d.fillText('MARVEL SPEED', 0, -78);
@@ -857,10 +984,16 @@
     // ====================================================
     function drawInGameHud() {
       g2d.save();
+      // Narrow canvases (phones) get a proportionally smaller HUD so panels never overlap.
+      const hudK = Math.max(0.62, Math.min(1, width / 760));
 
       // 1. TOP-LEFT PANEL: MÁU (HP) & NITRO BARS
       const panelX = 16;
       const panelY = 14;
+      g2d.save();
+      g2d.translate(panelX, panelY);
+      g2d.scale(hudK, hudK);
+      g2d.translate(-panelX, -panelY);
 
       // Slanted Comic Backing Box
       g2d.fillStyle = 'rgba(9, 13, 22, 0.82)';
@@ -881,7 +1014,7 @@
         bikeHp > 55 ? '#22c55e' : bikeHp > 25 ? '#f59e0b' : '#ef4444';
 
       g2d.fillStyle = '#ffffff';
-      g2d.font = '800 12px "Segoe UI", sans-serif';
+      g2d.font = `800 12px ${fx.FONT_STACK}`;
       g2d.textAlign = 'left';
       g2d.fillText(`🛡 MÁU / ĐỘ BỀN XE: ${Math.round(bikeHp)}%`, panelX + 12, panelY + 21);
 
@@ -906,10 +1039,18 @@
       g2d.fillStyle = nitroGrad;
       g2d.fillRect(panelX + 12, panelY + 59, 198 * nitroRatio, 11);
       g2d.strokeRect(panelX + 12, panelY + 59, 198, 11);
+      if (keys.nitro && nitroFuel > 4) {
+        fx.glow(g2d, panelX + 12 + 198 * nitroRatio, panelY + 64, 26, '#38bdf8', 0.7);
+      }
+      g2d.restore();
 
       // 2. TOP-RIGHT PANEL: ĐIỂM SỐ, QUÃNG ĐƯỜNG & HẠ GỤC (K.O.)
       const rightW = 240;
       const rightX = width - rightW - 16;
+      g2d.save();
+      g2d.translate(width - 16, panelY);
+      g2d.scale(hudK, hudK);
+      g2d.translate(-(width - 16), -panelY);
       g2d.fillStyle = 'rgba(9, 13, 22, 0.82)';
       g2d.strokeStyle = '#facc15';
       g2d.lineWidth = 2.5;
@@ -924,11 +1065,11 @@
 
       g2d.textAlign = 'right';
       g2d.fillStyle = '#facc15';
-      g2d.font = '900 18px "Segoe UI", sans-serif';
+      g2d.font = `900 18px ${fx.FONT_STACK}`;
       g2d.fillText(`🏆 ${score.toLocaleString('vi-VN')} ĐIỂM`, rightX + rightW - 12, panelY + 26);
 
       g2d.fillStyle = '#f8fafc';
-      g2d.font = '700 13px "Segoe UI", sans-serif';
+      g2d.font = `700 13px ${fx.FONT_STACK}`;
       g2d.fillText(
         `🛣 Quãng đường: ${distanceKm.toFixed(2)} km`,
         rightX + rightW - 12,
@@ -941,11 +1082,19 @@
         rightX + rightW - 12,
         panelY + 67
       );
+      g2d.restore();
 
       // 3. BOTTOM-RIGHT SPEEDOMETER DIAL (ĐỒNG HỒ TỐC ĐỘ KM/H TRONG MÀN HÌNH)
       const dialCx = width - 82;
       const dialCy = height - 68;
       const dialR = 54;
+      g2d.save();
+      g2d.translate(width - 16, height - 14);
+      g2d.scale(hudK, hudK);
+      g2d.translate(-(width - 16), -(height - 14));
+      if (keys.nitro && nitroFuel > 4) {
+        fx.glow(g2d, dialCx, dialCy, dialR * 1.8, '#f43f5e', 0.35);
+      }
 
       g2d.fillStyle = 'rgba(9, 13, 22, 0.86)';
       g2d.strokeStyle = keys.nitro && nitroFuel > 4 ? '#f43f5e' : '#38bdf8';
@@ -986,12 +1135,13 @@
 
       // Digital Speed Text
       g2d.fillStyle = '#ffffff';
-      g2d.font = '900 20px "Segoe UI", sans-serif';
+      g2d.font = `900 20px ${fx.FONT_STACK}`;
       g2d.textAlign = 'center';
       g2d.fillText(String(Math.round(speed)), dialCx, dialCy + 18);
       g2d.fillStyle = '#94a3b8';
-      g2d.font = '700 10px "Segoe UI", sans-serif';
+      g2d.font = `700 10px ${fx.FONT_STACK}`;
       g2d.fillText('KM/H', dialCx, dialCy + 31);
+      g2d.restore();
 
       g2d.restore();
     }
@@ -1024,13 +1174,13 @@
       g2d.fillStyle = '#ffffff';
       g2d.strokeStyle = '#090d16';
       g2d.lineWidth = 4;
-      g2d.font = 'italic 900 22px "Segoe UI", sans-serif';
+      g2d.font = `italic 900 22px ${fx.FONT_STACK}`;
       g2d.textAlign = 'center';
       g2d.strokeText(cp.text, 0, 4);
       g2d.fillText(cp.text, 0, 4);
 
       if (cp.subtext) {
-        g2d.font = '800 11px "Segoe UI", sans-serif';
+        g2d.font = `800 11px ${fx.FONT_STACK}`;
         g2d.fillStyle = '#fef08a';
         g2d.strokeText(cp.subtext, 0, 22);
         g2d.fillText(cp.subtext, 0, 22);
@@ -1041,36 +1191,87 @@
 
     function drawScene() {
       const horizonY = Math.floor(height * 0.43);
+      g2d.save();
+      camShake.apply(g2d);
 
-      // 1. Marvel Sunset Sky Gradient
+      // 1. Synthwave sunset sky with stars
       const skyGrad = g2d.createLinearGradient(0, 0, 0, horizonY);
-      skyGrad.addColorStop(0, '#090d1e');
-      skyGrad.addColorStop(0.45, '#3b0764');
-      skyGrad.addColorStop(0.8, '#be123c');
+      skyGrad.addColorStop(0, '#050816');
+      skyGrad.addColorStop(0.4, '#3b0764');
+      skyGrad.addColorStop(0.78, '#be123c');
       skyGrad.addColorStop(1, '#f97316');
       g2d.fillStyle = skyGrad;
       g2d.fillRect(0, 0, width, horizonY);
 
-      // Comic Sun & Speed Sunbeams
-      const sunX = width * 0.5;
-      const sunY = horizonY - 18;
-      g2d.fillStyle = 'rgba(254, 240, 138, 0.88)';
-      g2d.beginPath();
-      g2d.arc(sunX, sunY, 52, Math.PI, 0);
-      g2d.fill();
+      g2d.fillStyle = '#ffffff';
+      skyStars.forEach((st) => {
+        const a = (1 - st.y / 0.55) * (0.4 + 0.4 * Math.sin(sceneTime * 2 + st.tw));
+        if (a <= 0.05) return;
+        g2d.globalAlpha = a;
+        g2d.fillRect(st.x * width, st.y * horizonY, st.r, st.r);
+      });
+      g2d.globalAlpha = 1;
 
-      // Parallax City Skyscrapers Silhouette
-      const parallaxOffset = ((trackPos * 0.04) % 400);
+      // Striped retro sun with bloom
+      const sunX = width * 0.5;
+      const sunR = Math.min(70, width * 0.09);
+      const sunY = horizonY - sunR * 0.35;
+      fx.glow(g2d, sunX, sunY, sunR * 3.2, '#f97316', 0.55);
+      g2d.save();
+      g2d.beginPath();
+      g2d.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+      g2d.clip();
+      const sunGrad = g2d.createLinearGradient(0, sunY - sunR, 0, sunY + sunR);
+      sunGrad.addColorStop(0, '#fef08a');
+      sunGrad.addColorStop(0.5, '#fb923c');
+      sunGrad.addColorStop(1, '#db2777');
+      g2d.fillStyle = sunGrad;
+      g2d.fillRect(sunX - sunR, sunY - sunR, sunR * 2, sunR * 2);
+      g2d.fillStyle = '#7c1d3f';
+      for (let k = 0; k < 6; k++) {
+        const band = sunY + sunR * (0.05 + k * 0.17);
+        g2d.fillRect(sunX - sunR, band, sunR * 2, 1.5 + k * 1.3);
+      }
+      g2d.restore();
+
+      // Far neon mountain ridge (slow parallax, follows road curves a little)
+      const curveDrift = segments.length
+        ? segments[Math.floor(trackPos / SEGMENT_LENGTH) % TOTAL_SEGMENTS].curve * 6
+        : 0;
+      const ridgeShift = ((trackPos * 0.008 + curveDrift * 10) % 360 + 360) % 360;
+      g2d.fillStyle = '#1e0b3a';
+      g2d.strokeStyle = 'rgba(244, 114, 182, 0.7)';
+      g2d.lineWidth = 1.5;
+      g2d.beginPath();
+      g2d.moveTo(0, horizonY);
+      for (let x = -360; x <= width + 360; x += 60) {
+        const px = x - ridgeShift;
+        const peak = 26 + ((Math.sin(x * 0.013) + 1) * 0.5) * 34 + ((x / 60) % 2 === 0 ? 0 : 14);
+        g2d.lineTo(px, horizonY - peak);
+      }
+      g2d.lineTo(width, horizonY);
+      g2d.closePath();
+      g2d.fill();
+      g2d.stroke();
+
+      // Parallax city skyline: continuous wrap (no jump) with lit windows
+      const skylineSpan = 1400;
+      const parallaxOffset = trackPos * 0.04 + curveDrift * 4;
       skylineBuildings.forEach((b) => {
-        const bx = ((b.x - parallaxOffset + 1600) % 1400) - 120;
+        const bx = ((((b.x - parallaxOffset) % skylineSpan) + skylineSpan) % skylineSpan) - 120;
+        if (bx > width + 20 || bx + b.w < -20) return;
         const by = horizonY - b.h;
-        g2d.fillStyle = b.tint;
+        const bGrad = g2d.createLinearGradient(0, by, 0, horizonY);
+        bGrad.addColorStop(0, b.tint);
+        bGrad.addColorStop(1, '#0a0418');
+        g2d.fillStyle = bGrad;
         g2d.strokeStyle = '#090d16';
         g2d.lineWidth = 2;
         g2d.fillRect(bx, by, b.w, b.h);
         g2d.strokeRect(bx, by, b.w, b.h);
 
         if (b.spire) {
+          g2d.fillStyle = b.tint;
           g2d.beginPath();
           g2d.moveTo(bx + b.w * 0.5, by - 24);
           g2d.lineTo(bx + b.w * 0.3, by);
@@ -1078,8 +1279,28 @@
           g2d.closePath();
           g2d.fill();
           g2d.stroke();
+          if (Math.sin(sceneTime * 3 + b.seed) > 0.2) {
+            fx.glow(g2d, bx + b.w * 0.5, by - 24, 8, '#ef4444', 0.9);
+          }
+        }
+
+        // Window grid: a deterministic pattern per building
+        for (let wy = by + 8; wy < horizonY - 8; wy += 11) {
+          for (let wx = bx + 6; wx < bx + b.w - 6; wx += 9) {
+            const h = (Math.floor(wx - bx) * 7 + Math.floor(wy - by) * 13 + b.seed) % 11;
+            if (h > 3) continue;
+            g2d.fillStyle = h === 0 ? 'rgba(56, 189, 248, 0.75)' : 'rgba(253, 224, 71, 0.6)';
+            g2d.fillRect(wx, wy, 4, 5);
+          }
         }
       });
+
+      // Horizon haze line
+      const haze = g2d.createLinearGradient(0, horizonY - 14, 0, horizonY + 6);
+      haze.addColorStop(0, 'rgba(249, 115, 22, 0)');
+      haze.addColorStop(1, 'rgba(249, 115, 22, 0.45)');
+      g2d.fillStyle = haze;
+      g2d.fillRect(0, horizonY - 14, width, 20);
 
       // 2. Pseudo-3D Road Projection
       const baseSegIdx = Math.floor(trackPos / SEGMENT_LENGTH);
@@ -1255,16 +1476,19 @@
         nitroActive: keys.nitro && nitroFuel > 4
       });
 
-      // Comic Speed Lines at high speed / Nitro
-      if (speed > 280) {
+      sparks.draw(g2d);
+
+      // Comic Speed Lines at high speed / Nitro (intensity follows speed)
+      if (speed > 260 && !fx.isReducedMotion()) {
+        const intensity = Math.min(1, (speed - 260) / 140);
         g2d.save();
         g2d.strokeStyle =
           keys.nitro && nitroFuel > 4
-            ? 'rgba(56, 189, 248, 0.45)'
-            : 'rgba(255, 255, 255, 0.22)';
+            ? `rgba(56, 189, 248, ${0.25 + intensity * 0.35})`
+            : `rgba(255, 255, 255, ${0.08 + intensity * 0.2})`;
         g2d.lineWidth = 2;
         for (let i = 0; i < 12; i++) {
-          const ang = (i / 12) * Math.PI * 2 + performance.now() * 0.01;
+          const ang = (i / 12) * Math.PI * 2 + sceneTime * 10;
           const r1 = Math.min(width, height) * 0.36;
           const r2 = Math.max(width, height) * 0.75;
           g2d.beginPath();
@@ -1275,49 +1499,75 @@
         g2d.restore();
       }
 
+      // Nitro bloom: cool tint at the screen edges
+      if (keys.nitro && nitroFuel > 4 && !isGameOver) {
+        fx.vignette(g2d, width, height, 0, 'rgba(56, 189, 248, 0.28)');
+      }
+
       // 4. Draw Comic Action Starbursts ("SMASH!!", "CRASH!!", "BAM!")
       comicPopups.forEach((cp) => drawComicBurstPopup(cp));
+      g2d.restore();
 
       // 5. Draw In-Screen HUD (Máu, Nitro, Tốc độ, Điểm, Quãng đường)
       drawInGameHud();
 
-      // Status Banner
+      // Status Banner (fits the canvas width, fades out)
       if (bannerTimer > 0 && statusBanner) {
-        g2d.fillStyle = 'rgba(9, 13, 22, 0.88)';
+        const bw = Math.min(width - 32, 460);
+        const by = Math.max(98, 14 + 82 * Math.max(0.62, Math.min(1, width / 760)) + 8);
+        g2d.save();
+        g2d.globalAlpha = Math.min(1, bannerTimer / 0.4);
+        fx.roundRectPath(g2d, width * 0.5 - bw / 2, by, bw, 30, 15);
+        g2d.fillStyle = 'rgba(9, 13, 22, 0.9)';
+        g2d.fill();
         g2d.strokeStyle = '#facc15';
         g2d.lineWidth = 2;
-        g2d.fillRect(width * 0.5 - 220, 98, 440, 30);
-        g2d.strokeRect(width * 0.5 - 220, 98, 440, 30);
+        g2d.stroke();
         g2d.fillStyle = '#fef08a';
-        g2d.font = '800 13px "Segoe UI", sans-serif';
         g2d.textAlign = 'center';
-        g2d.fillText(statusBanner, width * 0.5, 118);
+        g2d.textBaseline = 'middle';
+        const fs = fx.fitFontSize(g2d, statusBanner, bw - 24, 13, 9, 800);
+        g2d.font = fx.font(fs, 800);
+        g2d.fillText(statusBanner, width * 0.5, by + 15);
+        g2d.restore();
       }
 
-      // Hurt Red Flash
+      // Hurt flash: red edges rather than a flat full-screen tint
       if (hurtFlash > 0) {
-        g2d.fillStyle = `rgba(239, 68, 68, ${hurtFlash * 0.35})`;
+        fx.vignette(g2d, width, height, 0, `rgba(239, 68, 68, ${Math.min(0.85, hurtFlash * 0.75)})`);
+        g2d.fillStyle = `rgba(239, 68, 68, ${hurtFlash * 0.12})`;
         g2d.fillRect(0, 0, width, height);
       }
 
-      // Game Over Overlay
+      // Pause / Game Over panels
+      const key = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (key !== drawScene.lastKey) {
+        drawScene.lastKey = key;
+        overlayT = 0;
+      }
       if (isGameOver) {
-        g2d.fillStyle = 'rgba(7, 11, 20, 0.85)';
-        g2d.fillRect(0, 0, width, height);
-        g2d.fillStyle = '#facc15';
-        g2d.font = 'italic 900 32px "Segoe UI", sans-serif';
-        g2d.textAlign = 'center';
-        g2d.fillText('💥 CHIẾC MÔ-TÔ ĐÃ HỎNG NẶNG!', width / 2, height / 2 - 22);
-        g2d.fillStyle = '#ffffff';
-        g2d.font = '700 18px "Segoe UI", sans-serif';
-        g2d.fillText(
-          `Điểm: ${score.toLocaleString('vi-VN')} • Quãng đường: ${distanceKm.toFixed(2)} km • Hạ gục: ${knockouts} Biker`,
-          width / 2,
-          height / 2 + 16
-        );
-        g2d.fillStyle = '#38bdf8';
-        g2d.font = '600 15px "Segoe UI", sans-serif';
-        g2d.fillText('Chạm vào màn hình hoặc bấm nút "Chơi lại" để đua ván mới', width / 2, height / 2 + 48);
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '💥',
+          title: 'MÔ-TÔ HỎNG NẶNG!',
+          subtitle: 'Cuộc đua kết thúc — hãy thử lại để phá kỷ lục.',
+          lines: [
+            `Điểm|${score.toLocaleString('vi-VN')}`,
+            `Quãng đường|${distanceKm.toFixed(2)} km`,
+            `Hạ gục|${knockouts} biker`
+          ],
+          hint: 'Chạm màn hình hoặc bấm "Chơi lại"',
+          accent: '#f43f5e',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g2d, width, height, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để quay lại đường đua.',
+          accent: '#a855f7',
+          t: overlayT,
+          backdrop: 0.55
+        });
       }
     }
 
@@ -1384,10 +1634,19 @@
       if (isGameOver) resetGame();
     });
 
+    pauseBtn.addEventListener('click', () => {
+      ArcadeHub.sound.click();
+      setPaused(!isPaused);
+    });
+
+    const onBlur = () => releaseAllKeys();
+    window.addEventListener('blur', onBlur);
+
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
       updateGame(dt);
+      updatePresentation(dt);
       drawScene();
       animId = requestAnimationFrame(loop);
     }
@@ -1406,8 +1665,18 @@
       restart() {
         resetGame();
       },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
+      },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
+        window.removeEventListener('blur', onBlur);
         window.removeEventListener('resize', onResize);
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);

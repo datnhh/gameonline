@@ -578,6 +578,7 @@
     let cy = py + 18;
     if (o.icon) {
       g.font = `40px ${FONT_STACK}`;
+      g.fillStyle = '#ffffff';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       const bob = reducedMotion ? 0 : Math.sin(t * 3) * 3;
