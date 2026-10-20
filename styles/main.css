@@ -332,6 +332,14 @@ kbd {
   box-shadow: 0 4px 0 rgba(43, 45, 66, 0.08);
 }
 
+.app-root:has(#gameView.active-view) .top-navbar {
+  display: none;
+}
+
+.app-root:has(#gameView.active-view) .main-container {
+  padding-top: var(--space-3);
+}
+
 /* Playful rainbow bunting stripe under navbar */
 .top-navbar::after {
   content: "";
@@ -1508,7 +1516,7 @@ kbd {
   box-shadow: var(--toy-shadow-lg);
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - var(--nav-height) - 3rem);
+  min-height: calc(100vh - 2rem);
   isolation: isolate;
 }
 

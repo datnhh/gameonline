@@ -583,6 +583,8 @@
   const hudCurrentScoreEl = document.getElementById('hudCurrentScore');
   const hudScoreDeltaEl = document.getElementById('hudScoreDelta');
   const hudBestScoreEl = document.getElementById('hudBestScore');
+  const stageSoundBtn = document.getElementById('stageSoundBtn');
+  const stageSoundIcon = document.getElementById('stageSoundIcon');
   const stageHelpBtn = document.getElementById('stageHelpBtn');
   const restartGameBtn = document.getElementById('restartGameBtn');
   const stageLeaderboardBtn = document.getElementById('stageLeaderboardBtn');
@@ -1356,14 +1358,20 @@
 
   function updateSoundButtonUI() {
     const on = ArcadeHub.sound.isEnabled();
-    soundIcon.textContent = on ? '🔊' : '🔇';
+    if (soundIcon) soundIcon.textContent = on ? '🔊' : '🔇';
+    if (stageSoundIcon) stageSoundIcon.textContent = on ? '🔊' : '🔇';
   }
 
-  soundToggleBtn.addEventListener('click', () => {
+  function handleSoundToggle() {
     const enabled = ArcadeHub.sound.toggle();
     updateSoundButtonUI();
     showToast(enabled ? 'Đã bật âm thanh 🔊' : 'Đã tắt âm thanh 🔇');
-  });
+  }
+
+  soundToggleBtn.addEventListener('click', handleSoundToggle);
+  if (stageSoundBtn) {
+    stageSoundBtn.addEventListener('click', handleSoundToggle);
+  }
 
   globalFullscreenBtn.addEventListener('click', () => {
     ArcadeHub.sound.click();
