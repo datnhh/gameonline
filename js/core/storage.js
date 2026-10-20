@@ -79,8 +79,10 @@
 
   /**
    * Lưu điểm mới vào bảng xếp hạng của một game và giữ lại Top 3 cao nhất.
+   * runId (tùy chọn): mã của một lượt chơi nhiều ván. Điểm mới thay thế dòng cũ cùng
+   * runId thay vì thêm dòng mới, để một lượt chơi không chiếm nhiều chỗ trong Top 3.
    */
-  function submitScore(gameId, rawScore, detailText) {
+  function submitScore(gameId, rawScore, detailText, runId) {
     const numericScore = Math.max(0, Math.round(Number(rawScore) || 0));
     if (numericScore <= 0) {
       return {
@@ -92,7 +94,21 @@
 
     const playerName = getPlayerName() || 'Người chơi';
     const all = loadAllLeaderboards();
-    const currentList = Array.isArray(all[gameId]) ? all[gameId] : [];
+    let currentList = Array.isArray(all[gameId]) ? all[gameId] : [];
+
+    let previousRank = null;
+    if (runId) {
+      const prevIndex = currentList.findIndex((item) => item && item.runId === runId);
+      if (prevIndex !== -1) {
+        const prev = currentList[prevIndex];
+        if (prev.score >= numericScore) {
+          // Same run, no improvement: keep the existing entry untouched
+          return { isTop3: true, rank: prevIndex + 1, rankImproved: false, entry: prev, top3: currentList };
+        }
+        previousRank = prevIndex + 1;
+        currentList = currentList.filter((_item, idx) => idx !== prevIndex);
+      }
+    }
 
     const newEntry = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -101,6 +117,7 @@
       detail: detailText ? String(detailText).slice(0, 40) : '',
       timestamp: Date.now()
     };
+    if (runId) newEntry.runId = String(runId);
 
     const updated = [...currentList, newEntry]
       .filter((item) => item && typeof item.score === 'number' && !Number.isNaN(item.score))
@@ -114,9 +131,11 @@
     saveAllLeaderboards(all);
 
     const rankIndex = updated.findIndex((item) => item.id === newEntry.id);
+    const rank = rankIndex !== -1 ? rankIndex + 1 : null;
     return {
       isTop3: rankIndex !== -1,
-      rank: rankIndex !== -1 ? rankIndex + 1 : null,
+      rank,
+      rankImproved: rank !== null && (previousRank === null || rank < previousRank),
       entry: newEntry,
       top3: updated
     };

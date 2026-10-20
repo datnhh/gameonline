@@ -1225,13 +1225,13 @@
       updateScore(scoreVal) {
         animateScoreHud(scoreVal);
       },
-      submitHighScore(scoreVal, detailText) {
-        const result = ArcadeHub.storage.submitScore(gameId, scoreVal, detailText);
+      submitHighScore(scoreVal, detailText, runId) {
+        const result = ArcadeHub.storage.submitScore(gameId, scoreVal, detailText, runId);
         const newBest = ArcadeHub.storage.getBestScore(gameId);
         hudBestScoreEl.textContent = newBest > 0 ? formatNumber(newBest) : '---';
         renderInGameTop3(gameId);
 
-        if (result.isTop3) {
+        if (result.isTop3 && result.rankImproved !== false) {
           showLeaderboardModal(
             gameId,
             `🎉 Chúc mừng ${ArcadeHub.storage.getPlayerName()}! Bạn đã lọt vào TOP ${result.rank} với ${formatNumber(scoreVal)} điểm!`
