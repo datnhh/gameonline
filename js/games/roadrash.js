@@ -19,8 +19,36 @@
     let trackPos = 0;
     let playerX = 0; // -1.35 to +1.35 (mặt đường chính từ -1 đến +1)
     let speed = 0;
-    const maxSpeed = 310;
-    const nitroMaxSpeed = 420;
+    // "hard" keeps the original tuning; "easy" is slower and more forgiving
+    const DIFFICULTY_CFG = {
+      easy: { label: 'Dễ', maxSpeed: 250, nitroMaxSpeed: 340, carDamage: 12, rivalDamage: 3, curvePull: 0.24 },
+      hard: { label: 'Khó', maxSpeed: 310, nitroMaxSpeed: 420, carDamage: 22, rivalDamage: 6, curvePull: 0.4 }
+    };
+    const BASE_MAX_SPEED = DIFFICULTY_CFG.hard.maxSpeed;
+    let difficulty = 'easy';
+    let maxSpeed = DIFFICULTY_CFG.easy.maxSpeed;
+    let nitroMaxSpeed = DIFFICULTY_CFG.easy.nitroMaxSpeed;
+
+    // Cars, bikers and the player bike scale with the canvas width so they keep their size
+    // relative to the road on every screen.
+    const SPRITE_REF_WIDTH = 1000;
+    const CAR_HALF_W = 46; // drawn half-width of a traffic car (sprite units)
+    const BIKE_HALF_W = 22; // drawn half-width of a biker (sprite units)
+    const COLLIDE_Z = 120;
+    // Road perspective at the depth where collisions are tested (same formula as drawScene)
+    const COLLIDE_PERSP = 1 / (1 + (COLLIDE_Z / 32 / 68) * 6.5);
+    const LANES = [-0.62, 0, 0.62];
+    const CAR_SPACING = 380;
+
+    function spriteScale() {
+      return Math.max(0.6, Math.min(1, width / SPRITE_REF_WIDTH));
+    }
+
+    // Collision reach in road units (|x| = 1 is the road edge): the drawn half-widths of the
+    // other sprite and the player bike, so a hit happens exactly when they overlap on screen.
+    function collisionReach(otherHalfW) {
+      return (spriteScale() * (otherHalfW * 1.45 + (BIKE_HALF_W * 1.15) / COLLIDE_PERSP)) / (width * 0.56);
+    }
     let bikeHp = 100;
     let nitroFuel = 100;
     let score = 0;
@@ -69,6 +97,14 @@
     const shell = document.createElement('div');
     shell.className = 'game-shell';
     shell.innerHTML = `
+      <div class="game-toolbar">
+        <div class="toolbar-group">
+          <span style="font-size:0.8rem;color:#94a3b8;font-weight:700;">Chế độ:</span>
+          <button type="button" class="pill-btn active" data-diff="easy">🟢 Dễ (Chạy chậm • Ít mất máu)</button>
+          <button type="button" class="pill-btn" data-diff="hard">🔴 Khó (Tốc độ cao)</button>
+        </div>
+      </div>
+
       <div class="canvas-frame">
         <canvas id="rrCanvas" class="game-canvas"></canvas>
       </div>
@@ -196,6 +232,9 @@
     }
 
     function resetGame() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      maxSpeed = cfg.maxSpeed;
+      nitroMaxSpeed = cfg.nitroMaxSpeed;
       buildSkyline();
       buildTrack();
       trackPos = 0;
@@ -221,7 +260,7 @@
         {
           zOffset: 420,
           x: -0.45,
-          speed: 235,
+          speed: 235 * (maxSpeed / BASE_MAX_SPEED),
           suitColor: '#9333ea',
           accentColor: '#22c55e',
           bikeColor: '#581c87',
@@ -231,7 +270,7 @@
         {
           zOffset: 860,
           x: 0.42,
-          speed: 255,
+          speed: 255 * (maxSpeed / BASE_MAX_SPEED),
           suitColor: '#dc2626',
           accentColor: '#facc15',
           bikeColor: '#991b1b',
@@ -241,7 +280,7 @@
         {
           zOffset: 1320,
           x: -0.15,
-          speed: 268,
+          speed: 268 * (maxSpeed / BASE_MAX_SPEED),
           suitColor: '#1e293b',
           accentColor: '#38bdf8',
           bikeColor: '#0f172a',
@@ -314,6 +353,33 @@
       }
     }
 
+    // Respawn a traffic car ahead without walling off the road: cars close in depth must leave
+    // at least one lane free, otherwise the new car is pushed further back.
+    function laneOf(x) {
+      let best = LANES[0];
+      LANES.forEach((l) => {
+        if (Math.abs(l - x) < Math.abs(best - x)) best = l;
+      });
+      return best;
+    }
+
+    function placeCar(car, z) {
+      let zNew = z;
+      for (let tries = 0; tries < 4; tries++) {
+        const near = cars.filter((o) => o !== car && Math.abs(o.zOffset - zNew) < CAR_SPACING);
+        const used = new Set(near.map((o) => laneOf(o.x)));
+        const free = LANES.filter((l) => !used.has(l));
+        if (free.length >= 2) {
+          car.zOffset = zNew;
+          car.x = free[Math.floor(Math.random() * free.length)];
+          return;
+        }
+        zNew = Math.max(...near.map((o) => o.zOffset)) + CAR_SPACING;
+      }
+      car.zOffset = zNew;
+      car.x = LANES[Math.floor(Math.random() * LANES.length)];
+    }
+
     function updateGame(dt) {
       if (isGameOver || isPaused) return;
 
@@ -367,7 +433,7 @@
 
       // Centrifugal pull on curves
       const speedRatio = speed / maxSpeed;
-      playerX -= currentSeg.curve * speedRatio * dt * 0.4;
+      playerX -= currentSeg.curve * speedRatio * dt * DIFFICULTY_CFG[difficulty].curvePull;
 
       // Steering
       const steerPower = 1.6 * dt * Math.max(0.35, speedRatio);
@@ -396,11 +462,11 @@
           rv.x += Math.sin(performance.now() * 0.0022 + rv.speed) * dt * 0.26;
           rv.x = Math.max(-0.85, Math.min(0.85, rv.x));
 
-          if (Math.abs(rv.zOffset - 120) < 48 && Math.abs(rv.x - playerX) < 0.23) {
+          if (Math.abs(rv.zOffset - COLLIDE_Z) < 48 && Math.abs(rv.x - playerX) < collisionReach(BIKE_HALF_W)) {
             const pushDir = playerX >= rv.x ? 1 : -1;
             playerX += pushDir * 0.25;
             rv.x -= pushDir * 0.25;
-            bikeHp = Math.max(0, bikeHp - 6);
+            bikeHp = Math.max(0, bikeHp - DIFFICULTY_CFG[difficulty].rivalDamage);
             hurtFlash = 0.65;
             camShake.add(0.3);
             sparks.burst(width * 0.5 - pushDir * 30, height - 60, {
@@ -412,11 +478,11 @@
               colors: ['#fde047', '#fb923c', '#ffffff']
             });
             ArcadeHub.sound.hit();
-            addComicPopup(width * 0.5, height - 150, 'BAM!', '-6% GIÁP', '#f43f5e');
+            addComicPopup(width * 0.5, height - 150, 'BAM!', `-${DIFFICULTY_CFG[difficulty].rivalDamage}% GIÁP`, '#f43f5e');
             if (bikeHp <= 0 && !isGameOver) {
               isGameOver = true;
               ArcadeHub.sound.gameOver();
-              ctx.submitHighScore(score, `${distanceKm.toFixed(1)} km • ${knockouts} K.O.`);
+              ctx.submitHighScore(score, `${distanceKm.toFixed(1)} km • ${knockouts} K.O. • ${DIFFICULTY_CFG[difficulty].label}`);
             }
           }
         }
@@ -425,7 +491,7 @@
           rv.zOffset = 1450 + Math.random() * 650;
           rv.x = (Math.random() - 0.5) * 1.4;
           rv.knocked = 0;
-          rv.speed = 225 + Math.random() * 65;
+          rv.speed = (225 + Math.random() * 65) * (maxSpeed / BASE_MAX_SPEED);
         }
       });
 
@@ -434,10 +500,10 @@
         const relSpeed = car.speed - speed;
         car.zOffset += relSpeed * dt * 4.0;
 
-        if (Math.abs(car.zOffset - 120) < 55 && Math.abs(car.x - playerX) < 0.29) {
+        if (Math.abs(car.zOffset - COLLIDE_Z) < 55 && Math.abs(car.x - playerX) < collisionReach(CAR_HALF_W)) {
           ArcadeHub.sound.explosion();
           speed = Math.max(55, speed * 0.35);
-          bikeHp = Math.max(0, bikeHp - 22);
+          bikeHp = Math.max(0, bikeHp - DIFFICULTY_CFG[difficulty].carDamage);
           hurtFlash = 1.0;
           camShake.add(0.85);
           sparks.burst(width * 0.5, height - 70, {
@@ -456,20 +522,18 @@
             size: [10, 18],
             colors: ['#334155', '#1e293b']
           });
-          car.zOffset = 1650 + Math.random() * 500;
-          addComicPopup(width * 0.5, height * 0.52, 'CRASH!!', '-22% ĐỘ BỀN XE', '#ef4444');
+          placeCar(car, 1650 + Math.random() * 500);
+          addComicPopup(width * 0.5, height * 0.52, 'CRASH!!', `-${DIFFICULTY_CFG[difficulty].carDamage}% ĐỘ BỀN XE`, '#ef4444');
 
           if (bikeHp <= 0 && !isGameOver) {
             isGameOver = true;
             ArcadeHub.sound.gameOver();
-            ctx.submitHighScore(score, `${distanceKm.toFixed(1)} km • ${knockouts} K.O.`);
+            ctx.submitHighScore(score, `${distanceKm.toFixed(1)} km • ${knockouts} K.O. • ${DIFFICULTY_CFG[difficulty].label}`);
           }
         }
 
         if (car.zOffset < -100) {
-          car.zOffset = 1650 + Math.random() * 600;
-          const lanes = [-0.62, 0, 0.62];
-          car.x = lanes[Math.floor(Math.random() * lanes.length)];
+          placeCar(car, 1650 + Math.random() * 600);
           score += 50;
         }
       });
@@ -491,9 +555,10 @@
       if (exhaustTimer <= 0 && speed > 20) {
         exhaustTimer = nitroOn ? 0.016 : 0.07;
         const lean = leanAngle * 0.28;
+        const k = spriteScale();
         [-18, 18].forEach((ex) => {
-          const px = width * 0.5 + Math.cos(lean) * ex + Math.sin(lean) * 20;
-          const py = height - 18 - 21;
+          const px = width * 0.5 + (Math.cos(lean) * ex + Math.sin(lean) * 20) * k;
+          const py = height - 18 - 21 * k;
           if (nitroOn) {
             sparks.spawn({
               kind: 'dot',
@@ -1327,7 +1392,7 @@
 
         curveStep += seg.curve * 0.45;
         accumCurve += curveStep * (1 - perspective);
-        const centerX = width * 0.5 - playerX * roadHalfWidth * 0.85 + accumCurve;
+        const centerX = width * 0.5 - playerX * roadHalfWidth + accumCurve;
 
         sliceData.push({
           seg,
@@ -1430,6 +1495,7 @@
       }
 
       // Helper to project vehicles & bikers onto the road
+      const spriteK = spriteScale();
       function projectEntity(zOffset, xLane) {
         if (zOffset < 40 || zOffset > 2050) return null;
         const idx = Math.min(sliceData.length - 1, Math.max(0, Math.floor(zOffset / 32)));
@@ -1437,7 +1503,7 @@
         return {
           x: s.centerX + xLane * s.roadHalfWidth,
           y: s.screenY,
-          scale: s.perspective * 1.45
+          scale: s.perspective * 1.45 * spriteK
         };
       }
 
@@ -1472,7 +1538,7 @@
       });
 
       // 3. Draw Player Hero Superbike in Foreground
-      drawDetailedBiker(width * 0.5, height - 18, 1.15, {
+      drawDetailedBiker(width * 0.5, height - 18, 1.15 * spriteK, {
         suitColor: '#1d4ed8', // Heroic Marvel Blue
         accentColor: '#ef4444', // Crimson Armor & Boots
         bikeColor: '#dc2626', // Red/Gold Superbike
@@ -1644,6 +1710,15 @@
     pauseBtn.addEventListener('click', () => {
       ArcadeHub.sound.click();
       setPaused(!isPaused);
+    });
+
+    shell.querySelectorAll('[data-diff]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        ArcadeHub.sound.click();
+        shell.querySelectorAll('[data-diff]').forEach((b) => b.classList.toggle('active', b === btn));
+        difficulty = btn.getAttribute('data-diff');
+        resetGame();
+      });
     });
 
     const onBlur = () => releaseAllKeys();
