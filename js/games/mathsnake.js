@@ -52,7 +52,18 @@
     let question = { text: '2 + 3 = ?', answer: 5 };
     let apples = []; // { x, y, value, isCorrect, colorIdx }
     let floatingTexts = [];
-    let particles = [];
+
+    // Presentation-only state (never read by gameplay rules)
+    const fx = ArcadeHub.fx;
+    const reduced = fx.isReducedMotion();
+    const sparks = fx.createParticles(260);
+    const camShake = fx.createShake(6);
+    let prevSnake = [];
+    let sceneTime = 0;
+    let overlayT = 0;
+    let overlayKey = '';
+    let hurtT = 10;
+    let questionT = 10;
 
     container.innerHTML = `
       <div class="game-shell">
@@ -63,7 +74,7 @@
             <button type="button" class="pill-btn" data-diff="hard">🔥 Khó (Cộng Trừ Nhân • Tường Đá)</button>
           </div>
           <div class="toolbar-group">
-            <button type="button" class="pill-btn" id="msPauseBtn">⏸ Tạm dừng</button>
+            <button type="button" class="pill-btn" id="msPauseBtn" aria-pressed="false">⏸ Tạm dừng</button>
             <span id="msPromptBadge" style="font-size:0.9rem;color:#facc15;font-weight:800;">🐉 Điều khiển Rồng Con ăn quả táo có kết quả đúng!</span>
           </div>
         </div>
@@ -85,7 +96,8 @@
     `;
 
     const canvas = container.querySelector('#mathSnakeCanvas');
-    const g = canvas.getContext('2d');
+    const hidpi = fx.setupHiDPICanvas(canvas, W, H);
+    const g = hidpi.g;
     const promptBadge = container.querySelector('#msPromptBadge');
     const pauseBtn = container.querySelector('#msPauseBtn');
     const diffBtns = container.querySelectorAll('[data-diff]');
@@ -173,6 +185,7 @@
       if (promptBadge) {
         promptBadge.textContent = `🧮 Phép tính: ${question.text} • Chuỗi đúng: ${streak} 🔥`;
       }
+      questionT = 0;
     }
 
     function startNewGame() {
@@ -182,8 +195,11 @@
       lives = cfg.lives;
       isGameOver = false;
       isPaused = false;
-      if (pauseBtn) pauseBtn.textContent = '⏸ Tạm dừng';
+      syncPauseBtn();
       stepTimer = 0;
+      sparks.clear();
+      camShake.reset();
+      hurtT = 10;
       ctx.updateScore(0);
 
       snake = [
@@ -194,28 +210,34 @@
       dir = { x: 1, y: 0 };
       nextDir = { x: 1, y: 0 };
       floatingTexts = [];
-      particles = [];
+      prevSnake = snake.map((p) => ({ x: p.x, y: p.y }));
       spawnQuestionAndApples();
     }
 
+    function syncPauseBtn() {
+      if (!pauseBtn) return;
+      pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
+      pauseBtn.classList.toggle('active', isPaused);
+      pauseBtn.setAttribute('aria-pressed', String(isPaused));
+    }
+
+    function setPaused(next) {
+      const value = !!next && !isGameOver;
+      if (value === isPaused) return;
+      isPaused = value;
+      syncPauseBtn();
+    }
+
     function spawnBurst(px, py, color) {
-      for (let i = 0; i < 14; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const spd = 45 + Math.random() * 140;
-        particles.push({
-          x: px,
-          y: py,
-          vx: Math.cos(ang) * spd,
-          vy: Math.sin(ang) * spd,
-          color,
-          life: 0.5
-        });
-      }
+      sparks.burst(px, py, { count: 14, speed: [45, 185], life: [0.4, 0.7], size: [2.5, 5], colors: [color, '#ffffff'] });
+      sparks.ring(px, py, { from: 6, to: 40, color, life: 0.4 });
     }
 
     function loseLife(reasonText) {
       lives--;
       streak = 0;
+      hurtT = 0;
+      camShake.add(0.45);
       ArcadeHub.sound.error();
       const head = snake[0];
       const px = head.x * CELL + CELL / 2;
@@ -285,6 +307,16 @@
             ctx.updateScore(score);
             ArcadeHub.sound.win();
             spawnBurst(px, py, '#4ade80');
+            sparks.burst(px, py, {
+              count: 18,
+              kind: 'confetti',
+              speed: [100, 260],
+              life: [0.7, 1.2],
+              size: [4, 7],
+              gravity: 300,
+              drag: 1.2,
+              colors: ['#facc15', '#4ade80', '#38bdf8', '#f472b6']
+            });
             floatingTexts.push({
               x: px,
               y: py,
@@ -318,15 +350,8 @@
       stepTimer += dt;
       if (stepTimer >= cfg.stepInterval) {
         stepTimer -= cfg.stepInterval;
+        prevSnake = snake.map((p) => ({ x: p.x, y: p.y }));
         stepSnake();
-      }
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
-        p.life -= dt;
-        if (p.life <= 0) particles.splice(i, 1);
       }
 
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
@@ -337,190 +362,407 @@
       }
     }
 
-    function render() {
-      // Top math banner
-      g.fillStyle = '#0f172a';
-      g.fillRect(0, 0, W, HEADER_H);
+    // =========================================================
+    // PRESENTATION LAYER (render-only; never changes gameplay state)
+    // =========================================================
+    function updatePresentation(dt) {
+      overlayT += dt;
+      if (isPaused) return;
+      sceneTime += dt;
+      sparks.update(dt);
+      camShake.update(dt);
+      if (hurtT < 10) hurtT += dt;
+      if (questionT < 10) questionT += dt;
+    }
 
-      g.fillStyle = '#1e293b';
-      g.strokeStyle = '#38bdf8';
-      g.lineWidth = 2.5;
+    function cellCenter(p) {
+      return { x: p.x * CELL + CELL / 2, y: HEADER_H + p.y * CELL + CELL / 2 };
+    }
+
+    // Smoothly interpolated segment positions between the previous and current grid step
+    function getVisualSegments() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      const t = isGameOver ? 1 : Math.max(0, Math.min(1, stepTimer / cfg.stepInterval));
+      const e = t * t * (3 - 2 * t);
+      return snake.map((seg, i) => {
+        const cur = cellCenter(seg);
+        const prevSeg = prevSnake.length ? prevSnake[Math.min(i, prevSnake.length - 1)] : seg;
+        const prev = cellCenter(prevSeg);
+        // Wrapping through a wall: snap instead of sliding across the whole board
+        if (Math.abs(prevSeg.x - seg.x) + Math.abs(prevSeg.y - seg.y) > 1) return { x: cur.x, y: cur.y, jump: true };
+        return { x: prev.x + (cur.x - prev.x) * e, y: prev.y + (cur.y - prev.y) * e, jump: false };
+      });
+    }
+
+    function drawHeart(x, y, s, empty) {
+      g.save();
+      g.translate(x, y);
+      g.scale(s / 20, s / 20);
       g.beginPath();
-      g.roundRect(W / 2 - 155, 10, 310, 48, 12);
+      g.moveTo(0, 6);
+      g.bezierCurveTo(-12, -2, -10, -14, 0, -7);
+      g.bezierCurveTo(10, -14, 12, -2, 0, 6);
+      g.closePath();
+      g.fillStyle = empty ? 'rgba(148, 163, 184, 0.25)' : '#f43f5e';
       g.fill();
-      g.stroke();
+      if (!empty) {
+        g.fillStyle = 'rgba(255,255,255,0.6)';
+        g.beginPath();
+        g.ellipse(-4.5, -6, 2.4, 1.6, -0.6, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.restore();
+    }
 
-      g.fillStyle = '#facc15';
-      g.font = '900 26px sans-serif';
-      g.textAlign = 'center';
-      g.textBaseline = 'middle';
-      g.fillText(`🍎 ${question.text}`, W / 2, 35);
-
-      g.textAlign = 'left';
-      g.fillStyle = '#f43f5e';
-      g.font = '800 16px sans-serif';
-      g.fillText(`Mạng: ${'❤️'.repeat(Math.max(0, lives))}`, 18, 35);
-
-      g.textAlign = 'right';
-      g.fillStyle = '#4ade80';
-      g.fillText(`Chuỗi đúng: ${streak} 🔥`, W - 18, 35);
-
-      // Checkerboard grassy playfield
+    function drawField() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      // Meadow checkerboard
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          g.fillStyle = (r + c) % 2 === 0 ? '#064e3b' : '#065f46';
+          g.fillStyle = (r + c) % 2 === 0 ? '#166534' : '#15803d';
           g.fillRect(c * CELL, HEADER_H + r * CELL, CELL, CELL);
         }
       }
-
-      // Hard mode stone border indicator
-      if (!DIFFICULTY_CFG[difficulty].wrapWalls) {
-        g.strokeStyle = '#ef4444';
-        g.lineWidth = 5;
-        g.strokeRect(2.5, HEADER_H + 2.5, W - 5, ROWS * CELL - 5);
-      }
-
-      // Draw Apples with big numbers
-      apples.forEach((ap) => {
-        const cx = ap.x * CELL + CELL / 2;
-        const cy = HEADER_H + ap.y * CELL + CELL / 2;
-        const pal = APPLE_PALETTE[ap.colorIdx];
-
-        g.save();
-        g.translate(cx, cy);
-
-        // Leaf
-        g.fillStyle = '#4ade80';
+      // Soft light from the top-left
+      const light = g.createLinearGradient(0, HEADER_H, W, H);
+      light.addColorStop(0, 'rgba(254, 249, 195, 0.12)');
+      light.addColorStop(1, 'rgba(0, 0, 0, 0.18)');
+      g.fillStyle = light;
+      g.fillRect(0, HEADER_H, W, ROWS * CELL);
+      // Grass tufts and tiny flowers (fixed pattern)
+      for (let k = 0; k < 40; k++) {
+        const fxp = ((k * 97.13) % COLS) * CELL + ((k * 13) % CELL);
+        const fyp = HEADER_H + ((k * 53.7) % ROWS) * CELL + ((k * 29) % CELL);
+        g.strokeStyle = 'rgba(74, 222, 128, 0.45)';
+        g.lineWidth = 1.5;
         g.beginPath();
-        g.ellipse(4, -15, 6, 3, -0.4, 0, Math.PI * 2);
-        g.fill();
-
-        // Apple body
-        g.fillStyle = pal.fill;
-        g.strokeStyle = pal.stroke;
-        g.lineWidth = 2.5;
-        g.beginPath();
-        g.arc(0, 1, 16, 0, Math.PI * 2);
-        g.fill();
+        g.moveTo(fxp - 3, fyp);
+        g.lineTo(fxp - 4, fyp - 5);
+        g.moveTo(fxp, fyp);
+        g.lineTo(fxp, fyp - 6);
+        g.moveTo(fxp + 3, fyp);
+        g.lineTo(fxp + 4, fyp - 5);
         g.stroke();
-
-        // Number inside apple
-        g.fillStyle = '#ffffff';
-        g.font = '900 16px sans-serif';
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        g.fillText(String(ap.value), 0, 2);
-
-        g.restore();
-      });
-
-      // Draw Dragon Snake
-      for (let i = snake.length - 1; i >= 0; i--) {
-        const seg = snake[i];
-        const cx = seg.x * CELL + CELL / 2;
-        const cy = HEADER_H + seg.y * CELL + CELL / 2;
-
-        g.save();
-        g.translate(cx, cy);
-
-        if (i === 0) {
-          // Dragon Head
-          g.fillStyle = '#22c55e';
-          g.strokeStyle = '#fef08a';
-          g.lineWidth = 2.5;
+        if (k % 4 === 0) {
+          g.fillStyle = k % 8 === 0 ? 'rgba(253, 224, 71, 0.8)' : 'rgba(255, 255, 255, 0.75)';
           g.beginPath();
-          g.arc(0, 0, 18, 0, Math.PI * 2);
+          g.arc(fxp + 6, fyp - 6, 2, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+      if (!cfg.wrapWalls) {
+        // Stone wall border for hard mode
+        const top = HEADER_H;
+        const bottom = HEADER_H + ROWS * CELL;
+        g.fillStyle = '#57534e';
+        g.strokeStyle = '#1c1917';
+        g.lineWidth = 1.5;
+        const stones = [];
+        for (let x = 0; x < W; x += 18) stones.push([x, top], [x, bottom - 7]);
+        for (let y = top + 7; y < bottom - 7; y += 18) stones.push([0, y], [W - 7, y]);
+        stones.forEach(([sx, sy], idx) => {
+          const horizontal = sy === top || sy === bottom - 7;
+          fx.roundRectPath(g, sx, sy, horizontal ? 16 : 7, horizontal ? 7 : 16, 3);
+          g.fillStyle = idx % 3 === 0 ? '#78716c' : '#57534e';
           g.fill();
           g.stroke();
+        });
+        // Red warning glow on the inside edge
+        g.strokeStyle = `rgba(239, 68, 68, ${0.25 + Math.sin(sceneTime * 3) * 0.1})`;
+        g.lineWidth = 2;
+        g.strokeRect(8, top + 8, W - 16, ROWS * CELL - 16);
+      } else {
+        // Easy mode: shimmering portal edges show you can pass through
+        g.strokeStyle = `rgba(125, 211, 252, ${0.35 + Math.sin(sceneTime * 2.5) * 0.15})`;
+        g.lineWidth = 3;
+        g.setLineDash([10, 8]);
+        g.lineDashOffset = -sceneTime * 24;
+        g.strokeRect(1.5, HEADER_H + 1.5, W - 3, ROWS * CELL - 3);
+        g.setLineDash([]);
+      }
+    }
 
-          // Cute dragon horns
-          g.fillStyle = '#facc15';
-          g.beginPath();
-          g.arc(-8, -14, 4, 0, Math.PI * 2);
-          g.arc(8, -14, 4, 0, Math.PI * 2);
-          g.fill();
+    function drawApple(ap, idx) {
+      const c = cellCenter(ap);
+      const pal = APPLE_PALETTE[ap.colorIdx];
+      const appear = Math.min(1, questionT / 0.35);
+      const scale = reduced ? 1 : fx.ease.outBack(appear);
+      const bob = reduced ? 0 : Math.sin(sceneTime * 3 + idx * 1.7) * 2;
+      g.save();
+      g.translate(c.x, c.y + bob);
+      g.scale(scale, scale);
+      fx.contactShadow(g, 0, 17 - bob, 13, 4, 0.3);
+      // Stem + leaf
+      g.strokeStyle = '#713f12';
+      g.lineWidth = 2.5;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(0, -13);
+      g.quadraticCurveTo(1, -18, 3, -20);
+      g.stroke();
+      g.fillStyle = '#4ade80';
+      g.beginPath();
+      g.ellipse(7, -17, 6.5, 3.2, -0.5, 0, Math.PI * 2);
+      g.fill();
+      // Body with two lobes
+      const body = g.createRadialGradient(-5, -5, 2, 0, 1, 18);
+      body.addColorStop(0, fx.shade(pal.fill, 0.35));
+      body.addColorStop(0.6, pal.fill);
+      body.addColorStop(1, fx.shade(pal.fill, -0.35));
+      g.fillStyle = body;
+      g.strokeStyle = 'rgba(15, 23, 42, 0.6)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, -11);
+      g.bezierCurveTo(10, -18, 20, -6, 15, 6);
+      g.bezierCurveTo(12, 15, 4, 18, 0, 15);
+      g.bezierCurveTo(-4, 18, -12, 15, -15, 6);
+      g.bezierCurveTo(-20, -6, -10, -18, 0, -11);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      g.beginPath();
+      g.ellipse(-7, -5, 3.5, 5.5, 0.4, 0, Math.PI * 2);
+      g.fill();
+      fx.outlinedText(g, String(ap.value), 0, 3, { size: ap.value >= 100 ? 13 : 16, color: '#ffffff', outline: 3.5 });
+      g.restore();
+    }
 
-          // Eyes
-          g.fillStyle = '#ffffff';
-          g.beginPath();
-          g.arc(-6, -3, 4.5, 0, Math.PI * 2);
-          g.arc(6, -3, 4.5, 0, Math.PI * 2);
-          g.fill();
-          g.fillStyle = '#090d16';
-          g.beginPath();
-          g.arc(-6 + dir.x * 1.5, -3 + dir.y * 1.5, 2.2, 0, Math.PI * 2);
-          g.arc(6 + dir.x * 1.5, -3 + dir.y * 1.5, 2.2, 0, Math.PI * 2);
-          g.fill();
-        } else {
-          if (i === 1) {
-            // Cute flapping dragon wings on shoulders
-            const flap = Math.sin(wingPhase) * 5;
-            g.fillStyle = '#fde047';
-            g.beginPath();
-            g.ellipse(-14, -8 + flap * 0.4, 9, 5, -0.5, 0, Math.PI * 2);
-            g.ellipse(14, -8 + flap * 0.4, 9, 5, 0.5, 0, Math.PI * 2);
-            g.fill();
+    function drawDragon(vis) {
+      if (!vis.length) return;
+      // Body path (broken where the dragon wraps through a wall)
+      g.save();
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      const passes = [
+        [30, '#052e16'],
+        [26, '#16a34a'],
+        [14, '#4ade80']
+      ];
+      passes.forEach(([lw, col]) => {
+        g.strokeStyle = col;
+        g.lineWidth = lw;
+        g.beginPath();
+        vis.forEach((p, i) => {
+          if (i === 0 || p.jump || (vis[i - 1] && Math.hypot(p.x - vis[i - 1].x, p.y - vis[i - 1].y) > CELL * 1.5)) {
+            g.moveTo(p.x, p.y);
+          } else {
+            g.lineTo(p.x, p.y);
           }
-          const ratio = 1 - (i / (snake.length + 4)) * 0.35;
-          g.fillStyle = i % 2 === 0 ? '#4ade80' : '#16a34a';
-          g.strokeStyle = '#052e16';
+        });
+        g.stroke();
+      });
+      g.restore();
+
+      // Belly scales + back spikes
+      for (let i = vis.length - 1; i >= 1; i--) {
+        const p = vis[i];
+        const ratio = 1 - (i / (vis.length + 4)) * 0.35;
+        g.fillStyle = 'rgba(254, 240, 138, 0.85)';
+        g.beginPath();
+        g.ellipse(p.x, p.y + 2, 6 * ratio, 4 * ratio, 0, 0, Math.PI * 2);
+        g.fill();
+        if (i % 2 === 1) {
+          g.fillStyle = '#f97316';
+          g.beginPath();
+          g.moveTo(p.x - 4, p.y - 10 * ratio);
+          g.lineTo(p.x, p.y - 17 * ratio);
+          g.lineTo(p.x + 4, p.y - 10 * ratio);
+          g.closePath();
+          g.fill();
+        }
+      }
+
+      // Wings on the shoulder segment
+      if (vis.length > 1) {
+        const sh = vis[1];
+        const flap = Math.sin(wingPhase) * 0.5;
+        g.save();
+        g.translate(sh.x, sh.y);
+        [-1, 1].forEach((side) => {
+          g.save();
+          g.scale(side, 1);
+          g.rotate(-0.4 + flap * 0.4);
+          g.fillStyle = 'rgba(253, 224, 71, 0.95)';
+          g.strokeStyle = '#a16207';
           g.lineWidth = 1.5;
           g.beginPath();
-          g.arc(0, 0, 15 * ratio, 0, Math.PI * 2);
+          g.moveTo(4, -4);
+          g.quadraticCurveTo(22, -26, 26, -6);
+          g.quadraticCurveTo(18, -8, 16, 0);
+          g.quadraticCurveTo(10, -4, 4, -4);
+          g.closePath();
           g.fill();
           g.stroke();
-        }
+          g.restore();
+        });
         g.restore();
       }
 
-      // Particles
-      particles.forEach((p) => {
-        g.save();
-        g.globalAlpha = Math.max(0, p.life * 2);
-        g.fillStyle = p.color;
+      // Head, rotated to face the travel direction
+      const h = vis[0];
+      const ang = Math.atan2(dir.y, dir.x);
+      g.save();
+      g.translate(h.x, h.y);
+      g.rotate(ang);
+      // Horns
+      g.fillStyle = '#facc15';
+      g.strokeStyle = '#a16207';
+      g.lineWidth = 1.5;
+      [-1, 1].forEach((side) => {
         g.beginPath();
-        g.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        g.moveTo(-6, side * 10);
+        g.lineTo(-16, side * 17);
+        g.lineTo(-3, side * 14);
+        g.closePath();
         g.fill();
-        g.restore();
+        g.stroke();
       });
+      const headGrad = g.createRadialGradient(4, -5, 2, 0, 0, 20);
+      headGrad.addColorStop(0, '#86efac');
+      headGrad.addColorStop(1, '#16a34a');
+      g.fillStyle = headGrad;
+      g.strokeStyle = '#052e16';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.ellipse(2, 0, 19, 16, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      // Snout + nostrils
+      g.fillStyle = '#4ade80';
+      g.beginPath();
+      g.ellipse(14, 0, 8, 9, 0, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#052e16';
+      g.beginPath();
+      g.arc(18, -3, 1.4, 0, Math.PI * 2);
+      g.arc(18, 3, 1.4, 0, Math.PI * 2);
+      g.fill();
+      // Eyes (look forward)
+      [-1, 1].forEach((side) => {
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(4, side * 7, 5, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#0b1220';
+        g.beginPath();
+        g.arc(6, side * 7, 2.6, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffffff';
+        g.beginPath();
+        g.arc(6.8, side * 7 - 1.2, 1, 0, Math.PI * 2);
+        g.fill();
+      });
+      g.restore();
+      // Little fire puff right after a correct answer
+      if (questionT < 0.45 && score > 0 && streak > 0) {
+        const k = questionT / 0.45;
+        fx.glow(g, h.x + Math.cos(ang) * (22 + k * 18), h.y + Math.sin(ang) * (22 + k * 18), 16 * (1 - k) + 4, '#f97316', 0.8 * (1 - k));
+      }
+    }
 
-      // Floating texts
+    function drawHeader() {
+      const cfg = DIFFICULTY_CFG[difficulty];
+      const hg = g.createLinearGradient(0, 0, 0, HEADER_H);
+      hg.addColorStop(0, '#0f172a');
+      hg.addColorStop(1, '#1e293b');
+      g.fillStyle = hg;
+      g.fillRect(0, 0, W, HEADER_H);
+      g.fillStyle = 'rgba(56, 189, 248, 0.35)';
+      g.fillRect(0, HEADER_H - 2, W, 2);
+
+      // Question card (pops when a new question arrives)
+      const pop = reduced ? 1 : 1 + Math.max(0, 1 - questionT / 0.35) * 0.12;
+      g.save();
+      g.translate(W / 2, 35);
+      g.scale(pop, pop);
+      fx.roundRectPath(g, -160, -24, 320, 48, 14);
+      const qg = g.createLinearGradient(0, -24, 0, 24);
+      qg.addColorStop(0, '#312e81');
+      qg.addColorStop(1, '#1e1b4b');
+      g.fillStyle = qg;
+      g.fill();
+      g.strokeStyle = '#facc15';
+      g.lineWidth = 2.5;
+      g.stroke();
+      fx.outlinedText(g, `🍎 ${question.text}`, 0, 1, { size: 26, color: '#fde047' });
+      g.restore();
+
+      for (let i = 0; i < cfg.lives; i++) {
+        drawHeart(26 + i * 24, 35, 19, i >= lives);
+      }
+
+      const hot = streak >= 3;
+      fx.outlinedText(g, `🔥 ${streak}`, W - 22, 26, {
+        size: hot && !reduced ? 20 + Math.sin(sceneTime * 8) * 1.5 : 20,
+        color: hot ? '#fb923c' : '#86efac',
+        align: 'right',
+        glow: hot ? '#f97316' : null
+      });
+      g.fillStyle = '#94a3b8';
+      g.font = fx.font(11, 700);
+      g.textAlign = 'right';
+      g.textBaseline = 'middle';
+      g.fillText('CHUỖI ĐÚNG', W - 22, 50);
+    }
+
+    function render() {
+      hidpi.apply();
+      drawHeader();
+
+      g.save();
+      camShake.apply(g);
+      drawField();
+      apples.forEach(drawApple);
+      drawDragon(getVisualSegments());
+      sparks.draw(g);
       floatingTexts.forEach((ft) => {
         g.save();
-        g.globalAlpha = Math.min(1, ft.life);
-        g.font = '900 18px sans-serif';
-        g.fillStyle = ft.color;
-        g.textAlign = 'center';
-        g.fillText(ft.text, ft.x, ft.y);
+        g.globalAlpha = Math.max(0, Math.min(1, ft.life));
+        fx.outlinedText(g, ft.text, ft.x, ft.y, { size: 18, color: ft.color });
         g.restore();
       });
+      g.restore();
 
-      if (isPaused && !isGameOver) {
-        g.fillStyle = 'rgba(9, 13, 22, 0.8)';
-        g.fillRect(0, HEADER_H, W, ROWS * CELL);
-        g.fillStyle = '#38bdf8';
-        g.font = '900 32px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('⏸ ĐANG TẠM DỪNG', W / 2, H / 2);
+      if (hurtT < 0.5) {
+        g.save();
+        g.beginPath();
+        g.rect(0, HEADER_H, W, ROWS * CELL);
+        g.clip();
+        fx.vignette(g, W, H, 0, `rgba(239, 68, 68, ${(1 - hurtT / 0.5) * 0.7})`);
+        g.restore();
       }
 
+      const overlay = isGameOver ? 'over' : isPaused ? 'pause' : '';
+      if (overlay !== overlayKey) {
+        overlayKey = overlay;
+        overlayT = 0;
+      }
       if (isGameOver) {
-        g.fillStyle = 'rgba(9, 13, 22, 0.84)';
-        g.fillRect(0, 0, W, H);
-        g.fillStyle = '#facc15';
-        g.font = '900 32px sans-serif';
-        g.textAlign = 'center';
-        g.fillText('KẾT THÚC HÀNH TRÌNH SĂN TÁO!', W / 2, H / 2 - 28);
-        g.fillStyle = '#f8fafc';
-        g.font = '700 20px sans-serif';
-        g.fillText(`Tổng điểm: ${score}`, W / 2, H / 2 + 12);
-        g.fillStyle = '#38bdf8';
-        g.font = '700 16px sans-serif';
-        g.fillText('Bấm vào màn hình hoặc nhấn Chơi Lại để bắt đầu ván mới', W / 2, H / 2 + 50);
+        fx.drawStatePanel(g, W, H, {
+          icon: '🐉',
+          title: 'KẾT THÚC HÀNH TRÌNH SĂN TÁO!',
+          subtitle: 'Rồng Con đã cố gắng hết sức — thử lại nhé!',
+          lines: [`Tổng điểm|${score.toLocaleString('vi-VN')}`, `Chế độ|${DIFFICULTY_CFG[difficulty].label}`],
+          hint: 'Bấm vào màn hình hoặc nhấn Chơi Lại để bắt đầu ván mới',
+          accent: '#22c55e',
+          t: overlayT
+        });
+      } else if (isPaused) {
+        fx.drawStatePanel(g, W, H, {
+          icon: '⏸',
+          title: 'TẠM DỪNG',
+          subtitle: 'Nhấn Esc hoặc nút Tiếp tục để Rồng Con bay tiếp.',
+          accent: '#22c55e',
+          t: overlayT,
+          backdrop: 0.55
+        });
       }
     }
 
     function setDirection(nx, ny) {
+      if (isPaused) return;
       if (nx === -dir.x && ny === -dir.y) return;
       nextDir = { x: nx, y: ny };
     }
@@ -590,9 +832,8 @@
     if (pauseBtn) {
       pauseBtn.addEventListener('click', () => {
         if (isGameOver) return;
-        isPaused = !isPaused;
-        pauseBtn.textContent = isPaused ? '▶ Tiếp tục' : '⏸ Tạm dừng';
         ArcadeHub.sound.click();
+        setPaused(!isPaused);
       });
     }
 
@@ -623,6 +864,7 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      updatePresentation(dt);
       update(dt);
       render();
       animId = requestAnimationFrame(loop);
@@ -634,6 +876,15 @@
     return {
       restart() {
         startNewGame();
+      },
+      pause() {
+        setPaused(true);
+      },
+      resume() {
+        setPaused(false);
+      },
+      isPaused() {
+        return isPaused;
       },
       destroy() {
         if (animId) cancelAnimationFrame(animId);
