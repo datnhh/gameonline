@@ -36,6 +36,8 @@
     const camShake = fx.createShake(14);
     let sceneTime = 0;
     let overlayT = 0;
+    // Skips redraws once the pause panel has settled (the scene is frozen while paused)
+    const idleGate = fx.createIdleGate();
     let exhaustTimer = 0;
     const skyStars = [];
     for (let i = 0; i < 60; i++) {
@@ -1650,6 +1652,10 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      if (idleGate.shouldSkip(isPaused && !isGameOver && drawScene.lastKey === 'pause' && overlayT >= 0.6, canvas, now)) {
+        animId = requestAnimationFrame(loop);
+        return;
+      }
       updateGame(dt);
       updatePresentation(dt);
       drawScene();

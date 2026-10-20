@@ -116,6 +116,8 @@
     let isPaused = false;
     let sceneTime = 0;
     let overlayT = 0;
+    // Skips redraws once the pause panel has settled (the scene is frozen while paused)
+    const idleGate = fx.createIdleGate();
     let overlayKey = '';
     let hurtTimer = 0;
     const fireflies = Array.from({ length: 18 }, () => ({
@@ -1186,6 +1188,10 @@
     function loop(now) {
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
+      if (idleGate.shouldSkip(isPaused && !isGameOver && overlayKey === 'pause' && overlayT >= 0.6, canvas, now)) {
+        animId = requestAnimationFrame(loop);
+        return;
+      }
       updatePresentation(dt);
       if (!isPaused) updateGame(dt);
       drawScene();

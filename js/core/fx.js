@@ -511,21 +511,14 @@
    *   t (seconds since shown, drives entrance animation), backdrop (0..1)
    * }
    */
-  function drawStatePanel(g, w, h, opts) {
-    const o = opts || {};
-    const accent = o.accent || '#38bdf8';
-    const t = o.t == null ? 1 : o.t;
-    const enter = reducedMotion ? 1 : clamp(t / 0.38, 0, 1);
-    const e = ease.outBack(enter);
+  // The static part of recent panels (body, blurred drop shadow, glowing title, stat rows)
+  // is painted once into an offscreen layer: shadowBlur is the most expensive canvas op and
+  // a pause / game-over screen would otherwise repeat it every frame.
+  const PANEL_PAD = 48; // room around the body for the drop shadow (blur 30, offset 12)
+  const PANEL_CACHE_MAX = 3;
+  const panelCache = new Map();
 
-    g.save();
-    // Backdrop
-    g.globalAlpha = clamp(enter * 1.4, 0, 1);
-    g.fillStyle = `rgba(3,6,16,${o.backdrop == null ? 0.66 : o.backdrop})`;
-    g.fillRect(0, 0, w, h);
-    vignette(g, w, h, 0.5);
-    g.globalAlpha = 1;
-
+  function layoutStatePanel(g, w, h, o) {
     const pw = Math.min(w - 32, 440);
     const titleSize = clamp(pw * 0.085, 22, 36);
     g.font = font(15, 700);
@@ -538,16 +531,39 @@
       subLines.length * 21 +
       (rows.length ? rows.length * 30 + 14 : 0) +
       (o.hint ? 50 : 18);
-    const px = (w - pw) / 2;
-    const py = (h - ph) / 2;
+    const titleFit = fitFontSize(g, o.title || '', pw - 40, titleSize, 16, 900);
 
-    g.translate(w / 2, h / 2);
-    g.scale(0.86 + 0.14 * e, 0.86 + 0.14 * e);
-    g.translate(-w / 2, -h / 2 + (1 - enter) * 18);
-    g.globalAlpha = enter;
+    // Vertical positions, relative to the panel top
+    let cy = 18;
+    const iconY = cy + 20;
+    if (o.icon) cy += 46;
+    const titleTop = cy;
+    cy += titleFit + 14;
+    const subTop = cy;
+    cy += subLines.length * 21;
+    const rowsTop = cy + 8;
+    if (rows.length) cy = rowsTop + rows.length * 30;
+    const hintTop = cy + 12;
 
-    // Glow halo
-    glow(g, w / 2, py + ph / 2, pw * 0.75, accent, 0.22);
+    return {
+      pw,
+      ph,
+      px: (w - pw) / 2,
+      py: (h - ph) / 2,
+      subLines,
+      rows,
+      titleFit,
+      iconY,
+      titleTop,
+      subTop,
+      rowsTop,
+      hintTop
+    };
+  }
+
+  function paintStatePanelStatic(g, px, py, L, o, accent) {
+    const { pw, ph } = L;
+    const cx = px + pw / 2;
 
     // Panel body
     roundRectPath(g, px, py, pw, ph, 20);
@@ -559,6 +575,7 @@
     g.shadowBlur = 30;
     g.shadowOffsetY = 12;
     g.fill();
+    // Only the colour is cleared: the 12px offset also shapes the title glow below (as before caching)
     g.shadowColor = 'transparent';
     g.lineWidth = 1.5;
     g.strokeStyle = rgba(accent, 0.65);
@@ -575,68 +592,134 @@
     g.fillRect(px, py, pw, 3);
     g.restore();
 
-    let cy = py + 18;
+    // Title with gradient fill and glow
+    const ty = py + L.titleTop;
+    const fitted = L.titleFit;
+    g.font = font(fitted, 900);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    g.lineWidth = 5;
+    g.strokeStyle = 'rgba(2,4,12,0.9)';
+    g.strokeText(o.title || '', cx, ty + fitted / 2);
+    const tg = g.createLinearGradient(0, ty, 0, ty + fitted);
+    tg.addColorStop(0, '#ffffff');
+    tg.addColorStop(1, shade(accent, 0.35));
+    g.fillStyle = tg;
+    g.shadowColor = rgba(accent, 0.8);
+    g.shadowBlur = 16;
+    g.fillText(o.title || '', cx, ty + fitted / 2);
+    g.shadowColor = 'transparent';
+
+    if (L.subLines.length) {
+      g.font = font(15, 700);
+      g.fillStyle = '#cbd5e1';
+      L.subLines.forEach((line, i) => {
+        g.fillText(line, cx, py + L.subTop + i * 21 + 8);
+      });
+    }
+
+    L.rows.forEach((row, i) => {
+      const parts = String(row).split('|');
+      const ry = py + L.rowsTop + i * 30;
+      roundRectPath(g, px + 22, ry, pw - 44, 25, 8);
+      g.fillStyle = 'rgba(148,163,184,0.09)';
+      g.fill();
+      g.font = font(13, 700);
+      g.textAlign = 'left';
+      g.fillStyle = '#94a3b8';
+      g.fillText(parts[0], px + 34, ry + 13);
+      g.textAlign = 'right';
+      g.font = font(14, 900);
+      g.fillStyle = '#f8fafc';
+      g.fillText(parts[1] || '', px + pw - 34, ry + 13);
+      g.textAlign = 'center';
+    });
+  }
+
+  function getStatePanelLayer(L, o, accent, scale) {
+    const key = [L.pw, L.ph, scale, accent, o.icon ? 1 : 0, o.title || '', o.subtitle || '', L.rows.join('\n')].join('|');
+    let layer = panelCache.get(key);
+    if (layer) {
+      // Refresh LRU order
+      panelCache.delete(key);
+      panelCache.set(key, layer);
+      return layer;
+    }
+    const lw = L.pw + PANEL_PAD * 2;
+    const lh = L.ph + PANEL_PAD * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(lw * scale);
+    canvas.height = Math.ceil(lh * scale);
+    const c = canvas.getContext('2d');
+    c.scale(scale, scale);
+    paintStatePanelStatic(c, PANEL_PAD, PANEL_PAD, L, o, accent);
+    layer = { canvas, w: canvas.width / scale, h: canvas.height / scale };
+    panelCache.set(key, layer);
+    if (panelCache.size > PANEL_CACHE_MAX) panelCache.delete(panelCache.keys().next().value);
+    return layer;
+  }
+
+  /** Device pixels per logical unit of the current transform (HiDPI canvases are pre-scaled). */
+  function currentPixelScale(g) {
+    let s = 0;
+    if (typeof g.getTransform === 'function') {
+      const m = g.getTransform();
+      s = Math.hypot(m.a, m.b);
+    }
+    if (!(s > 0)) s = global.devicePixelRatio || 1;
+    return clamp(Math.round(s * 100) / 100, 1, 3);
+  }
+
+  function drawStatePanel(g, w, h, opts) {
+    const o = opts || {};
+    const accent = o.accent || '#38bdf8';
+    const t = o.t == null ? 1 : o.t;
+    const enter = reducedMotion ? 1 : clamp(t / 0.38, 0, 1);
+    const e = ease.outBack(enter);
+
+    g.save();
+    const scale = currentPixelScale(g);
+    // Backdrop
+    g.globalAlpha = clamp(enter * 1.4, 0, 1);
+    g.fillStyle = `rgba(3,6,16,${o.backdrop == null ? 0.66 : o.backdrop})`;
+    g.fillRect(0, 0, w, h);
+    vignette(g, w, h, 0.5);
+    g.globalAlpha = 1;
+
+    const L = layoutStatePanel(g, w, h, o);
+    const { pw, ph, px, py } = L;
+
+    g.translate(w / 2, h / 2);
+    g.scale(0.86 + 0.14 * e, 0.86 + 0.14 * e);
+    g.translate(-w / 2, -h / 2 + (1 - enter) * 18);
+    g.globalAlpha = enter;
+
+    // Glow halo
+    glow(g, w / 2, py + ph / 2, pw * 0.75, accent, 0.22);
+
+    // Cached static body; snapped to whole device pixels so the text stays crisp
+    const layer = getStatePanelLayer(L, o, accent, scale);
+    const lx = Math.round((px - PANEL_PAD) * scale) / scale;
+    const ly = Math.round((py - PANEL_PAD) * scale) / scale;
+    g.drawImage(layer.canvas, lx, ly, layer.w, layer.h);
+
+    // Live parts: bobbing icon and pulsing hint button
     if (o.icon) {
       g.font = `40px ${FONT_STACK}`;
       g.fillStyle = '#ffffff';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
       const bob = reducedMotion ? 0 : Math.sin(t * 3) * 3;
-      g.fillText(o.icon, w / 2, cy + 20 + bob);
-      cy += 46;
-    }
-
-    // Title with gradient fill
-    const fitted = fitFontSize(g, o.title || '', pw - 40, titleSize, 16, 900);
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.lineJoin = 'round';
-    g.lineWidth = 5;
-    g.strokeStyle = 'rgba(2,4,12,0.9)';
-    g.strokeText(o.title || '', w / 2, cy + fitted / 2);
-    const tg = g.createLinearGradient(0, cy, 0, cy + fitted);
-    tg.addColorStop(0, '#ffffff');
-    tg.addColorStop(1, shade(accent, 0.35));
-    g.fillStyle = tg;
-    g.shadowColor = rgba(accent, 0.8);
-    g.shadowBlur = 16;
-    g.fillText(o.title || '', w / 2, cy + fitted / 2);
-    g.shadowColor = 'transparent';
-    cy += fitted + 14;
-
-    if (subLines.length) {
-      g.font = font(15, 700);
-      g.fillStyle = '#cbd5e1';
-      subLines.forEach((line) => {
-        g.fillText(line, w / 2, cy + 8);
-        cy += 21;
-      });
-    }
-
-    if (rows.length) {
-      cy += 8;
-      rows.forEach((row) => {
-        const parts = String(row).split('|');
-        roundRectPath(g, px + 22, cy, pw - 44, 25, 8);
-        g.fillStyle = 'rgba(148,163,184,0.09)';
-        g.fill();
-        g.font = font(13, 700);
-        g.textAlign = 'left';
-        g.fillStyle = '#94a3b8';
-        g.fillText(parts[0], px + 34, cy + 13);
-        g.textAlign = 'right';
-        g.font = font(14, 900);
-        g.fillStyle = '#f8fafc';
-        g.fillText(parts[1] || '', px + pw - 34, cy + 13);
-        g.textAlign = 'center';
-        cy += 30;
-      });
+      g.fillText(o.icon, w / 2, py + L.iconY + bob);
     }
 
     if (o.hint) {
-      cy += 12;
+      const cy = py + L.hintTop;
       const pulse = reducedMotion ? 1 : 0.75 + Math.sin(t * 4.2) * 0.25;
       g.font = font(14, 800);
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
       const hw = Math.min(pw - 40, g.measureText(o.hint).width + 36);
       roundRectPath(g, w / 2 - hw / 2, cy, hw, 32, 16);
       const hb = g.createLinearGradient(0, cy, 0, cy + 32);
@@ -653,6 +736,27 @@
     }
 
     g.restore();
+  }
+
+  /**
+   * Lets a game loop skip frames while a settled pause screen is shown. While paused the
+   * scene is frozen, so redrawing it 60 times a second only burns battery. It still lets a
+   * frame through when the canvas is resized and every `refreshMs` as a safety net for any
+   * other change made while paused.
+   */
+  function createIdleGate(refreshMs) {
+    const every = refreshMs || 500;
+    let lastDraw = -Infinity;
+    let lastSize = '';
+    return {
+      shouldSkip(idle, canvas, now) {
+        const size = `${canvas.width}x${canvas.height}`;
+        if (idle && size === lastSize && now - lastDraw < every) return true;
+        lastDraw = now;
+        lastSize = size;
+        return false;
+      }
+    };
   }
 
   /** Big centred banner (LEVEL UP / COMBO) that scales in and fades out. t in seconds, dur total. */
@@ -709,6 +813,7 @@
     createShake,
     createFloatingTexts,
     drawStatePanel,
+    createIdleGate,
     drawBanner,
     isReducedMotion
   };
