@@ -443,7 +443,7 @@ kbd {
   height: 34px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: #FF6B35;
+  background: #C2410C;
   border: 2px solid var(--ink);
   display: inline-flex;
   align-items: center;
@@ -2660,7 +2660,7 @@ kbd {
   padding: 0.65rem 1.3rem;
   border-radius: var(--radius-md);
   border: 2.5px solid var(--ink);
-  background: #22C55E;
+  background: #15803D;
   color: #FFFFFF;
   font-weight: 800;
   font-size: 0.98rem;
@@ -2675,7 +2675,7 @@ kbd {
 }
 
 .btn-primary:hover {
-  background: #16A34A;
+  background: #166534;
   transform: translateY(-2px);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.4),
